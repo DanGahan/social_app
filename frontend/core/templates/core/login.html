@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+    <img src="/static/logo.png" alt="Logo" class="login-logo">
+    <div class="login-box">
+        <h2>Login</h2>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit">Login</button>
+        </form>
+        <p>Don't have an account? <a href="{% url 'register' %}" class="register-link">Register here</a>.</p>
+    </div>
+
+    <style>
+        .login-logo {
+            display: block;
+            margin: 0 auto 20px auto; /* Center the logo and add space below */
+            width: 200px; /* Adjust size as needed */
+            height: auto;
+        }
+
+        .login-box {
+            background-color: white; /* Revert to white background for login box */
+            padding: 30px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            color: #333; /* Revert text color to dark gray */
+        }
+
+        .login-box h2 {
+            color: #222; /* Revert heading color */
+        }
+
+        .login-box label {
+            color: #555; /* Revert labels color */
+        }
+
+        .login-box input[type="text"],
+        .login-box input[type="email"],
+        .login-box input[type="password"] {
+            background-color: white; /* Revert input fields to white */
+            color: #333;
+            border: 1px solid #ccc;
+        }
+
+        .login-box button[type="submit"] {
+            background-color: black; /* Change button to black */
+            color: white;
+        }
+
+        .register-link {
+            /* This class is now redundant as global link styles are applied */
+            /* font-weight: bold; */
+            /* color: black; */
+        }
+    </style>
+{% endblock %}

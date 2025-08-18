@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Social App{% endblock %}</title>
+    <style>
+        /* General Body Styles */
+        body {
+            font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif; /* Changed font order */
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0; /* Off-white/light gray */
+            color: #333; /* Dark gray for text */
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            background-color: #ffffff; /* Clean white background for content */
+            padding: 30px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+            border: 1px solid #e0e0e0; /* Light border */
+            /* Removed position: relative; as it's no longer needed for absolute positioning of profile pic */
+        }
+
+        /* Headings */
+        h1, h2, h3 {
+            font-weight: normal;
+            color: #222; /* Slightly darker for headings */
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        /* Forms */
+        form {
+            margin-top: 20px;
+        }
+
+        form p {
+            margin-bottom: 15px;
+        }
+
+        form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        form input[type="text"],
+        form input[type="email"],
+        form input[type="password"],
+        form input[type="url"],
+        form textarea {
+            width: calc(100% - 22px); /* Account for padding and border */
+            padding: 10px;
+            border: 1px solid #ccc; /* Light gray border */
+            border-radius: 3px;
+            font-size: 1em;
+            box-sizing: border-box; /* Include padding and border in the element's total width and height */
+        }
+
+        form button[type="submit"] {
+            background-color: #007bff; /* A classic, functional blue */
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s ease;
+        }
+
+        form button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
+        /* Links */
+        a {
+            color: black; /* Default link color to black */
+            text-decoration: none;
+            font-weight: bold; /* Default link text to bold */
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Messages */
+        .messages {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 20px;
+        }
+
+        .messages li {
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 0.95em;
+            border: 1px solid grey; /* Grey outline */
+            background-color: white; /* White background */
+            color: black; /* Black text */
+        }
+
+        .messages .success {
+            /* No specific background or border color, inherited from .messages li */
+            color: black; /* Black text */
+        }
+
+        .messages .error {
+            /* No specific background or border color, inherited from .messages li */
+            color: black; /* Black text */
+        }
+
+        .messages .warning {
+            /* No specific background or border color, inherited from .messages li */
+            color: black; /* Black text */
+        }
+
+        /* Post List Styling */
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+
+        li .post-image {
+            max-width: 100%; /* Ensure images don't overflow their container */
+            width: 100%; /* Make images responsive */
+            height: auto;
+            display: block;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+        }
+
+        li p {
+            margin-bottom: 5px;
+        }
+
+        li small {
+            color: #777;
+            font-size: 0.85em;
+        }
+
+        .post-author-info {
+            display: flex; /* Use flexbox */
+            align-items: center; /* Vertically align items in the middle */
+            margin-bottom: 10px; /* Add some space below the info */
+        }
+
+        .connections-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3 columns, equal width */
+            gap: 15px; /* Space between grid items */
+            margin-top: 15px;
+        }
+
+        .connection-grid-item {
+            display: flex;
+            flex-direction: column; /* Stack pic and name vertically */
+            align-items: center; /* Center content horizontally */
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .connection-grid-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        .connection-grid-item .connection-profile-pic {
+            width: 60px; /* Larger pic for grid */
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 5px;
+        }
+
+        .connection-grid-item .connection-display-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* Profile Picture in Home Page */
+        .home-profile-pic-container {
+            float: right;
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        .home-profile-pic {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #ccc;
+            cursor: pointer;
+        }
+
+        .header-logo {
+            width: 50%; /* Set width to 50% of its container */
+            height: auto; /* Maintain aspect ratio */
+            object-fit: contain; /* Ensure the entire image is visible */
+        }
+
+        .post-author-pic,
+        .connection-profile-pic {
+            width: 40px; /* Set a fixed width for profile pictures in posts and connections */
+            height: 40px; /* Set a fixed height for profile pictures in posts and connections */
+            border-radius: 50%; /* Make them circular */
+            object-fit: cover; /* Ensure the image covers the area without distortion */
+            margin-right: 10px; /* Add some space to the right of the picture */
+        }
+
+        /* Debug Info Toggle */
+        #debug-info-toggle {
+            display: none; /* Hide the actual checkbox */
+        }
+
+        .debug-info-label {
+            cursor: pointer; /* Indicate it's clickable */
+            color: black; /* Make text black */
+            text-align: center; /* Center the text */
+            text-decoration: none; /* Remove underline */
+            font-weight: bold; /* Make text bold */
+            display: block; /* Make it a block element to allow text-align to work */
+        }
+
+        .debug-info-content {
+            display: none; /* Hide content by default */
+        }
+
+        #debug-info-toggle:checked + .debug-info-label + .debug-info-content {
+            display: block; /* Show content when checkbox is checked */
+        }
+
+        .jwt-token-value {
+            word-wrap: break-word; /* Ensure long tokens wrap */
+            display: inline-block; /* Allow word-wrap to work */
+            max-width: 100%; /* Ensure it doesn't overflow its container */
+        }
+
+        .display-name-text {
+            margin: 0;
+            font-weight: normal;
+            text-align: center;
+        }
+
+        /* Tab Styles */
+        .tabs {
+            /* overflow: hidden; */ /* Removed */
+            /* border: 1px solid #ccc; */ /* Removed outline */
+            background-color: #ffffff; /* White background */
+            margin-bottom: 20px;
+            display: flex; /* Use flexbox for alignment */
+            align-items: center; /* Vertically align items */
+        }
+
+        .tabs button {
+            background-color: inherit;
+            /* float: left; */ /* Removed float */
+            border: none;
+            outline: none; /* Remove outline */
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: 0.3s;
+            font-size: 17px;
+        }
+
+        .tabs button:hover {
+            background-color: #ffffff; /* No hover color change */
+        }
+
+        .tabs button.active {
+            background-color: #ffffff; /* Remove grey highlight */
+            font-weight: bold; /* Make selected tab text bold */
+        }
+
+        .tabcontent {
+            display: none;
+            padding: 6px 12px;
+            .tabcontent {
+            display: none;
+            padding: 6px 12px;
+            border: 1px solid #ccc; /* Keep top and bottom border */
+            border-left: none; /* Remove left border */
+            border-right: none; /* Remove right border */
+            border-top: none; /* Keep existing rule */
+        }
+        }
+
+        /* My Posts Header with + button */
+        .my-posts-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        /* New style for + button in tab bar */
+        .create-post-button-tab {
+            display: flex; /* Use flexbox for centering */
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: black; /* Black circle */
+            color: white;
+            font-size: 24px; /* Set font size for the + */
+            line-height: 1; /* Adjust line height for vertical centering */
+            text-decoration: none;
+            border: 2px solid black; /* Black border */
+            transition: background-color 0.2s ease;
+            margin-right: 10px; /* Space between + and first tab */
+            flex-shrink: 0; /* Prevent shrinking */
+            min-width: 30px; /* Ensure minimum width */
+            min-height: 30px; /* Ensure minimum height */
+            font-weight: bold; /* Make the + bold */
+        }
+
+        /* Original create-post-button (if still needed elsewhere) */
+        .create-post-button {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #007bff;
+            color: white;
+            font-size: 24px;
+            text-decoration: none;
+            line-height: 1;
+            border: 2px solid #007bff;
+            transition: background-color 0.2s ease;
+        }
+
+        .create-post-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Lightbox Styles */
+        .lightbox {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            padding-top: 100px; /* Location of the box */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.9); /* Black w/ opacity */
+        }
+
+        .lightbox-content {
+            margin: auto;
+            display: block;
+            max-width: 80%;
+            max-height: 80%;
+        }
+
+        .close-button {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: #bbb;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Modal Styles (for user profile) */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1001; /* Sit on top (higher than lightbox) */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.8); /* Black w/ opacity */
+            padding-top: 60px; /* Location of the box */
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto; /* 5% from the top and centered */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; /* Could be more or less, depending on screen size */
+            max-width: 600px; /* Max width for larger screens */
+            border-radius: 8px;
+            position: relative; /* For close button positioning */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        {% block content %}
+        {% endblock %}
+    </div>
+    <script>
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablinks");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+
+        // Get the element with id="defaultOpen" and click on it
+        document.addEventListener('DOMContentLoaded', (event) => {
+            document.getElementById("defaultOpen").click();
+        });
+
+        // Lightbox functions (from home.html, moved here for global access)
+        function openLightbox(imageUrl) {
+            document.getElementById("myLightbox").style.display = "block";
+            document.getElementById("img01").src = imageUrl;
+        }
+
+        function closeLightbox() {
+            document.getElementById("myLightbox").style.display = "none";
+        }
+
+        // User Profile Modal functions
+        async function openConnectionProfile(userId) {
+            const userProfileModal = document.getElementById('userProfileModal');
+            const modalProfilePic = document.getElementById('modal-profile-pic');
+            const modalDisplayName = document.getElementById('modal-display-name');
+            const modalBio = document.getElementById('modal-bio');
+            const modalUserPosts = document.getElementById('modal-user-posts');
+
+            // Clear previous content
+            modalUserPosts.innerHTML = '';
+            modalProfilePic.src = '';
+            modalDisplayName.textContent = '';
+            modalBio.textContent = '';
+
+            try {
+                const response = await fetch(`/api/users/${userId}/profile_and_posts/`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                const profile = data.profile;
+                const posts = data.posts;
+
+                modalProfilePic.src = profile.profile_picture_url || '/static/default_profile_pic.png';
+                modalDisplayName.textContent = profile.display_name || 'N/A';
+                modalBio.textContent = profile.bio || 'No bio available.';
+
+                if (posts && posts.length > 0) {
+                    const ul = document.createElement('ul');
+                    posts.forEach(post => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <img src="${post.image_url}" alt="Post Image" class="post-image" onclick="openLightbox('${post.image_url}')">
+                            <p>${post.caption}</p>
+                            <small>Posted at: ${new Date(post.created_at).toLocaleString()}</small>
+                        `;
+                        ul.appendChild(li);
+                    });
+                    modalUserPosts.appendChild(ul);
+                } else {
+                    modalUserPosts.innerHTML = '<p>No posts found for this user.</p>';
+                }
+
+                userProfileModal.style.display = 'block';
+            } catch (error) {
+                console.error('Error fetching user profile and posts:', error);
+                alert('Failed to load user profile. Please try again.');
+            }
+        }
+
+        function closeUserProfileModal() {
+            document.getElementById('userProfileModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const userProfileModal = document.getElementById('userProfileModal');
+            const myLightbox = document.getElementById('myLightbox');
+            if (event.target == userProfileModal) {
+                userProfileModal.style.display = "none";
+            }
+            if (event.target == myLightbox) {
+                myLightbox.style.display = "none";
+            }
+        }
+
+        
+    </script>
+</body>
+</html>

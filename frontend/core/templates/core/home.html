@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+    <img src="/static/logo.png" alt="Logo" class="header-logo">
+    <div class="home-profile-pic-container">
+        <img src="{{ profile_picture_url|default:'/static/default_profile_pic.png' }}" alt="Profile Pic" class="home-profile-pic" onclick="openTab(event, 'ProfileContent')">
+        {% if display_name %}
+            <div class="display-name-text">{{ display_name }}</div>
+        {% endif %}
+    </div>
+
+    <div class="tabs">
+        <button class="create-post-button-tab" onclick="openTab(event, 'CreatePostContent')">
+            &#x2795;
+        </button>
+        <button class="tablinks" onclick="openTab(event, 'ConnectionsPosts')" id="defaultOpen">Posts</button>
+        <button class="tablinks" onclick="openTab(event, 'MyPosts')">My Posts</button>
+        <button class="tablinks" onclick="openTab(event, 'Connections')">Connections</button>
+    </div>
+
+    <div id="ConnectionsPosts" class="tabcontent">
+        
+        {% if connections_posts %}
+            <ul>
+                {% for post in connections_posts %}
+                    <li>
+                        <div class="post-author-info">
+                            <img src="{{ post.author_profile_picture_url|default:'/static/default_profile_pic.png' }}" alt="Profile Pic" class="post-author-pic">
+                            <strong>{{ post.author_display_name|default:'Unknown User' }}</strong>
+                        </div>
+                        <img src="{{ post.image_url }}" alt="Post Image" class="post-image" onclick="openLightbox('{{ post.image_url }}')">
+                        <p>{{ post.caption }}</p>
+                        <small>Posted at: {{ post.created_at|date:"d/m/y H:i" }}</small>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No posts found from your connections.</p>
+        {% endif %}
+    </div>
+
+    <div id="MyPosts" class="tabcontent">
+        <div class="my-posts-header">
+            {# Removed + button from here #}
+        </div>
+        {% if my_posts %}
+            <ul>
+                {% for post in my_posts %}
+                    <li>
+                        <div class="post-author-info">
+                            <img src="{{ profile_picture_url|default:'/static/default_profile_pic.png' }}" alt="Profile Pic" class="post-author-pic">
+                            <strong>{{ display_name|default:'Unknown User' }}</strong>
+                        </div>
+                        <img src="{{ post.image_url }}" alt="Post Image" class="post-image" onclick="openLightbox('{{ post.image_url }}')">
+                        <p>{{ post.caption }}</p>
+                        <small>Posted at: {{ post.created_at|date:"d/m/y H:i" }}</small>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No posts found.</p>
+        {% endif %}
+    </div>
+
+    <div id="Connections" class="tabcontent">
+        <h3>My Connections:</h3>
+        {% if connections %}
+            <div class="connections-grid">
+                {% for connection in connections %}
+                    <div class="connection-grid-item">
+                        <img src="{{ connection.profile_picture_url|default:'/static/default_profile_pic.png' }}" alt="Profile Pic" class="connection-profile-pic">
+                        <div class="connection-display-name">{{ connection.display_name|default:'N/A' }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No connections yet. <a href="{% url 'send_connection_request' %}">Send a connection request</a>.</p>
+        {% endif %}
+
+        <hr>
+
+        <h3>Find a New Connection:</h3>
+        <input type="text" id="userSearchInput" placeholder="Search users by display name...">
+        <div id="searchResults" class="connections-grid">
+            <!-- Search results will be displayed here -->
+        </div>
+
+        <hr>
+
+        <h3>Pending Connection Requests:</h3>
+        {% if pending_requests %}
+            <div class="connections-grid">
+                {% for request in pending_requests %}
+                    <div class="connection-grid-item">
+                        <img src="{{ request.from_user_profile_picture_url|default:'/static/default_profile_pic.png' }}" alt="Profile Pic" class="connection-profile-pic">
+                        <div class="connection-display-name">{{ request.from_user_display_name|default:'N/A' }}</div>
+                        <div class="connection-actions">
+                            <strong>
+                                <a href="#" onclick="document.getElementById('accept-form-{{ request.request_id }}').submit(); return false;" style="color: black; text-decoration: none;">Accept</a>
+                                or
+                                <a href="#" onclick="document.getElementById('deny-form-{{ request.request_id }}').submit(); return false;" style="color: black; text-decoration: none;">Deny</a>
+                            </strong>
+                        </div>
+                        <form id="accept-form-{{ request.request_id }}" method="post" action="{% url 'accept_connection_request' %}" style="display:none;">
+                            {% csrf_token %}
+                            <input type="hidden" name="request_id" value="{{ request.request_id }}">
+                        </form>
+                        <form id="deny-form-{{ request.request_id }}" method="post" action="{% url 'deny_connection_request' %}" style="display:none;">
+                            {% csrf_token %}
+                            <input type="hidden" name="request_id" value="{{ request.request_id }}">
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No pending connection requests.</p>
+        {% endif %}
+
+        <hr>
+
+        <h3>Sent Connection Requests:</h3>
+        {% if sent_requests %}
+            <div class="connections-grid">
+                {% for request in sent_requests %}
+                    <div class="connection-grid-item">
+                        <img src="{{ request.to_user_profile_picture_url|default:'/static/default_profile_pic.png' }}" alt="Profile Pic" class="connection-profile-pic">
+                        <div class="connection-display-name">{{ request.to_user_display_name|default:'N/A' }}<br>(Pending)</div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No sent connection requests.</p>
+        {% endif %}
+    </div>
+
+    {# Profile Content #}
+    <div id="ProfileContent" class="tabcontent">
+        <input type="checkbox" id="debug-info-toggle" class="hidden">
+        <label for="debug-info-toggle" class="debug-info-label">Debug Information</label>
+        <div class="debug-info-content">
+            <p>Your User ID: {{ profile_data.user_id }}</p>
+            <p class="jwt-token-text">Your JWT Token: <span class="jwt-token-value">{{ jwt_token }}</span></p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            {{ profile_form.as_p }}
+            <button type="submit" name="update_profile" style="background-color: black; color: white;">Update</button>
+        </form>
+    </div>
+
+    {# Create Post Content #}
+    <div id="CreatePostContent" class="tabcontent">
+        <form method="post">
+            {% csrf_token %}
+            {{ create_post_form.as_p }}
+            <button type="submit" name="create_post" style="background-color: black; color: white;">Post</button>
+        </form>
+    </div>
+
+    <p><a href="{% url 'logout' %}">Logout</a></p>
+
+    {# Lightbox Modal #}
+    <div id="myLightbox" class="lightbox">
+        <span class="close-button" onclick="closeLightbox()">&times;</span>
+        <img class="lightbox-content" id="img01">
+    </div>
+
+    {# User Profile Modal #}
+    <div id="userProfileModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeUserProfileModal()">&times;</span>
+            <div id="modal-profile-pic-container" style="text-align: center; margin-bottom: 15px;">
+                <img id="modal-profile-pic" src="" alt="Profile Picture" class="home-profile-pic" style="width: 100px; height: 100px;">
+            </div>
+            <h2 id="modal-display-name" style="text-align: center; margin-bottom: 10px;"></h2>
+            <p id="modal-bio" style="text-align: center; margin-bottom: 20px;"></p>
+
+            <h3>Posts:</h3>
+            <div id="modal-user-posts">
+                <!-- User posts will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const userSearchInput = document.getElementById('userSearchInput');
+            const searchResultsDiv = document.getElementById('searchResults');
+
+            userSearchInput.addEventListener('input', function() {
+                const query = this.value;
+                if (query.length > 2) { // Only search if query is at least 3 characters long
+                    fetch(`/api/users/search/?query=${query}`, {
+                        headers: {
+                            'x-access-token': '{{ jwt_token }}'
+                        }
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            searchResultsDiv.innerHTML = ''; // Clear previous results
+                            const users = data.users;
+                            if (users && users.length > 0) {
+                                for (let i = 0; i < users.length; i++) {
+                                    const user = users[i];
+                                    const userDiv = document.createElement('div');
+                                    userDiv.className = 'connection-grid-item';
+
+                                    let buttonHtml = '';
+                                    if (!user.is_connection) {
+                                        buttonHtml = `<button class="send-request-button" data-user-id="${user.user_id}">+</button>`;
+                                    }
+
+                                    userDiv.innerHTML = `
+                                        <img src="${user.profile_picture_url || '/static/default_profile_pic.png'}" alt="Profile Pic" class="connection-profile-pic">
+                                        <div class="connection-display-name">${user.display_name || 'N/A'}</div>
+                                        ${buttonHtml}
+                                    `;
+                                    searchResultsDiv.appendChild(userDiv);
+                                }
+                            } else {
+                                searchResultsDiv.innerHTML = '<p>No users found.</p>';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error searching users:', error);
+                            searchResultsDiv.innerHTML = '<p>Error searching users.</p>';
+                        });
+                } else {
+                    searchResultsDiv.innerHTML = ''; // Clear results if query is too short
+                }
+            });
+
+            // Add event listener for the send request buttons
+            searchResultsDiv.addEventListener('click', function(event) {
+                if (event.target.classList.contains('send-request-button')) {
+                    const toUserId = event.target.dataset.userId;
+                    sendConnectionRequest(toUserId, event.target);
+                }
+            });
+        });
+
+        function sendConnectionRequest(toUserId, button) {
+            fetch('/api/connections/request', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'x-access-token': '{{ jwt_token }}'
+                },
+                body: JSON.stringify({ to_user_id: toUserId })
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    return response.json().then(data => {
+                        throw new Error(data.message || 'Network response was not ok.');
+                    });
+                }
+            })
+            .then(data => {
+                if (data.message) {
+                    alert(data.message);
+                    if (data.message === 'Connection request sent successfully') {
+                        button.style.display = 'none';
+                        location.reload();
+                    }
+                } else {
+                    alert('An unknown error occurred.');
+                }
+            })
+            .catch(error => {
+                console.error('Error sending connection request:', error);
+                alert(error.message);
+            });
+        }
+
+        // Function to get CSRF token from cookies
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    // Does this cookie string begin with the name we want?
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+
+{% endblock %}

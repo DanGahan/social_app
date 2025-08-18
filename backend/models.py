@@ -1,0 +1,62 @@
+from sqlalchemy import create_engine, Column, Integer, String, Text, TIMESTAMP, ForeignKey, func, UniqueConstraint
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
+
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    display_name = Column(String(100), nullable=True) # New field
+    profile_picture_url = Column(String(255), nullable=True)
+    bio = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, default=func.now())
+
+    posts = relationship("Post", back_populates="user")
+    # Relationships for connections
+    connections_as_user1 = relationship("Connection", foreign_keys="[Connection.user_id1]", back_populates="user1")
+    connections_as_user2 = relationship("Connection", foreign_keys="[Connection.user_id2]", back_populates="user2")
+    # Relationships for connection requests
+    sent_requests = relationship("ConnectionRequest", foreign_keys="[ConnectionRequest.from_user_id]", back_populates="from_user")
+    received_requests = relationship("ConnectionRequest", foreign_keys="[ConnectionRequest.to_user_id]", back_populates="to_user")
+
+class Post(Base):
+    __tablename__ = 'posts'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    image_url = Column(Text, nullable=False)
+    caption = Column(Text)
+    created_at = Column(TIMESTAMP, default=func.now())
+
+    user = relationship("User", back_populates="posts")
+
+class Connection(Base):
+    __tablename__ = 'connections'
+
+    id = Column(Integer, primary_key=True)
+    user_id1 = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id2 = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(TIMESTAMP, default=func.now())
+
+    user1 = relationship("User", foreign_keys="[Connection.user_id1]")
+    user2 = relationship("User", foreign_keys="[Connection.user_id2]")
+
+    __table_args__ = (UniqueConstraint('user_id1', 'user_id2', name='_user1_user2_uc'),)
+
+class ConnectionRequest(Base):
+    __tablename__ = 'connection_requests'
+
+    id = Column(Integer, primary_key=True)
+    from_user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    to_user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    status = Column(String(50), default='pending', nullable=False) # e.g., 'pending', 'accepted', 'rejected'
+    created_at = Column(TIMESTAMP, default=func.now())
+
+    from_user = relationship("User", foreign_keys="[ConnectionRequest.from_user_id]")
+    to_user = relationship("User", foreign_keys="[ConnectionRequest.to_user_id]")
+
+    __table_args__ = (UniqueConstraint('from_user_id', 'to_user_id', name='_from_to_user_uc'),)

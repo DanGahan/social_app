@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User {{ user_id }} Posts</title>
+</head>
+<body>
+    <h1>Posts for User {{ user_id }}</h1>
+
+    {% if posts %}
+        {% for post in posts %}
+            <div>
+                <h2>Post ID: {{ post.id }}</h2>
+                <p>Caption: {{ post.caption }}</p>
+                <img src="{{ post.image_url }}" alt="Post Image" style="max-width: 300px;">
+                <p>Posted on: {{ post.created_at }}</p>
+            </div>
+            <hr>
+        {% endfor %}
+    {% else %}
+        <p>No posts found for this user.</p>
+    {% endif %}
+</body>
+</html>
