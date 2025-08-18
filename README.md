@@ -1,5 +1,7 @@
 # Social App
 
+Project to test AI coding assistants, all code AI generated with the odd bit of manual debugging. All content below AI generated.
+
 # Background
 The Social App is a platform designed to allow users to connect with each other, share posts, and manage their social interactions. It features user registration, login, profile management, connection requests, and a feed of posts from connected users.
 
