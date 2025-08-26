@@ -3,3 +3,6 @@ SQLAlchemy
 psycopg2-binary
 Werkzeug
 PyJWT
+flask-restx
+pytest
+pytest-cov

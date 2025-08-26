@@ -28,6 +28,7 @@ services:
     working_dir: /app
     environment:
       DATABASE_URL: postgresql://user:password@db:5432/social_db
+      PYTHONPATH: /app
     depends_on:
       db:
         condition: service_healthy
