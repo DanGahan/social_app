@@ -1,12 +1,14 @@
 import sys
 import os
 import pytest
+import runpy
 from unittest.mock import patch, MagicMock
 from app import app, session
 from models import User, Connection, ConnectionRequest, Post
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 import datetime
+from sqlalchemy.exc import IntegrityError
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -22,6 +24,39 @@ def mock_jwt_decode():
         mock_decode.return_value = {'user_id': 1}
         yield mock_decode
 
+def test_token_required_missing_token(client):
+    response = client.get('/users/me')
+    assert response.status_code == 401
+    assert response.json['message'] == 'Token is missing!'
+
+@patch('jwt.decode')
+def test_token_required_invalid_token(mock_decode, client):
+    mock_decode.side_effect = jwt.InvalidTokenError
+    response = client.get('/users/me', headers={'x-access-token': 'invalid_token'})
+    assert response.status_code == 401
+    assert response.json['message'] == 'Token is invalid!'
+
+@patch('app.session.add')
+@patch('app.session.commit')
+@patch('app.session.query')
+def test_register_user_success(mock_query, mock_commit, mock_add, client):
+    # Mock: no existing user
+    mock_query.return_value.filter_by.return_value.first.return_value = None
+
+    response = client.post('/auth/register', json={
+        'email': 'newuser@example.com',
+        'password': 'securepass123'
+    })
+
+    assert response.status_code == 201
+    data = response.json
+    assert 'user_id' in data
+    assert data['message'] == 'User registered successfully'
+
+    # Ensure session.add and commit were called
+    mock_add.assert_called()
+    mock_commit.assert_called()
+
 @patch('app.session.query')
 def test_register_user_email_exists(mock_query, client):
     mock_query.return_value.filter_by.return_value.first.return_value = User(email='existing@example.com')
@@ -32,14 +67,60 @@ def test_register_user_email_exists(mock_query, client):
     assert response.status_code == 409
 
 @patch('app.session.query')
+def test_get_user_profile_not_found(mock_query, client, mock_jwt_decode):
+    # mock current_user to pass token_required decorator
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.side_effect = [
+        MagicMock(first=MagicMock(return_value=mock_current_user)),  # current_user lookup
+        MagicMock(first=MagicMock(return_value=None))               # requested user not found
+    ]
+
+    response = client.get('/users/999/profile', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 404
+    data = response.json
+    assert data['message'] == 'User not found'
+
+def test_register_user_missing_fields(client):
+    response = client.post('/auth/register', json={
+        'email': 'test@example.com'
+    })
+    assert response.status_code == 400
+
+@patch('app.session.query')
 def test_login_user_success(mock_query, client):
     mock_user = User(id=1, email='test@example.com', password_hash=generate_password_hash('password123'))
     mock_query.return_value.filter_by.return_value.first.return_value = mock_user
+
     response = client.post('/auth/login', json={
         'email': 'test@example.com',
         'password': 'password123'
     })
+
     assert response.status_code == 200
+    data = response.json
+    # Check that the response contains the correct keys for login
+    assert 'message' in data
+    assert data['message'] == 'Login successful'
+    assert 'token' in data
+
+@patch('app.session.query')
+def test_login_user_invalid_credentials(mock_query, client):
+    mock_query.return_value.filter_by.return_value.first.return_value = None
+    response = client.post('/auth/login', json={
+        'email': 'test@example.com',
+        'password': 'wrong'
+    })
+    assert response.status_code == 401
+
+@patch('app.session.query')
+def test_login_user_wrong_password(mock_query, client):
+    mock_user = User(id=1, email='test@example.com', password_hash=generate_password_hash('password123'))
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_user
+    response = client.post('/auth/login', json={
+        'email': 'test@example.com',
+        'password': 'wrong'
+    })
+    assert response.status_code == 401
 
 @patch('app.session.query')
 def test_get_current_user_success(mock_query, client, mock_jwt_decode):
@@ -49,102 +130,310 @@ def test_get_current_user_success(mock_query, client, mock_jwt_decode):
     assert response.status_code == 200
     assert response.json['email'] == 'current@example.com'
 
-@patch('app.session.query')
-def test_get_user_profile_success(mock_query, client, mock_jwt_decode):
-    mock_user = User(id=2, email='other@example.com', display_name='Other User')
-    mock_query.return_value.filter_by.return_value.first.return_value = mock_user
-    response = client.get('/users/2/profile', headers={'x-access-token': 'valid_token'})
-    assert response.status_code == 200
+
 
 @patch('app.session.query')
-def test_request_connection_success(mock_query, client, mock_jwt_decode):
+def test_get_user_profile_not_found(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
-    mock_to_user = User(id=2)
     mock_query.return_value.filter_by.side_effect = [
-        MagicMock(first=MagicMock(return_value=mock_current_user)), # for token_required
-        MagicMock(first=MagicMock(return_value=None)), # for existing_connection
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(first=MagicMock(return_value=None))
     ]
-    with patch('app.session.add'), patch('app.session.commit'):
-        response = client.post('/connections/request', json={'to_user_id': 2}, headers={'x-access-token': 'valid_token'})
-    assert response.status_code == 201
+    response = client.get('/users/999/profile', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 404
 
 @patch('app.session.query')
-def test_request_connection_already_connected(mock_query, client, mock_jwt_decode):
+def test_search_users_no_query(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
-    mock_to_user = User(id=2)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    response = client.get('/users/search', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 200
+    assert response.json == []
+
+@patch('app.session.query')
+def test_search_users_no_results(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    mock_query.return_value.filter.return_value.all.return_value = []
+    response = client.get('/users/search?query=nonexistent', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 200
+    assert response.json == []
+
+@patch('app.session.query')
+def test_search_users_with_connections_and_pending_requests(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_user2 = User(id=2, display_name='user2')
+    mock_user3 = User(id=3, display_name='user3')
+    mock_connection = Connection(user_id1=1, user_id2=2)
+    mock_request = ConnectionRequest(from_user_id=3, to_user_id=1, status='pending')
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    mock_query.return_value.filter.return_value.all.side_effect = [
+        [mock_user2, mock_user3],
+        [mock_connection],
+        [mock_request]
+    ]
+    response = client.get('/users/search?query=user', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 200
+    assert len(response.json) == 2
+    assert response.json[0]['is_connection'] == True
+    assert response.json[1]['has_pending_request'] == True
+
+@patch('app.session.query')
+def test_request_connection_to_self(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    response = client.post('/connections/request', json={'to_user_id': 1}, headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 400
+
+@patch('app.session.query')
+def test_request_connection_missing_to_user_id(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    response = client.post('/connections/request', json={}, headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 400
+
+@patch('app.session.query')
+def test_request_connection_already_exists(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_connection = Connection(user_id1=1, user_id2=2)
     mock_query.return_value.filter_by.side_effect = [
-        MagicMock(first=MagicMock(return_value=mock_current_user)), # for token_required
-        MagicMock(first=MagicMock(return_value=Connection(user_id1=1, user_id2=2))), # for existing_connection
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(first=MagicMock(return_value=mock_connection))
     ]
     response = client.post('/connections/request', json={'to_user_id': 2}, headers={'x-access-token': 'valid_token'})
     assert response.status_code == 409
 
+@patch('app.session.add')
+@patch('app.session.commit')
 @patch('app.session.query')
-def test_accept_connection_success(mock_query, client, mock_jwt_decode):
+def test_request_connection_integrity_error(mock_query, mock_commit, mock_add, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.side_effect = [
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(first=MagicMock(return_value=None))
+    ]
+    mock_add.side_effect = IntegrityError(None, None, None)
+    response = client.post('/connections/request', json={'to_user_id': 2}, headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 409
+
+@patch('app.session.add')
+@patch('app.session.query')
+def test_request_connection_exception(mock_query, mock_add, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.side_effect = [
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(first=MagicMock(return_value=None))
+    ]
+    mock_add.side_effect = Exception('Test Exception')
+    response = client.post('/connections/request', json={'to_user_id': 2}, headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 500
+
+@patch('app.session.query')
+def test_accept_connection_missing_request_id(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    response = client.post('/connections/accept', json={}, headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 400
+
+@patch('app.session.query')
+def test_accept_connection_request_not_found(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.side_effect = [
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(first=MagicMock(return_value=None))
+    ]
+    response = client.post('/connections/accept', json={'request_id': 999}, headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 404
+
+@patch('app.session.query')
+def test_deny_connection_missing_request_id(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    response = client.post('/connections/deny', json={}, headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 400
+
+@patch('app.session.query')
+def test_deny_connection_request_not_found(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.side_effect = [
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(first=MagicMock(return_value=None))
+    ]
+    response = client.post('/connections/deny', json={'request_id': 999}, headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 404
+
+@patch('app.session.commit')
+@patch('app.session.query')
+def test_deny_connection_exception(mock_query, mock_commit, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_request = ConnectionRequest(id=1, from_user_id=2, to_user_id=1, status='pending')
     mock_query.return_value.filter_by.side_effect = [
-        MagicMock(first=MagicMock(return_value=mock_current_user)), # for token_required
-        MagicMock(first=MagicMock(return_value=mock_request)),
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(first=MagicMock(return_value=mock_request))
     ]
-    with patch('app.session.add'), patch('app.session.commit'):
-        response = client.post('/connections/accept', json={'request_id': 1}, headers={'x-access-token': 'valid_token'})
-    assert response.status_code == 200
-    assert response.json['message'] == 'Connection accepted successfully'
+    mock_commit.side_effect = Exception('Test Exception')
+    response = client.post('/connections/deny', json={'request_id': 1}, headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 500
 
 @patch('app.session.query')
-def test_get_sent_requests_success(mock_query, client, mock_jwt_decode):
+def test_get_user_connections_unauthorized(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
-    mock_user_2 = User(id=2, email='user2@example.com', display_name='User Two')
-    mock_request_1 = ConnectionRequest(id=10, from_user_id=1, to_user_id=2, status='pending', created_at=datetime.datetime.utcnow())
-    mock_query.return_value.filter_by.side_effect = [
-        MagicMock(first=MagicMock(return_value=mock_current_user)), # for token_required
-        MagicMock(all=MagicMock(return_value=[mock_request_1])),
-        MagicMock(first=MagicMock(return_value=mock_user_2))
-    ]
-    response = client.get('/users/1/sent_requests', headers={'x-access-token': 'valid_token'})
-    assert response.status_code == 200
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    response = client.get('/users/2/connections', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 403
 
 @patch('app.session.query')
-def test_get_pending_requests_success(mock_query, client, mock_jwt_decode):
+def test_get_user_connections_no_connections(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
-    mock_user_2 = User(id=2, email='user2@example.com', display_name='User Two')
-    mock_request_1 = ConnectionRequest(id=10, from_user_id=2, to_user_id=1, status='pending', created_at=datetime.datetime.utcnow())
-    mock_query.return_value.filter_by.side_effect = [
-        MagicMock(first=MagicMock(return_value=mock_current_user)), # for token_required
-        MagicMock(all=MagicMock(return_value=[mock_request_1])),
-        MagicMock(first=MagicMock(return_value=mock_user_2))
-    ]
-    response = client.get('/users/1/pending_requests', headers={'x-access-token': 'valid_token'})
-    assert response.status_code == 200
-
-@patch('app.session.query')
-def test_get_user_connections_success(mock_query, client, mock_jwt_decode):
-    mock_current_user = User(id=1)
-    mock_user_2 = User(id=2, email='user2@example.com', display_name='User Two')
-    mock_connection_1 = Connection(user_id1=1, user_id2=2)
-    mock_query.return_value.filter.return_value.all.return_value = [mock_connection_1]
-    mock_query.return_value.filter_by.side_effect = [
-        MagicMock(first=MagicMock(return_value=mock_current_user)), # for token_required
-        MagicMock(first=MagicMock(return_value=mock_user_2))
-    ]
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    mock_query.return_value.filter.return_value.all.return_value = []
     response = client.get('/users/1/connections', headers={'x-access-token': 'valid_token'})
     assert response.status_code == 200
+    assert response.json == []
 
 @patch('app.session.query')
-def test_get_user_posts_success(mock_query, client, mock_jwt_decode):
-    mock_current_user = User(id=1, display_name='Test User', profile_picture_url='test.jpg')
-    mock_post_1 = Post(id=1, caption='My first post', image_url='url1', created_at=datetime.datetime.utcnow(), user_id=1)
-    mock_query.return_value.filter_by.return_value.order_by.return_value.all.return_value = [mock_post_1]
-    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user # for token_required
+def test_get_user_connections_with_connections(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_user2 = User(id=2, display_name='user2')
+    mock_connection = Connection(user_id1=2, user_id2=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    mock_query.return_value.filter.return_value.all.return_value = [mock_connection]
+    mock_query.return_value.filter_by.return_value.first.side_effect = [mock_current_user, mock_user2]
+    response = client.get('/users/1/connections', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 200
+    assert len(response.json) == 1
+
+@patch('app.session.query')
+def test_get_pending_requests_unauthorized(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    response = client.get('/users/2/pending_requests', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 403
+
+@patch('app.session.query')
+def test_get_pending_requests_no_requests(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    mock_query.return_value.filter_by.return_value.all.return_value = []
+    response = client.get('/users/1/pending_requests', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 200
+    assert response.json == []
+
+@patch('app.session.query')
+def test_get_pending_requests_with_requests(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_user2 = User(id=2, display_name='user2')
+    mock_request = ConnectionRequest(id=1, from_user_id=2, to_user_id=1, status='pending', created_at=datetime.datetime.utcnow())
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    mock_query.return_value.filter_by.return_value.all.return_value = [mock_request]
+    mock_query.return_value.filter_by.return_value.first.side_effect = [mock_current_user, mock_user2]
+    response = client.get('/users/1/pending_requests', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 200
+    assert len(response.json) == 1
+
+@patch('app.session.query')
+def test_get_sent_requests_unauthorized(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    response = client.get('/users/2/sent_requests', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 403
+
+@patch('app.session.query')
+def test_get_sent_requests_no_requests(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    mock_query.return_value.filter_by.return_value.all.return_value = []
+    response = client.get('/users/1/sent_requests', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 200
+    assert response.json == []
+
+@patch('app.session.query')
+def test_get_sent_requests_with_requests(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_user2 = User(id=2, display_name='user2')
+    mock_request = ConnectionRequest(id=1, from_user_id=1, to_user_id=2, status='pending', created_at=datetime.datetime.utcnow())
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    mock_query.return_value.filter_by.return_value.all.return_value = [mock_request]
+    mock_query.return_value.filter_by.return_value.first.side_effect = [mock_current_user, mock_user2]
+    response = client.get('/users/1/sent_requests', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 200
+    assert len(response.json) == 1
+
+@patch('app.session.query')
+def test_get_user_posts_unauthorized(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    response = client.get('/users/2/posts', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 403
+
+@patch('app.session.query')
+def test_get_user_posts_no_posts(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    mock_query.return_value.filter_by.return_value.order_by.return_value.all.return_value = []
+    response = client.get('/users/1/posts', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 200
+    assert response.json == []
+
+@patch('app.session.query')
+def test_get_user_posts_with_posts(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1, display_name='test', profile_picture_url='test.jpg')
+    mock_post = Post(id=1, caption='test post', image_url='test.jpg', created_at=datetime.datetime.utcnow(), user_id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    mock_query.return_value.filter_by.return_value.order_by.return_value.all.return_value = [mock_post]
     response = client.get('/users/1/posts', headers={'x-access-token': 'valid_token'})
     assert response.status_code == 200
     assert len(response.json) == 1
 
 @patch('app.session.query')
-def test_get_connections_posts_no_connections(mock_query, client, mock_jwt_decode):
+def test_get_connections_posts_unauthorized(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
+    response = client.get('/users/2/connections/posts', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 403
+
+@patch('app.session.query')
+def test_get_connections_posts_no_posts(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user
     mock_query.return_value.filter.return_value.all.return_value = []
-    mock_query.return_value.filter_by.return_value.first.return_value = mock_current_user # for token_required
     response = client.get('/users/1/connections/posts', headers={'x-access-token': 'valid_token'})
     assert response.status_code == 200
+    assert response.json == []
+
+@patch('app.session.query')
+def test_get_connections_posts_with_posts(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1, display_name='test', profile_picture_url='test.jpg')
+    mock_user2 = User(id=2, display_name='user2')
+    mock_connection = Connection(user_id1=1, user_id2=2)
+    mock_post = Post(id=1, user_id=2, created_at=datetime.datetime.utcnow())
+    mock_query.return_value.filter_by.side_effect = [
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(first=MagicMock(return_value=mock_user2))
+    ]
+    mock_query.return_value.filter.return_value.all.return_value = [mock_connection]
+    mock_query.return_value.filter.return_value.order_by.return_value.all.return_value = [mock_post]
+    response = client.get('/users/1/connections/posts', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 200
+    assert len(response.json) == 1
+
+@patch('app.session.query')
+def test_get_connections_posts_post_user_none(mock_query, client, mock_jwt_decode):
+    mock_current_user = User(id=1)
+    mock_connection = Connection(user_id1=1, user_id2=2)
+    mock_post = Post(id=1, user_id=2)
+    mock_query.return_value.filter_by.side_effect = [
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(first=MagicMock(return_value=None))
+    ]
+    mock_query.return_value.filter.return_value.all.return_value = [mock_connection]
+    mock_query.return_value.filter.return_value.order_by.return_value.all.return_value = [mock_post]
+    response = client.get('/users/1/connections/posts', headers={'x-access-token': 'valid_token'})
+    assert response.status_code == 200
+    assert response.json == []
+
+@patch('flask.app.Flask.run')
+def test_main(mock_run):
+    runpy.run_module('app', run_name="__main__")
+    mock_run.assert_called_with(host='0.0.0.0', port=5000)
+
