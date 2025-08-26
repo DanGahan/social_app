@@ -196,7 +196,15 @@ def home_view(request):
             headers = {'x-access-token': jwt_token}
             pending_response = requests.get(f"{FLASK_BACKEND_URL}/users/{user_id}/pending_requests", headers=headers)
             pending_response.raise_for_status()
-            pending_requests = pending_response.json()
+            pending_requests_raw = pending_response.json()
+            # Process pending_requests to flatten user data for template
+            pending_requests = []
+            for req in pending_requests_raw:
+                processed_req = req.copy()
+                if 'from_user' in req and req['from_user']:
+                    processed_req['from_user_display_name'] = req['from_user'].get('display_name', 'N/A')
+                    processed_req['from_user_profile_picture_url'] = req['from_user'].get('profile_picture_url', '/static/default_profile_pic.png')
+                pending_requests.append(processed_req)
         except requests.exceptions.RequestException as e:
             messages.error(request, f'Could not fetch pending requests: {e}')
 
@@ -205,7 +213,15 @@ def home_view(request):
             headers = {'x-access-token': jwt_token}
             sent_response = requests.get(f"{FLASK_BACKEND_URL}/users/{user_id}/sent_requests", headers=headers)
             sent_response.raise_for_status()
-            sent_requests = sent_response.json()
+            sent_requests_raw = sent_response.json()
+            # Process sent_requests to flatten user data for template
+            sent_requests = []
+            for req in sent_requests_raw:
+                processed_req = req.copy()
+                if 'to_user' in req and req['to_user']:
+                    processed_req['to_user_display_name'] = req['to_user'].get('display_name', 'N/A')
+                    processed_req['to_user_profile_picture_url'] = req['to_user'].get('profile_picture_url', '/static/default_profile_pic.png')
+                sent_requests.append(processed_req)
         except requests.exceptions.RequestException as e:
             messages.error(request, f'Could not fetch sent requests: {e}')
 
