@@ -6,3 +6,4 @@ django-revproxy==0.13.0
 flake8
 isort
 black
+setuptools==78.1.1
