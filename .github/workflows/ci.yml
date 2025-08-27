@@ -29,7 +29,7 @@ jobs:
       - name: Install Frontend Dependencies
         run: pip install -r frontend/requirements.txt
       - name: Run Frontend Static Analysis (Flake8)
-        run: pip install flake8 && flake8 frontend/
+        run: pip install flake8 && flake8 frontend --config=frontend/.flake8
       - name: Run Django System Checks
         run: python frontend/manage.py check
 
