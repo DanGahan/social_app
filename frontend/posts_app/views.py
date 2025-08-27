@@ -1,5 +1,6 @@
-from django.shortcuts import render
 import requests
+from django.shortcuts import render
+
 
 def post_list(request, user_id):
     # In a real application, you'd get the user_id from the authenticated user
@@ -15,8 +16,5 @@ def post_list(request, user_id):
         # Handle error, e.g., log it or show a message to the user
         print(f"Error fetching posts: {response.status_code} - {response.text}")
 
-    context = {
-        'user_id': user_id,
-        'posts': posts
-    }
-    return render(request, 'posts_app/post_list.html', context)
+    context = {"user_id": user_id, "posts": posts}
+    return render(request, "posts_app/post_list.html", context)

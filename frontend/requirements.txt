@@ -3,3 +3,6 @@ djangorestframework==3.16.1
 requests==2.32.5
 django-cors-headers==4.7.0
 django-revproxy==0.13.0
+flake8
+isort
+black
