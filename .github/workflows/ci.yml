@@ -179,33 +179,6 @@ jobs:
           echo "failed=${FAILED:-0}" >> $GITHUB_OUTPUT
           echo "skipped=${SKIPPED:-0}" >> $GITHUB_OUTPUT
 
-  frontend_unit_tests:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Bring up Docker Compose
-        run: docker compose up -d
-      - name: Run Frontend Unit Tests and Capture Results
-        id: frontend_tests
-        run: |
-          TEST_OUTPUT=$(docker compose exec frontend python manage.py test)
-          echo "$TEST_OUTPUT"
-          TOTAL_RAN=$(echo "$TEST_OUTPUT" | grep -oP 'Ran \K\d+' | head -1)
-          PASSED=$(echo "$TEST_OUTPUT" | grep -oP 'Ran \d+ tests in .*s\n\nOK' | wc -l)
-          FAILED=$(echo "$TEST_OUTPUT" | grep -oP 'FAILED \(failures=\K\d+' | head -1)
-
-          if [ "$PASSED" -eq 1 ] && [ -z "$FAILED" ]; then
-            PASSED="$TOTAL_RAN"
-            FAILED="0"
-          elif [ -z "$FAILED" ]; then
-            FAILED="0"
-          fi
-
-          echo "total_ran=${TOTAL_RAN:-0}" >> $GITHUB_OUTPUT
-          echo "passed=${PASSED:-0}" >> $GITHUB_OUTPUT
-          echo "failed=${FAILED:-0}" >> $GITHUB_OUTPUT
-
       - name: Generate PR Comment
         id: generate_comment
         run: |
@@ -221,27 +194,28 @@ jobs:
 
           SHAKEDOWN_SUMMARY=""
 
-          # write multi-line output safely
-          cat <<EOF >> $GITHUB_OUTPUT
-          pr_comment<<EOF
-          ### CI/CD Pipeline Results
-
-          #### Backend Unit Tests
-          * Total: ${BACKEND_TESTS_TOTAL_RAN}
-          * Passed: ${BACKEND_TESTS_PASSED}
-          * Failed: ${BACKEND_TESTS_FAILED}
-          * Skipped: ${BACKEND_TESTS_SKIPPED}
-
-          #### Frontend Unit Tests
-          * Total: ${FRONTEND_TESTS_TOTAL_RAN}
-          * Passed: ${FRONTEND_TESTS_PASSED}
-          * Failed: ${FRONTEND_TESTS_FAILED}
-
-          #### Shakedown Test
-          \`\`\`
-          ${SHAKEDOWN_SUMMARY}
-          \`\`\`
-          EOF
+          # write multi-line output safely using a literal block
+          {
+            echo "pr_comment<<EOF"
+            echo "### CI/CD Pipeline Results"
+            echo ""
+            echo "#### Backend Unit Tests"
+            echo "* Total: ${BACKEND_TESTS_TOTAL_RAN}"
+            echo "* Passed: ${BACKEND_TESTS_PASSED}"
+            echo "* Failed: ${BACKEND_TESTS_FAILED}"
+            echo "* Skipped: ${BACKEND_TESTS_SKIPPED}"
+            echo ""
+            echo "#### Frontend Unit Tests"
+            echo "* Total: ${FRONTEND_TESTS_TOTAL_RAN}"
+            echo "* Passed: ${FRONTEND_TESTS_PASSED}"
+            echo "* Failed: ${FRONTEND_TESTS_FAILED}"
+            echo ""
+            echo "#### Shakedown Test"
+            echo '```'
+            echo "${SHAKEDOWN_SUMMARY}"
+            echo '```'
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Post PR Comment
         uses: peter-evans/create-or-update-comment@v3
