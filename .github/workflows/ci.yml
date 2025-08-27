@@ -276,43 +276,44 @@ jobs:
           # --- Shakedown Test ---
           SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
 
-          # --- Write multi-line output safely ---
-          cat <<EOF >> $GITHUB_OUTPUT
-          pr_comment<<EOF
-          ### CI/CD Pipeline Results
+          # write multi-line output safely using a literal block
+          {
+            echo "pr_comment<<EOF"
+            ### CI/CD Pipeline Results
 
-          #### Backend Unit Tests
-          * Total: ${BACKEND_TESTS_TOTAL_RAN}
-          * Passed: ${BACKEND_TESTS_PASSED}
-          * Failed: ${BACKEND_TESTS_FAILED}
-          * Skipped: ${BACKEND_TESTS_SKIPPED}
+            #### Backend Unit Tests
+            * Total: ${BACKEND_TESTS_TOTAL_RAN}
+            * Passed: ${BACKEND_TESTS_PASSED}
+            * Failed: ${BACKEND_TESTS_FAILED}
+            * Skipped: ${BACKEND_TESTS_SKIPPED}
 
-          #### Frontend Unit Tests
-          * Total: ${FRONTEND_TESTS_TOTAL_RAN}
-          * Passed: ${FRONTEND_TESTS_PASSED}
-          * Failed: ${FRONTEND_TESTS_FAILED}
+            #### Frontend Unit Tests
+            * Total: ${FRONTEND_TESTS_TOTAL_RAN}
+            * Passed: ${FRONTEND_TESTS_PASSED}
+            * Failed: ${FRONTEND_TESTS_FAILED}
 
-          #### Static Analysis (Flake8)
-          * Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}
-          * Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}
+            #### Static Analysis (Flake8)
+            * Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}
+            * Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}
 
-          #### Dependency Scan (Safety)
-          | Module   | Critical | High | Medium |
-          |----------|----------|------|--------|
-          | Backend  | ${BACKEND_SAFETY_CRITICAL} | ${BACKEND_SAFETY_HIGH} | ${BACKEND_SAFETY_MEDIUM} |
-          | Frontend | ${FRONTEND_SAFETY_CRITICAL} | ${FRONTEND_SAFETY_HIGH} | ${FRONTEND_SAFETY_MEDIUM} |
+            #### Dependency Scan (Safety)
+            | Module   | Critical | High | Medium |
+            |----------|----------|------|--------|
+            | Backend  | ${BACKEND_SAFETY_CRITICAL} | ${BACKEND_SAFETY_HIGH} | ${BACKEND_SAFETY_MEDIUM} |
+            | Frontend | ${FRONTEND_SAFETY_CRITICAL} | ${FRONTEND_SAFETY_HIGH} | ${FRONTEND_SAFETY_MEDIUM} |
 
-          #### Container Scan (Trivy)
-          | Image    | Critical | High | Medium |
-          |----------|----------|------|--------|
-          | Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |
-          | Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |
+            #### Container Scan (Trivy)
+            | Image    | Critical | High | Medium |
+            |----------|----------|------|--------|
+            | Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |
+            | Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |
 
-          #### Shakedown Test
-          \`\`\`
-          ${SHAKEDOWN_SUMMARY}
-          \`\`\`
-          EOF
+            #### Shakedown Test
+            \`\`\`
+            ${SHAKEDOWN_SUMMARY}
+            echo '```'
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Post PR Comment
         uses: peter-evans/create-or-update-comment@v3
