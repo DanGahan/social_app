@@ -255,12 +255,12 @@ jobs:
           COMMENT+="| Frontend | ${FRONTEND_SAFETY_CRITICAL} | ${FRONTEND_SAFETY_HIGH} | ${FRONTEND_SAFETY_MEDIUM} |\n\n"
 
           # Container Scan (Trivy)
-          BACKEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.backend_trivy_critical }}"
-          BACKEND_TRIVY_HIGH="${{ needs.container_scan.outputs.backend_trivy_high }}"
-          BACKEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.backend_trivy_medium }}"
-          FRONTEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.frontend_trivy_critical }}"
-          FRONTEND_TRIVY_HIGH="${{ needs.container_scan.outputs.frontend_trivy_high }}"
-          FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.frontend_trivy_medium }}"
+          BACKEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_backend_trivy_critical }}"
+          BACKEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_backend_trivy_high }}"
+          BACKEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_backend_trivy_medium }}"
+          FRONTEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_frontend_trivy_critical }}"
+          FRONTEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_frontend_trivy_high }}"
+          FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
           COMMENT+="#### Container Scan (Trivy)\n"
           COMMENT+="| Image    | Critical | High | Medium |\n"
           COMMENT+="|----------|----------|------|--------|\n"
