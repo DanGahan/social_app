@@ -36,33 +36,44 @@ run_test_step "3. Starting Docker containers in detached mode..." \
     "3. Starting Docker containers in detached mode: FAILED"
 
 run_test_step "4. Waiting for services to become healthy..." \
-    "TIMEOUT=60; while ! docker-compose exec db psql -U user -d social_db -c '\\dt' | grep -q \" users \"; do sleep 5; TIMEOUT=$((TIMEOUT-5)); if [ $TIMEOUT -le 0 ]; then echo \"Timeout waiting for DB tables!\"; exit 1; fi; done" \
+    "sleep 20" \
     "4. Waiting for services to become healthy: PASSED" \
     "4. Waiting for services to become healthy: FAILED"
 
-# 5. DB Table Presence Check...
-echo "5. DB Table Presence Check..."
-EXPECTED_TABLES="users posts connections connection_requests"
+run_test_step "5. Waiting for 'users' table to be created..." \
+    "TIMEOUT=60; while ! docker-compose exec db psql -U user -d social_db -c '\dt' | grep -q \" users \"; do sleep 5; TIMEOUT=$((TIMEOUT-5)); if [ $TIMEOUT -le 0 ]; then echo \"Timeout waiting for 'users' table!\"; exit 1; fi; done" \
+    "5. 'users' table created: PASSED" \
+    "5. 'users' table created: FAILED"
+
+# 6. DB Table Presence Check...
+echo "6. DB Table Presence Check..."
+
+# Get just the list of table names
+TABLES=$(docker-compose exec -T db psql -U user -d social_db -Atc "SELECT tablename FROM pg_tables WHERE schemaname='public';")
+
+EXPECTED_TABLES="posts connections connection_requests users"
 DB_CHECK_STATUS="PASSED"
+
 for table in $EXPECTED_TABLES; do
-    if ! docker-compose exec db psql -U user -d social_db -c '\\dt' | grep -q " $table "; then
+    if ! echo "$TABLES" | grep -qw "$table"; then
         echo "DB Table Check: FAILED (Table $table not found)"
         DB_CHECK_STATUS="FAILED"
         break
     fi
 done
-echo "5. DB Table Presence Check: $DB_CHECK_STATUS"
+
+echo "6. DB Table Presence Check: $DB_CHECK_STATUS"
 if [ "$DB_CHECK_STATUS" = "FAILED" ]; then
     exit 1
 fi
 
-run_test_step "6. Populating the database..." \
+run_test_step "7. Populating the database..." \
     "docker-compose exec backend python populate_db.py" \
-    "6. Populating the database: PASSED" \
-    "6. Populating the database: FAILED"
+    "7. Populating the database: PASSED" \
+    "7. Populating the database: FAILED"
 
-# 7. Populated Data Verification (User Count, Profile Pic, Posts)...
-echo "7. Populated Data Verification (User Count, Profile Pic, Posts)..."
+# 8. Populated Data Verification (User Count, Profile Pic, Posts)...
+echo "8. Populated Data Verification (User Count, Profile Pic, Posts)..."
 USER_COUNT=$(docker-compose exec backend python -c "from models import User; from app import session; print(session.query(User).count())")
 if [ "$USER_COUNT" -eq 20 ]; then
     echo "User Count Check: PASSED (Found 20 users)"
@@ -87,31 +98,40 @@ else
     echo "Response: $POST_IMAGE_URLS"
     exit 1
 fi
-echo "7. Populated Data Verification: PASSED" # Overall status for step 7
+echo "8. Populated Data Verification: PASSED" # Overall status for step 8
 
-run_test_step "8. Performing Backend Confidence Test (Login)..." \
-    "BACKEND_LOGIN_RESPONSE=$(curl -s -X POST -H \"Content-Type: application/json\" -d '{\"email\": \"user1@example.com\", \"password\": \"password1\"}' http://localhost:5001/auth/login) && JWT_TOKEN=$(echo \"$BACKEND_LOGIN_RESPONSE\" | python3 -c \"import sys, json; print(json.load(sys.stdin).get('token', ''))\") && [ -n \"$JWT_TOKEN\" ]" \
-    "8. Performing Backend Confidence Test (Login): PASSED" \
-    "8. Performing Backend Confidence Test (Login): FAILED (No token received or login failed)"
+run_test_step "9. Performing Backend Confidence Test (Login)..." \
+"BACKEND_LOGIN_RESPONSE=\$(curl -s -X POST -H \"Content-Type: application/json\" \
+    -d '{\"email\": \"user1@example.com\", \"password\": \"password1\"}' \
+    http://localhost:5001/auth/login) && \
+ JWT_TOKEN=\$(echo \"\$BACKEND_LOGIN_RESPONSE\" | python3 -c 'import sys, json; print(json.load(sys.stdin).get(\"token\", \"\"))') && \
+ [ -n \"\$JWT_TOKEN\" ]" \
+"9. Performing Backend Confidence Test (Login): PASSED" \
+"9. Performing Backend Confidence Test (Login): FAILED (No token received or login failed)"
 
-run_test_step "9. Performing Backend GET API Exercise (/users/me)..." \
-    "USERS_ME_RESPONSE=$(curl -s -H \"x-access-token: $JWT_TOKEN\" http://localhost:5001/users/me) && echo \"$USERS_ME_RESPONSE\" | grep -q \"user_id\" && echo \"$USERS_ME_RESPONSE\" | grep -q \"email\"" \
-    "9. Performing Backend GET API Exercise (/users/me): PASSED" \
-    "9. Performing Backend GET API Exercise (/users/me): FAILED (Expected user data not found)"
+run_test_step "10. Performing Backend GET API Exercise (/users/me)..." \
+"USERS_ME_RESPONSE=\$(curl -s -H \"x-access-token: \$JWT_TOKEN\" http://localhost:5001/users/me) && \
+ echo \"\$USERS_ME_RESPONSE\" | grep -q \"user_id\" && \
+ echo \"\$USERS_ME_RESPONSE\" | grep -q \"email\"" \
+"10. Performing Backend GET API Exercise (/users/me): PASSED" \
+"10. Performing Backend GET API Exercise (/users/me): FAILED (Expected user data not found)"
 
-run_test_step "10. Performing Frontend Confidence Test (Login Page content)..." \
-    "FRONTEND_LOGIN_RESPONSE=$(curl -s -L http://localhost:8000/) && echo \"$FRONTEND_LOGIN_RESPONSE\" | grep -q \"<h2>Login</h2>\"" \
-    "10. Performing Frontend Confidence Test (Login Page content): PASSED" \
-    "10. Performing Frontend Confidence Test (Login Page content): FAILED (Did not find '<h2>Login</h2>' in content)"
+# 11. Frontend Confidence Test (Login Page content)
+run_test_step '11. Performing Frontend Confidence Test (Login Page content)...' \
+'FRONTEND_LOGIN_RESPONSE=$(curl -s -L http://localhost:8000/); echo "$FRONTEND_LOGIN_RESPONSE" | grep -q "<h2>Login</h2>"' \
+"11. Performing Frontend Confidence Test (Login Page content): PASSED" \
+"11. Performing Frontend Confidence Test (Login Page content): FAILED (Did not find '<h2>Login</h2>' in content)"
 
-run_test_step "11. Performing Frontend Static File Check (logo.png)..." \
-    "HTTP_CODE=$(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/static/logo.png) && [ \"$HTTP_CODE\" -eq 200 ]" \
-    "11. Performing Frontend Static File Check (logo.png): PASSED" \
-    "11. Performing Frontend Static File Check (logo.png): FAILED (HTTP $HTTP_CODE)"
+# 12. Frontend Static File Check (logo.png)
+run_test_step '12. Performing Frontend Static File Check (logo.png)...' \
+'HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/static/logo.png); [ "$HTTP_CODE" -eq 200 ]' \
+"12. Performing Frontend Static File Check (logo.png): PASSED" \
+"12. Performing Frontend Static File Check (logo.png): FAILED (HTTP $HTTP_CODE)"
 
-run_test_step "12. Performing Frontend Static File Check (default_profile_pic.png)..." \
-    "HTTP_CODE=$(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/static/default_profile_pic.png) && [ \"$HTTP_CODE\" -eq 200 ]" \
-    "12. Performing Frontend Static File Check (default_profile_pic.png): PASSED" \
-    "12. Performing Frontend Static File Check (default_profile_pic.png): FAILED (HTTP $HTTP_CODE)"
+# 13. Frontend Static File Check (default_profile_pic.png)
+run_test_step '13. Performing Frontend Static File Check (default_profile_pic.png)...' \
+'HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/static/default_profile_pic.png); [ "$HTTP_CODE" -eq 200 ]' \
+"13. Performing Frontend Static File Check (default_profile_pic.png): PASSED" \
+"13. Performing Frontend Static File Check (default_profile_pic.png): FAILED (HTTP $HTTP_CODE)"
 
 echo "--- Shakedown Test Complete: ALL PASSED ---"
