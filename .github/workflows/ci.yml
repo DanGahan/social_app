@@ -206,36 +206,42 @@ jobs:
           echo "passed=${PASSED:-0}" >> $GITHUB_OUTPUT
           echo "failed=${FAILED:-0}" >> $GITHUB_OUTPUT
 
-  report_pr_comment:
-    needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       - name: Generate PR Comment
         id: generate_comment
         run: |
-          BACKEND_TESTS_TOTAL_RAN="${{ needs.backend_unit_tests.outputs.total_ran }}"
-          BACKEND_TESTS_PASSED="${{ needs.backend_unit_tests.outputs.passed }}"
-          BACKEND_TESTS_FAILED="${{ needs.backend_unit_tests.outputs.failed }}"
-          BACKEND_TESTS_SKIPPED="${{ needs.backend_unit_tests.outputs.skipped }}"
+          # variable setup
+          BACKEND_TESTS_TOTAL_RAN=""
+          BACKEND_TESTS_PASSED=""
+          BACKEND_TESTS_FAILED=""
+          BACKEND_TESTS_SKIPPED=""
 
-          FRONTEND_TESTS_TOTAL_RAN="${{ needs.frontend_unit_tests.outputs.total_ran }}"
-          FRONTEND_TESTS_PASSED="${{ needs.frontend_unit_tests.outputs.passed }}"
-          FRONTEND_TESTS_FAILED="${{ needs.frontend_unit_tests.outputs.failed }}"
+          FRONTEND_TESTS_TOTAL_RAN=""
+          FRONTEND_TESTS_PASSED=""
+          FRONTEND_TESTS_FAILED=""
 
-          SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
+          SHAKEDOWN_SUMMARY=""
 
-          # Use printf to avoid YAML issues with asterisks and colons
-          printf 'pr_comment=### CI/CD Pipeline Results\n\n' >> $GITHUB_OUTPUT
-          printf '#### Backend Unit Tests\n* Total: %s\n* Passed: %s\n* Failed: %s\n* Skipped: %s\n\n' \
-            "$BACKEND_TESTS_TOTAL_RAN" "$BACKEND_TESTS_PASSED" "$BACKEND_TESTS_FAILED" "$BACKEND_TESTS_SKIPPED" \
-            >> $GITHUB_OUTPUT
+          # write multi-line output safely
+          cat <<EOF >> $GITHUB_OUTPUT
+          pr_comment<<EOF
+          ### CI/CD Pipeline Results
 
-          printf '#### Frontend Unit Tests\n* Total: %s\n* Passed: %s\n* Failed: %s\n\n' \
-            "$FRONTEND_TESTS_TOTAL_RAN" "$FRONTEND_TESTS_PASSED" "$FRONTEND_TESTS_FAILED" \
-            >> $GITHUB_OUTPUT
+          #### Backend Unit Tests
+          * Total: ${BACKEND_TESTS_TOTAL_RAN}
+          * Passed: ${BACKEND_TESTS_PASSED}
+          * Failed: ${BACKEND_TESTS_FAILED}
+          * Skipped: ${BACKEND_TESTS_SKIPPED}
 
-          printf '#### Shakedown Test\n```\n%s\n```\n' "$SHAKEDOWN_SUMMARY" >> $GITHUB_OUTPUT
+          #### Frontend Unit Tests
+          * Total: ${FRONTEND_TESTS_TOTAL_RAN}
+          * Passed: ${FRONTEND_TESTS_PASSED}
+          * Failed: ${FRONTEND_TESTS_FAILED}
+
+          #### Shakedown Test
+          \`\`\`
+          ${SHAKEDOWN_SUMMARY}
+          \`\`\`
+          EOF
 
       - name: Post PR Comment
         uses: peter-evans/create-or-update-comment@v3
