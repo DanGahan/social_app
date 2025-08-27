@@ -33,8 +33,8 @@ jobs:
           echo "$FLAKE8_OUTPUT"
           ERRORS=$(echo "$FLAKE8_OUTPUT" | grep -c 'E[0-9]{3}')
           WARNINGS=$(echo "$FLAKE8_OUTPUT" | grep -c 'W[0-9]{3}')
-          echo "::set-output name=errors::${ERRORS}"
-          echo "::set-output name=warnings::${WARNINGS}"
+          echo "errors=${ERRORS}" >> $GITHUB_OUTPUT
+          echo "warnings=${WARNINGS}" >> $GITHUB_OUTPUT
       - name: Install Frontend Dependencies
         run: pip install -r frontend/requirements.txt
       - name: Run Frontend Static Analysis (Flake8) and Capture Results
@@ -46,8 +46,8 @@ jobs:
           echo "$FLAKE8_OUTPUT"
           ERRORS=$(echo "$FLAKE8_OUTPUT" | grep -c 'E[0-9]{3}')
           WARNINGS=$(echo "$FLAKE8_OUTPUT" | grep -c 'W[0-9]{3}')
-          echo "::set-output name=errors::${ERRORS}"
-          echo "::set-output name=warnings::${WARNINGS}"
+          echo "errors=${ERRORS}" >> $GITHUB_OUTPUT
+          echo "warnings=${WARNINGS}" >> $GITHUB_OUTPUT
       - name: Run Django System Checks
         run: python frontend/manage.py check
 
@@ -70,9 +70,9 @@ jobs:
           CRITICAL=$(echo "$SAFETY_OUTPUT" | jq '.[] | select(.severity == "critical")' | wc -l)
           HIGH=$(echo "$SAFETY_OUTPUT" | jq '.[] | select(.severity == "high")' | wc -l)
           MEDIUM=$(echo "$SAFETY_OUTPUT" | jq '.[] | select(.severity == "medium")' | wc -l)
-          echo "::set-output name=critical::${CRITICAL}"
-          echo "::set-output name=high::${HIGH}"
-          echo "::set-output name=medium::${MEDIUM}"
+          echo "critical=${CRITICAL}" >> $GITHUB_OUTPUT
+          echo "high=${HIGH}" >> $GITHUB_OUTPUT
+          echo "medium=${MEDIUM}" >> $GITHUB_OUTPUT
       - name: Run Frontend Dependency Scan and Capture Results
         id: frontend_safety
         run: |
@@ -81,9 +81,9 @@ jobs:
           CRITICAL=$(echo "$SAFETY_OUTPUT" | jq '.[] | select(.severity == "critical")' | wc -l)
           HIGH=$(echo "$SAFETY_OUTPUT" | jq '.[] | select(.severity == "high")' | wc -l)
           MEDIUM=$(echo "$SAFETY_OUTPUT" | jq '.[] | select(.severity == "medium")' | wc -l)
-          echo "::set-output name=critical::${CRITICAL}"
-          echo "::set-output name=high::${HIGH}"
-          echo "::set-output name=medium::${MEDIUM}"
+          echo "critical=${CRITICAL}" >> $GITHUB_OUTPUT
+          echo "high=${HIGH}" >> $GITHUB_OUTPUT
+          echo "medium=${MEDIUM}" >> $GITHUB_OUTPUT
 
   container_scan:
     needs: build
@@ -112,9 +112,9 @@ jobs:
           CRITICAL=$(jq '.Results[].Vulnerabilities[] | select(.Severity == "CRITICAL")' trivy-backend-results.json | wc -l)
           HIGH=$(jq '.Results[].Vulnerabilities[] | select(.Severity == "HIGH")' trivy-backend-results.json | wc -l)
           MEDIUM=$(jq '.Results[].Vulnerabilities[] | select(.Severity == "MEDIUM")' trivy-backend-results.json | wc -l)
-          echo "::set-output name=critical::${CRITICAL}"
-          echo "::set-output name=high::${HIGH}"
-          echo "::set-output name=medium::${MEDIUM}"
+          echo "critical=${CRITICAL}" >> $GITHUB_OUTPUT
+          echo "high=${HIGH}" >> $GITHUB_OUTPUT
+          echo "medium=${MEDIUM}" >> $GITHUB_OUTPUT
       - name: Run Trivy Scan on Frontend Image and Capture Results
         id: frontend_trivy
         uses: aquasecurity/trivy-action@master
@@ -131,9 +131,9 @@ jobs:
           CRITICAL=$(jq '.Results[].Vulnerabilities[] | select(.Severity == "CRITICAL")' trivy-frontend-results.json | wc -l)
           HIGH=$(jq '.Results[].Vulnerabilities[] | select(.Severity == "HIGH")' trivy-frontend-results.json | wc -l)
           MEDIUM=$(jq '.Results[].Vulnerabilities[] | select(.Severity == "MEDIUM")' trivy-frontend-results.json | wc -l)
-          echo "::set-output name=critical::${CRITICAL}"
-          echo "::set-output name=high::${HIGH}"
-          echo "::set-output name=medium::${MEDIUM}"
+          echo "critical=${CRITICAL}" >> $GITHUB_OUTPUT
+          echo "high=${HIGH}" >> $GITHUB_OUTPUT
+          echo "medium=${MEDIUM}" >> $GITHUB_OUTPUT
 
   shakedown_test:
     needs: build
@@ -153,7 +153,7 @@ jobs:
           SHAKEDOWN_OUTPUT=$(docker compose down && docker compose build && docker compose up -d && ./scripts/shakedown_test.sh || true) # Use || true to prevent job failure
           echo "$SHAKEDOWN_OUTPUT"
           RESULTS=$(echo "$SHAKEDOWN_OUTPUT" | grep -E 'PASSED|FAILED')
-          echo "::set-output name=summary::${RESULTS}"
+          echo "summary=${RESULTS}" >> $GITHUB_OUTPUT
 
   backend_unit_tests:
     needs: build
@@ -165,17 +165,17 @@ jobs:
       - name: Run Backend Unit Tests and Capture Results
         id: backend_tests
         run: |
-          TEST_OUTPUT=$(docker compose exec backend bash -c "PYTHONPATH=/app pytest --cov=. --cov-report=term-missing --disable-warnings") || true # Added --disable-warnings and || true
+          TEST_OUTPUT=$(docker compose exec backend bash -c "PYTHONPATH=/app pytest --cov=. --cov-report=term-missing --disable-warnings || true") # Added --disable-warnings and || true
           echo "$TEST_OUTPUT"
           TOTAL_RAN=$(echo "$TEST_OUTPUT" | grep -oP 'collected \K\d+' | head -1)
           PASSED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) passed' | grep -oP '\d+')
           FAILED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) failed' | grep -oP '\d+')
           SKIPPED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) skipped' | grep -oP '\d+')
 
-          echo "::set-output name=total_ran::${TOTAL_RAN:-0}"
-          echo "::set-output name=passed::${PASSED:-0}"
-          echo "::set-output name=failed::${FAILED:-0}"
-          echo "::set-output name=skipped::${SKIPPED:-0}"
+          echo "total_ran=${TOTAL_RAN:-0}" >> $GITHUB_OUTPUT
+          echo "passed=${PASSED:-0}" >> $GITHUB_OUTPUT
+          echo "failed=${FAILED:-0}" >> $GITHUB_OUTPUT
+          echo "skipped=${SKIPPED:-0}" >> $GITHUB_OUTPUT
 
   frontend_unit_tests:
     needs: build
@@ -200,9 +200,9 @@ jobs:
             FAILED="0"
           fi
 
-          echo "::set-output name=total_ran::${TOTAL_RAN:-0}"
-          echo "::set-output name=passed::${PASSED:-0}"
-          echo "::set-output name=failed::${FAILED:-0}"
+          echo "total_ran=${TOTAL_RAN:-0}" >> $GITHUB_OUTPUT
+          echo "passed=${PASSED:-0}" >> $GITHUB_OUTPUT
+          echo "failed=${FAILED:-0}" >> $GITHUB_OUTPUT
 
   report_pr_comment:
     needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests]
@@ -274,7 +274,7 @@ jobs:
           COMMENT+="#### Shakedown Test\n"
           COMMENT+="```\n${SHAKEDOWN_SUMMARY}\n```\n"
 
-          echo "::set-output name=pr_comment::${COMMENT}"
+          echo "pr_comment=${COMMENT}" >> $GITHUB_OUTPUT
       - name: Post PR Comment
         uses: peter-evans/create-or-update-comment@v3
         with:
