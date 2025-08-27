@@ -31,8 +31,8 @@ jobs:
           pip install flake8
           FLAKE8_OUTPUT=$(flake8 backend/ --config=backend/.flake8 --exit-zero || true) # Added || true
           echo "$FLAKE8_OUTPUT"
-          ERRORS=$(echo "$FLAKE8_OUTPUT" | grep -c 'E[0-9]{3}')
-          WARNINGS=$(echo "$FLAKE8_OUTPUT" | grep -c 'W[0-9]{3}')
+          ERRORS=$(echo "$FLAKE8_OUTPUT" | grep -c 'E[0-9]{3}' || true)
+          WARNINGS=$(echo "$FLAKE8_OUTPUT" | grep -c 'W[0-9]{3}' || true)
           echo "errors=${ERRORS}" >> $GITHUB_OUTPUT
           echo "warnings=${WARNINGS}" >> $GITHUB_OUTPUT
       - name: Install Frontend Dependencies
@@ -44,8 +44,8 @@ jobs:
           pip install flake8
           FLAKE8_OUTPUT=$(flake8 frontend --config=frontend/.flake8 --exit-zero || true) # Added || true
           echo "$FLAKE8_OUTPUT"
-          ERRORS=$(echo "$FLAKE8_OUTPUT" | grep -c 'E[0-9]{3}')
-          WARNINGS=$(echo "$FLAKE8_OUTPUT" | grep -c 'W[0-9]{3}')
+          ERRORS=$(echo "$FLAKE8_OUTPUT" | grep -c 'E[0-9]{3}' || true)
+          WARNINGS=$(echo "$FLAKE8_OUTPUT" | grep -c 'W[0-9]{3}' || true)
           echo "errors=${ERRORS}" >> $GITHUB_OUTPUT
           echo "warnings=${WARNINGS}" >> $GITHUB_OUTPUT
       - name: Run Django System Checks
@@ -167,10 +167,10 @@ jobs:
         run: |
           TEST_OUTPUT=$(docker compose exec backend bash -c "PYTHONPATH=/app pytest --cov=. --cov-report=term-missing --disable-warnings || true") # Added --disable-warnings and || true
           echo "$TEST_OUTPUT"
-          TOTAL_RAN=$(echo "$TEST_OUTPUT" | grep -oP 'collected \K\d+' | head -1)
-          PASSED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) passed' | grep -oP '\d+')
-          FAILED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) failed' | grep -oP '\d+')
-          SKIPPED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) skipped' | grep -oP '\d+')
+          TOTAL_RAN=$(echo "$TEST_OUTPUT" | grep -oP 'collected \K\\d+' | head -1 || true)
+          PASSED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) passed' | grep -oP '\d+' || true)
+          FAILED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) failed' | grep -oP '\d+' || true)
+          SKIPPED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) skipped' | grep -oP '\d+' || true)
 
           echo "total_ran=${TOTAL_RAN:-0}" >> $GITHUB_OUTPUT
           echo "passed=${PASSED:-0}" >> $GITHUB_OUTPUT

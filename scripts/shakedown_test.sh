@@ -36,7 +36,7 @@ run_test_step "3. Starting Docker containers in detached mode..." \
     "3. Starting Docker containers in detached mode: FAILED"
 
 run_test_step "4. Waiting for services to become healthy..." \
-    "sleep 20" \
+    "TIMEOUT=60; while ! docker-compose exec db psql -U user -d social_db -c '\\dt' | grep -q \" users \"; do sleep 5; TIMEOUT=$((TIMEOUT-5)); if [ $TIMEOUT -le 0 ]; then echo \"Timeout waiting for DB tables!\"; exit 1; fi; done" \
     "4. Waiting for services to become healthy: PASSED" \
     "4. Waiting for services to become healthy: FAILED"
 
