@@ -6,3 +6,6 @@ PyJWT
 flask-restx
 pytest
 pytest-cov
+isort
+black
+flake8
