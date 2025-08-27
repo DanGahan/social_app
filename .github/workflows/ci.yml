@@ -150,11 +150,13 @@ jobs:
       - name: Run Shakedown Test and Capture Results
         id: shakedown_results
         run: |
-          SHAKEDOWN_OUTPUT=$(docker compose down && docker compose build && docker compose up -d && ./scripts/shakedown_test.sh || true) # Use || true to prevent job failure
+          SHAKEDOWN_OUTPUT=$(docker compose down && docker compose build && docker compose up -d && ./scripts/shakedown_test.sh || true)
           echo "$SHAKEDOWN_OUTPUT"
           RESULTS=$(echo "$SHAKEDOWN_OUTPUT" | grep -E 'PASSED|FAILED')
-          echo "summary=${RESULTS}" >> $GITHUB_OUTPUT
-
+          # Use multi-line syntax to safely write to GITHUB_OUTPUT
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESULTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
   backend_unit_tests:
     needs: build
     runs-on: ubuntu-latest
