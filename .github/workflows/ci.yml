@@ -28,7 +28,7 @@ jobs:
         id: backend_flake8
         run: |
           pip install flake8
-          FLAKE8_OUTPUT=$(flake8 backend/ --config=backend/.flake8 --exit-zero)
+          FLAKE8_OUTPUT=$(flake8 backend/ --config=backend/.flake8 --exit-zero || true) # Added || true
           echo "$FLAKE8_OUTPUT"
           ERRORS=$(echo "$FLAKE8_OUTPUT" | grep -c 'E[0-9]{3}')
           WARNINGS=$(echo "$FLAKE8_OUTPUT" | grep -c 'W[0-9]{3}')
@@ -40,7 +40,7 @@ jobs:
         id: frontend_flake8
         run: |
           pip install flake8
-          FLAKE8_OUTPUT=$(flake8 frontend --config=frontend/.flake8 --exit-zero)
+          FLAKE8_OUTPUT=$(flake8 frontend --config=frontend/.flake8 --exit-zero || true) # Added || true
           echo "$FLAKE8_OUTPUT"
           ERRORS=$(echo "$FLAKE8_OUTPUT" | grep -c 'E[0-9]{3}')
           WARNINGS=$(echo "$FLAKE8_OUTPUT" | grep -c 'W[0-9]{3}')
@@ -163,7 +163,7 @@ jobs:
       - name: Run Backend Unit Tests and Capture Results
         id: backend_tests
         run: |
-          TEST_OUTPUT=$(docker compose exec backend bash -c "PYTHONPATH=/app pytest --cov=. --cov-report=term-missing")
+          TEST_OUTPUT=$(docker compose exec backend bash -c "PYTHONPATH=/app pytest --cov=. --cov-report=term-missing --disable-warnings") # Added --disable-warnings
           echo "$TEST_OUTPUT"
           TOTAL_RAN=$(echo "$TEST_OUTPUT" | grep -oP 'collected \K\d+' | head -1)
           PASSED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) passed' | grep -oP '\d+')
