@@ -185,43 +185,134 @@ jobs:
           echo "failed=${FAILED:-0}" >> $GITHUB_OUTPUT
           echo "skipped=${SKIPPED:-0}" >> $GITHUB_OUTPUT
 
+  frontend_unit_tests:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      total_ran: ${{ steps.tests.outputs.total_ran }}
+      passed: ${{ steps.tests.outputs.passed }}
+      failed: ${{ steps.tests.outputs.failed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bring up Docker Compose
+        run: docker compose up -d
+
+      - name: Run Frontend Unit Tests
+        id: tests
+        run: |
+          # Run Django tests inside frontend container and save output
+          TEST_OUTPUT=$(docker compose exec -T frontend python manage.py test --verbosity=2 || true)
+          echo "$TEST_OUTPUT"
+
+          # Parse the test results using regex
+          # Example Django summary: "Ran 10 tests in 0.123s\n\nOK" or "FAILED (failures=1, errors=0)"
+          TOTAL=$(echo "$TEST_OUTPUT" | grep -Eo 'Ran [0-9]+ tests?' | awk '{print $2}')
+          PASSED=""
+          FAILED=""
+          if echo "$TEST_OUTPUT" | grep -q "OK"; then
+            PASSED="$TOTAL"
+            FAILED=0
+          else
+            # extract failures and errors
+            FAILURES=$(echo "$TEST_OUTPUT" | grep -Eo 'failures=[0-9]+' | awk -F= '{print $2}')
+            ERRORS=$(echo "$TEST_OUTPUT" | grep -Eo 'errors=[0-9]+' | awk -F= '{print $2}')
+            FAILURES=${FAILURES:-0}
+            ERRORS=${ERRORS:-0}
+            FAILED=$((FAILURES + ERRORS))
+            PASSED=$((TOTAL - FAILED))
+          fi
+
+          echo "Total tests ran: $TOTAL"
+          echo "Passed: $PASSED"
+          echo "Failed: $FAILED"
+
+          # Set outputs for later jobs
+          echo "total_ran=$TOTAL" >> $GITHUB_OUTPUT
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+
+  report_pr_comment:
+    needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Generate PR Comment
         id: generate_comment
         run: |
-          # variable setup
-          BACKEND_TESTS_TOTAL_RAN=""
-          BACKEND_TESTS_PASSED=""
-          BACKEND_TESTS_FAILED=""
-          BACKEND_TESTS_SKIPPED=""
+          # --- Backend Unit Tests ---
+          BACKEND_TESTS_TOTAL_RAN="${{ needs.backend_unit_tests.outputs.total_ran }}"
+          BACKEND_TESTS_PASSED="${{ needs.backend_unit_tests.outputs.passed }}"
+          BACKEND_TESTS_FAILED="${{ needs.backend_unit_tests.outputs.failed }}"
+          BACKEND_TESTS_SKIPPED="${{ needs.backend_unit_tests.outputs.skipped }}"
 
-          FRONTEND_TESTS_TOTAL_RAN=""
-          FRONTEND_TESTS_PASSED=""
-          FRONTEND_TESTS_FAILED=""
+          # --- Frontend Unit Tests ---
+          FRONTEND_TESTS_TOTAL_RAN="${{ needs.frontend_unit_tests.outputs.total_ran }}"
+          FRONTEND_TESTS_PASSED="${{ needs.frontend_unit_tests.outputs.passed }}"
+          FRONTEND_TESTS_FAILED="${{ needs.frontend_unit_tests.outputs.failed }}"
 
-          SHAKEDOWN_SUMMARY=""
+          # --- Static Analysis (Flake8) ---
+          BACKEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.backend_flake8_errors }}"
+          BACKEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.backend_flake8_warnings }}"
+          FRONTEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.frontend_flake8_errors }}"
+          FRONTEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.frontend_flake8_warnings }}"
 
-          # write multi-line output safely using a literal block
-          {
-            echo "pr_comment<<EOF"
-            echo "### CI/CD Pipeline Results"
-            echo ""
-            echo "#### Backend Unit Tests"
-            echo "* Total: ${BACKEND_TESTS_TOTAL_RAN}"
-            echo "* Passed: ${BACKEND_TESTS_PASSED}"
-            echo "* Failed: ${BACKEND_TESTS_FAILED}"
-            echo "* Skipped: ${BACKEND_TESTS_SKIPPED}"
-            echo ""
-            echo "#### Frontend Unit Tests"
-            echo "* Total: ${FRONTEND_TESTS_TOTAL_RAN}"
-            echo "* Passed: ${FRONTEND_TESTS_PASSED}"
-            echo "* Failed: ${FRONTEND_TESTS_FAILED}"
-            echo ""
-            echo "#### Shakedown Test"
-            echo '```'
-            echo "${SHAKEDOWN_SUMMARY}"
-            echo '```'
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+          # --- Dependency Scan (Safety) ---
+          BACKEND_SAFETY_CRITICAL="${{ needs.dependency_scan.outputs.backend_safety_critical }}"
+          BACKEND_SAFETY_HIGH="${{ needs.dependency_scan.outputs.backend_safety_high }}"
+          BACKEND_SAFETY_MEDIUM="${{ needs.dependency_scan.outputs.backend_safety_medium }}"
+          FRONTEND_SAFETY_CRITICAL="${{ needs.dependency_scan.outputs.frontend_safety_critical }}"
+          FRONTEND_SAFETY_HIGH="${{ needs.dependency_scan.outputs.frontend_safety_high }}"
+          FRONTEND_SAFETY_MEDIUM="${{ needs.dependency_scan.outputs.frontend_safety_medium }}"
+
+          # --- Container Scan (Trivy) ---
+          BACKEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_backend_trivy_critical }}"
+          BACKEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_backend_trivy_high }}"
+          BACKEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_backend_trivy_medium }}"
+          FRONTEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_frontend_trivy_critical }}"
+          FRONTEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_frontend_trivy_high }}"
+          FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
+
+          # --- Shakedown Test ---
+          SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
+
+          # --- Write multi-line output safely ---
+          cat <<EOF >> $GITHUB_OUTPUT
+          pr_comment<<EOF
+          ### CI/CD Pipeline Results
+
+          #### Backend Unit Tests
+          * Total: ${BACKEND_TESTS_TOTAL_RAN}
+          * Passed: ${BACKEND_TESTS_PASSED}
+          * Failed: ${BACKEND_TESTS_FAILED}
+          * Skipped: ${BACKEND_TESTS_SKIPPED}
+
+          #### Frontend Unit Tests
+          * Total: ${FRONTEND_TESTS_TOTAL_RAN}
+          * Passed: ${FRONTEND_TESTS_PASSED}
+          * Failed: ${FRONTEND_TESTS_FAILED}
+
+          #### Static Analysis (Flake8)
+          * Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}
+          * Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}
+
+          #### Dependency Scan (Safety)
+          | Module   | Critical | High | Medium |
+          |----------|----------|------|--------|
+          | Backend  | ${BACKEND_SAFETY_CRITICAL} | ${BACKEND_SAFETY_HIGH} | ${BACKEND_SAFETY_MEDIUM} |
+          | Frontend | ${FRONTEND_SAFETY_CRITICAL} | ${FRONTEND_SAFETY_HIGH} | ${FRONTEND_SAFETY_MEDIUM} |
+
+          #### Container Scan (Trivy)
+          | Image    | Critical | High | Medium |
+          |----------|----------|------|--------|
+          | Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |
+          | Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |
+
+          #### Shakedown Test
+          \`\`\`
+          ${SHAKEDOWN_SUMMARY}
+          \`\`\`
+          EOF
 
       - name: Post PR Comment
         uses: peter-evans/create-or-update-comment@v3
