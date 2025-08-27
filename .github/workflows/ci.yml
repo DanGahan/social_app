@@ -214,69 +214,29 @@ jobs:
       - name: Generate PR Comment
         id: generate_comment
         run: |
-          COMMENT="### CI/CD Pipeline Results\n\n"
-
-          # Backend Unit Tests
           BACKEND_TESTS_TOTAL_RAN="${{ needs.backend_unit_tests.outputs.total_ran }}"
           BACKEND_TESTS_PASSED="${{ needs.backend_unit_tests.outputs.passed }}"
           BACKEND_TESTS_FAILED="${{ needs.backend_unit_tests.outputs.failed }}"
           BACKEND_TESTS_SKIPPED="${{ needs.backend_unit_tests.outputs.skipped }}"
-          COMMENT+="#### Backend Unit Tests\n"
-          COMMENT+="* Total: ${BACKEND_TESTS_TOTAL_RAN}\n"
-          COMMENT+="* Passed: ${BACKEND_TESTS_PASSED}\n"
-          COMMENT+="* Failed: ${BACKEND_TESTS_FAILED}\n"
-          COMMENT+="* Skipped: ${BACKEND_TESTS_SKIPPED}\n\n"
 
-          # Frontend Unit Tests
           FRONTEND_TESTS_TOTAL_RAN="${{ needs.frontend_unit_tests.outputs.total_ran }}"
           FRONTEND_TESTS_PASSED="${{ needs.frontend_unit_tests.outputs.passed }}"
           FRONTEND_TESTS_FAILED="${{ needs.frontend_unit_tests.outputs.failed }}"
-          COMMENT+="#### Frontend Unit Tests\n"
-          COMMENT+="* Total: ${FRONTEND_TESTS_TOTAL_RAN}\n"
-          COMMENT+="* Passed: ${FRONTEND_TESTS_PASSED}\n"
-          COMMENT+="* Failed: ${FRONTEND_TESTS_FAILED}\n\n"
 
-          # Static Analysis (Flake8)
-          BACKEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.backend_flake8_errors }}"
-          BACKEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.backend_flake8_warnings }}"
-          FRONTEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.frontend_flake8_errors }}"
-          FRONTEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.frontend_flake8_warnings }}"
-          COMMENT+="#### Static Analysis (Flake8)\n"
-          COMMENT+="* Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}\n"
-          COMMENT+="* Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}\n\n"
-
-          # Dependency Scan (Safety)
-          BACKEND_SAFETY_CRITICAL="${{ needs.dependency_scan.outputs.backend_safety_critical }}"
-          BACKEND_SAFETY_HIGH="${{ needs.dependency_scan.outputs.backend_safety_high }}"
-          BACKEND_SAFETY_MEDIUM="${{ needs.dependency_scan.outputs.backend_safety_medium }}"
-          FRONTEND_SAFETY_CRITICAL="${{ needs.dependency_scan.outputs.frontend_safety_critical }}"
-          FRONTEND_SAFETY_HIGH="${{ needs.dependency_scan.outputs.frontend_safety_high }}"
-          FRONTEND_SAFETY_MEDIUM="${{ needs.dependency_scan.outputs.frontend_safety_medium }}"
-          COMMENT+="#### Dependency Scan (Safety)\n"
-          COMMENT+="| Module   | Critical | High | Medium |\n"
-          COMMENT+="|----------|----------|------|--------|\n"
-          COMMENT+="| Backend  | ${BACKEND_SAFETY_CRITICAL} | ${BACKEND_SAFETY_HIGH} | ${BACKEND_SAFETY_MEDIUM} |\n"
-          COMMENT+="| Frontend | ${FRONTEND_SAFETY_CRITICAL} | ${FRONTEND_SAFETY_HIGH} | ${FRONTEND_SAFETY_MEDIUM} |\n\n"
-
-          # Container Scan (Trivy)
-          BACKEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_backend_trivy_critical }}"
-          BACKEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_backend_trivy_high }}"
-          BACKEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_backend_trivy_medium }}"
-          FRONTEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_frontend_trivy_critical }}"
-          FRONTEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_frontend_trivy_high }}"
-          FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
-          COMMENT+="#### Container Scan (Trivy)\n"
-          COMMENT+="| Image    | Critical | High | Medium |\n"
-          COMMENT+="|----------|----------|------|--------|\n"
-          COMMENT+="| Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |\n"
-          COMMENT+="| Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |\n\n"
-
-          # Shakedown Test
           SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
-          COMMENT+="#### Shakedown Test\n"
-          COMMENT+="```\n${SHAKEDOWN_SUMMARY}\n```\n"
 
-          echo "pr_comment=${COMMENT}" >> $GITHUB_OUTPUT
+          # Use printf to avoid YAML issues with asterisks and colons
+          printf 'pr_comment=### CI/CD Pipeline Results\n\n' >> $GITHUB_OUTPUT
+          printf '#### Backend Unit Tests\n* Total: %s\n* Passed: %s\n* Failed: %s\n* Skipped: %s\n\n' \
+            "$BACKEND_TESTS_TOTAL_RAN" "$BACKEND_TESTS_PASSED" "$BACKEND_TESTS_FAILED" "$BACKEND_TESTS_SKIPPED" \
+            >> $GITHUB_OUTPUT
+
+          printf '#### Frontend Unit Tests\n* Total: %s\n* Passed: %s\n* Failed: %s\n\n' \
+            "$FRONTEND_TESTS_TOTAL_RAN" "$FRONTEND_TESTS_PASSED" "$FRONTEND_TESTS_FAILED" \
+            >> $GITHUB_OUTPUT
+
+          printf '#### Shakedown Test\n```\n%s\n```\n' "$SHAKEDOWN_SUMMARY" >> $GITHUB_OUTPUT
+
       - name: Post PR Comment
         uses: peter-evans/create-or-update-comment@v3
         with:
