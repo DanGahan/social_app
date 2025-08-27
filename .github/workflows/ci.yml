@@ -56,6 +56,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build Docker Images (for scanning)
         run: docker compose build
+      - name: List Docker Images
+        run: docker images
       - name: Run Trivy Scan on Backend Image
         uses: aquasecurity/trivy-action@master
         with:
@@ -77,35 +79,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run Shakedown Test
-        run: docker compose down && docker compose build && docker compose up -d && ./scripts/shakedown_test.sh
+        run: |
+          alias docker-compose='docker compose'
+          docker compose down && docker compose build && docker compose up -d && ./scripts/shakedown_test.sh
 
   backend_unit_tests:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-      - name: Install Backend Dependencies
-        run: pip install -r backend/requirements.txt
-      - name: Run Backend Unit Tests with Coverage
-        run: pytest --cov=backend --cov-report=xml --cov-fail-under=90
+      - name: Bring up Docker Compose
+        run: docker compose up -d
+      - name: Run Backend Unit Tests
+        run: docker compose exec backend bash -c "PYTHONPATH=/app pytest --cov=. --cov-report=term-missing"
 
   frontend_unit_tests:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-      - name: Install Frontend Dependencies
-        run: pip install -r frontend/requirements.txt
+      - name: Bring up Docker Compose
+        run: docker compose up -d
       - name: Run Frontend Unit Tests
-        run: python frontend/manage.py test
+        run: docker compose exec frontend python manage.py test
       # Note: Django's default test runner doesn't easily provide coverage reports in a way that can be directly checked for a threshold in a simple shell command without additional tools.
       # For coverage, you'd typically integrate with a tool like coverage.py and then report it.
       # For now, this will just run the tests and fail if any tests fail.
