@@ -278,7 +278,6 @@ jobs:
             echo '```'
             echo "${FRONTEND_SUMMARY}"
             echo '```'
-            echo "EOF"
             echo ""
             echo "#### Static Analysis (Flake8)"
             echo "* Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}"
