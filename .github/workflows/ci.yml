@@ -263,6 +263,8 @@ jobs:
           # --- Dependency Scan (Safety) ---
           BACKEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.backend_safety_summary }}"
           FRONTEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.frontend_safety_summary }}"
+          FRONTEND_SAFETY_SUMMARY_ESCAPED=$(echo "${FRONTEND_SAFETY_SUMMARY}" | jq -c '.')
+          BACKEND_SAFETY_SUMMARY_ESCAPED=$(echo "${BACKEND_SAFETY_SUMMARY}" | jq -c '.')
 
           # --- Container Scan (Trivy) ---
           BACKEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_backend_trivy_critical }}"
@@ -297,13 +299,13 @@ jobs:
             echo ""
             echo "#### Dependency Scan (Safety)"
             echo "Front End Safety"
-            echo '```'
-            echo "${FRONTEND_SAFETY_SUMMARY}"
+            echo '```json'
+            echo "${FRONTEND_SAFETY_SUMMARY_ESCAPED}"
             echo '```'
             echo ""
             echo "Backend Safety"
-            echo '```'
-            echo "${BACKEND_SAFETY_SUMMARY}"
+            echo '```json'
+            echo "${BACKEND_SAFETY_SUMMARY_ESCAPED}"
             echo '```'
             echo ""
             echo "#### Container Scan (Trivy)"
