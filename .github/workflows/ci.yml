@@ -21,7 +21,13 @@ jobs:
 
   static_analysis:
     needs: build
+    outputs:
+      backend_flake8_errors: ${{ steps.backend_flake8.outputs.errors }}
+      backend_flake8_warnings: ${{ steps.backend_flake8.outputs.warnings }}
+      frontend_flake8_errors: ${{ steps.frontend_flake8.outputs.errors }}
+      frontend_flake8_warnings: ${{ steps.frontend_flake8.outputs.warnings }}
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -39,8 +45,8 @@ jobs:
           echo "$FLAKE8_OUTPUT"
           ERRORS=$(echo "$FLAKE8_OUTPUT" | grep -c 'E[0-9]{3}' || true)
           WARNINGS=$(echo "$FLAKE8_OUTPUT" | grep -c 'W[0-9]{3}' || true)
-          echo "errors=${ERRORS}" >> $GITHUB_OUTPUT
-          echo "warnings=${WARNINGS}" >> $GITHUB_OUTPUT
+          echo "backend_flake8_errors=${ERRORS}" >> $GITHUB_OUTPUT
+          echo "backend_flake8_warnings=${WARNINGS}" >> $GITHUB_OUTPUT
       - name: Install Frontend Dependencies
         run: pip install -r frontend/requirements.txt
       - name: Run Frontend Static Analysis (Flake8) and Capture Results
@@ -52,14 +58,22 @@ jobs:
           echo "$FLAKE8_OUTPUT"
           ERRORS=$(echo "$FLAKE8_OUTPUT" | grep -c 'E[0-9]{3}' || true)
           WARNINGS=$(echo "$FLAKE8_OUTPUT" | grep -c 'W[0-9]{3}' || true)
-          echo "errors=${ERRORS}" >> $GITHUB_OUTPUT
-          echo "warnings=${WARNINGS}" >> $GITHUB_OUTPUT
+          echo "frontend_flake8_errors=${ERRORS}" >> $GITHUB_OUTPUT
+          echo "frontend_flake8_warnings=${WARNINGS}" >> $GITHUB_OUTPUT
       - name: Run Django System Checks
         run: python frontend/manage.py check
 
   dependency_scan:
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      backend_safety_critical: ${{ steps.backend_safety.outputs.critical }}
+      backend_safety_high: ${{ steps.backend_safety.outputs.high }}
+      backend_safety_medium: ${{ steps.backend_safety.outputs.medium }}
+      frontend_safety_critical: ${{ steps.frontend_safety.outputs.critical }}
+      frontend_safety_high: ${{ steps.frontend_safety.outputs.high }}
+      frontend_safety_medium: ${{ steps.frontend_safety.outputs.medium }}
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -94,6 +108,14 @@ jobs:
   container_scan:
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      parse_backend_trivy_critical: ${{ steps.backend_trivy.outputs.critical }}
+      parse_backend_trivy_high: ${{ steps.backend_trivy.outputs.high }}
+      parse_backend_trivy_medium: ${{ steps.backend_trivy.outputs.medium }}
+      parse_frontend_trivy_critical: ${{ steps.frontend_trivy.outputs.critical }}
+      parse_frontend_trivy_high: ${{ steps.frontend_trivy.outputs.high }}
+      parse_frontend_trivy_medium: ${{ steps.frontend_trivy.outputs.medium }}
+
     steps:
       - uses: actions/checkout@v4
       - name: Build Backend Docker Image
@@ -144,6 +166,8 @@ jobs:
   shakedown_test:
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      summary: ${{ steps.shakedown_results.outputs.summary }}
     steps:
       - uses: actions/checkout@v4
       - name: Create docker-compose wrapper
@@ -166,6 +190,11 @@ jobs:
   backend_unit_tests:
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      total_ran: ${{ steps.backend_tests.outputs.total_ran }}
+      passed: ${{ steps.backend_tests.outputs.passed }}
+      failed: ${{ steps.backend_tests.outputs.failed }}
+      skipped: ${{ steps.backend_tests.outputs.skipped}}
     steps:
       - uses: actions/checkout@v4
       - name: Bring up Docker Compose
@@ -292,7 +321,7 @@ jobs:
             echo "* Passed: ${FRONTEND_TESTS_PASSED}"
             echo "* Failed: ${FRONTEND_TESTS_FAILED}"
             echo ""
-            echo "echo #### Static Analysis (Flake8)"
+            echo "#### Static Analysis (Flake8)"
             echo "* Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}"
             echo "* Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}"
             echo ""
