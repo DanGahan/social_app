@@ -85,7 +85,7 @@ jobs:
           echo "$SAFETY_OUTPUT"
           SAFETY_SUMMARY=$(echo "$SAFETY_OUTPUT" | jq '(.vulnerabilities // []) as $vulns| reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({};. + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
           echo $SAFETY_SUMMARY
-          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "backend_safety_summary<<EOF" >> $GITHUB_OUTPUT
           echo "$SAFETY_SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT"
       - name: Run Frontend Dependency Scan and Capture Results
@@ -95,7 +95,7 @@ jobs:
           echo "$SAFETY_OUTPUT"
           SAFETY_SUMMARY=$(echo "$SAFETY_OUTPUT" | jq '(.vulnerabilities // []) as $vulns| reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({};. + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
           echo $SAFETY_SUMMARY
-          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "frontend_safety_summary<<EOF" >> $GITHUB_OUTPUT
           echo "$SAFETY_SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT"
 
