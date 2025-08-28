@@ -279,38 +279,38 @@ jobs:
           # write multi-line output safely using a literal block
           {
             echo "pr_comment<<EOF"
-            ### CI/CD Pipeline Results
-
-            #### Backend Unit Tests
-            * Total: ${BACKEND_TESTS_TOTAL_RAN}
-            * Passed: ${BACKEND_TESTS_PASSED}
-            * Failed: ${BACKEND_TESTS_FAILED}
-            * Skipped: ${BACKEND_TESTS_SKIPPED}
-
-            #### Frontend Unit Tests
-            * Total: ${FRONTEND_TESTS_TOTAL_RAN}
-            * Passed: ${FRONTEND_TESTS_PASSED}
-            * Failed: ${FRONTEND_TESTS_FAILED}
-
-            #### Static Analysis (Flake8)
-            * Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}
-            * Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}
-
-            #### Dependency Scan (Safety)
-            | Module   | Critical | High | Medium |
-            |----------|----------|------|--------|
-            | Backend  | ${BACKEND_SAFETY_CRITICAL} | ${BACKEND_SAFETY_HIGH} | ${BACKEND_SAFETY_MEDIUM} |
-            | Frontend | ${FRONTEND_SAFETY_CRITICAL} | ${FRONTEND_SAFETY_HIGH} | ${FRONTEND_SAFETY_MEDIUM} |
-
-            #### Container Scan (Trivy)
-            | Image    | Critical | High | Medium |
-            |----------|----------|------|--------|
-            | Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |
-            | Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |
-
-            #### Shakedown Test
-            \`\`\`
-            ${SHAKEDOWN_SUMMARY}
+            echo "### CI/CD Pipeline Results"
+            echo ""
+            echo "#### Backend Unit Tests"
+            echo "* Total: ${BACKEND_TESTS_TOTAL_RAN}"
+            echo "* Passed: ${BACKEND_TESTS_PASSED}"
+            echo "* Failed: ${BACKEND_TESTS_FAILED}"
+            echo "* Skipped: ${BACKEND_TESTS_SKIPPED}"
+            echo ""
+            echo "#### Frontend Unit Tests"
+            echo "* Total: ${FRONTEND_TESTS_TOTAL_RAN}"
+            echo "* Passed: ${FRONTEND_TESTS_PASSED}"
+            echo "* Failed: ${FRONTEND_TESTS_FAILED}"
+            echo ""
+            echo "echo #### Static Analysis (Flake8)"
+            echo "* Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}"
+            echo "* Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}"
+            echo ""
+            echo "#### Dependency Scan (Safety)"
+            echo "| Module   | Critical | High | Medium |"
+            echo "|----------|----------|------|--------|"
+            echo "| Backend  | ${BACKEND_SAFETY_CRITICAL} | ${BACKEND_SAFETY_HIGH} | ${BACKEND_SAFETY_MEDIUM} |"
+            echo "| Frontend | ${FRONTEND_SAFETY_CRITICAL} | ${FRONTEND_SAFETY_HIGH} | ${FRONTEND_SAFETY_MEDIUM} |"
+            echo ""
+            echo "#### Container Scan (Trivy)"
+            echo "| Image    | Critical | High | Medium |"
+            echo "|----------|----------|------|--------|"
+            echo "| Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |"
+            echo "| Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |"
+            echo ""
+            echo "#### Shakedown Test"
+            echo '```'
+            echo "${SHAKEDOWN_SUMMARY}"
             echo '```'
             echo "EOF"
           } >> $GITHUB_OUTPUT
