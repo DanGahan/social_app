@@ -225,6 +225,7 @@ jobs:
           SUMMARY=$(docker compose exec -T frontend python manage.py test --verbosity=2 || true)
           echo "$SUMMARY"
           echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
   report_pr_comment:
