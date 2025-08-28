@@ -36,6 +36,8 @@ jobs:
           python-version: '3.9' # Use Python 3.9 as per Dockerfiles
       - name: Install Backend Dependencies
         run: pip install -r backend/requirements.txt
+      - name: Install jq
+        run: apt-get install jq -y
       - name: Run Backend Static Analysis (Flake8) and Capture Results
         id: backend_flake8
         run: |
@@ -67,12 +69,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     outputs:
-      backend_safety_critical: ${{ steps.backend_safety.outputs.critical }}
-      backend_safety_high: ${{ steps.backend_safety.outputs.high }}
-      backend_safety_medium: ${{ steps.backend_safety.outputs.medium }}
-      frontend_safety_critical: ${{ steps.frontend_safety.outputs.critical }}
-      frontend_safety_high: ${{ steps.frontend_safety.outputs.high }}
-      frontend_safety_medium: ${{ steps.frontend_safety.outputs.medium }}
+      backend_safety_summary: ${{ steps.backend_safety.outputs.summary }}
+      frontend_safety_summary: ${{ steps.frontend_safety.outputs.summary }}
 
     steps:
       - uses: actions/checkout@v4
@@ -85,25 +83,17 @@ jobs:
       - name: Run Backend Dependency Scan and Capture Results
         id: backend_safety
         run: |
-          SAFETY_OUTPUT=$(safety check -r backend/requirements.txt --json || true) # Use || true to prevent job failure on vulnerabilities
+          SAFETY_OUTPUT=$(safety check -r requirements.txt --output json 2>/dev/null | sed -n '/^{/,/^}$/p')
           echo "$SAFETY_OUTPUT"
-          CRITICAL=$(echo "$SAFETY_OUTPUT" | jq '.[] | select(.severity == "critical")' | wc -l)
-          HIGH=$(echo "$SAFETY_OUTPUT" | jq '.[] | select(.severity == "high")' | wc -l)
-          MEDIUM=$(echo "$SAFETY_OUTPUT" | jq '.[] | select(.severity == "medium")' | wc -l)
-          echo "critical=${CRITICAL}" >> $GITHUB_OUTPUT
-          echo "high=${HIGH}" >> $GITHUB_OUTPUT
-          echo "medium=${MEDIUM}" >> $GITHUB_OUTPUT
+          SAFETY_SUMMARY=$(echo "$SAFETY_OUTPUT" | jq '(.vulnerabilities // []) as $vulns| reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({};. + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
+          echo "summary=$SAFETY_SUMMARY" >> $GITHUB_OUTPUT
       - name: Run Frontend Dependency Scan and Capture Results
         id: frontend_safety
         run: |
-          SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt --json || true) # Use || true to prevent job failure on vulnerabilities
+          SAFETY_OUTPUT=$(safety check -r requirements.txt --output json 2>/dev/null | sed -n '/^{/,/^}$/p')
           echo "$SAFETY_OUTPUT"
-          CRITICAL=$(echo "$SAFETY_OUTPUT" | jq '.[] | select(.severity == "critical")' | wc -l)
-          HIGH=$(echo "$SAFETY_OUTPUT" | jq '.[] | select(.severity == "high")' | wc -l)
-          MEDIUM=$(echo "$SAFETY_OUTPUT" | jq '.[] | select(.severity == "medium")' | wc -l)
-          echo "critical=${CRITICAL}" >> $GITHUB_OUTPUT
-          echo "high=${HIGH}" >> $GITHUB_OUTPUT
-          echo "medium=${MEDIUM}" >> $GITHUB_OUTPUT
+          SAFETY_SUMMARY=$(echo "$SAFETY_OUTPUT" | jq '(.vulnerabilities // []) as $vulns| reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({};. + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
+          echo "summary=$SAFETY_SUMMARY" >> $GITHUB_OUTPUT
 
   container_scan:
     needs: build
@@ -191,10 +181,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     outputs:
-      total_ran: ${{ steps.backend_tests.outputs.total_ran }}
+      coverage: ${{ steps.backend_tests.outputs.coverage}}
       passed: ${{ steps.backend_tests.outputs.passed }}
       failed: ${{ steps.backend_tests.outputs.failed }}
-      skipped: ${{ steps.backend_tests.outputs.skipped}}
+      warning: ${{ steps.backend_tests.outputs.warning }}
     steps:
       - uses: actions/checkout@v4
       - name: Bring up Docker Compose
@@ -204,23 +194,21 @@ jobs:
         run: |
           TEST_OUTPUT=$(docker compose exec backend bash -c "PYTHONPATH=/app pytest --cov=. --cov-report=term-missing --disable-warnings || true") # Added --disable-warnings and || true
           echo "$TEST_OUTPUT"
-          TOTAL_RAN=$(echo "$TEST_OUTPUT" | grep -oP 'collected \K\\d+' | head -1 || true)
+          COVERAGE=$(echo "$TEST_OUTPUT" | grep -E "^TOTAL" | awk '{print $4}' || true)
           PASSED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) passed' | grep -oP '\d+' || true)
           FAILED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) failed' | grep -oP '\d+' || true)
-          SKIPPED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) skipped' | grep -oP '\d+' || true)
+          WARNING=$(echo "$TEST_OUTPUT" | grep -E "passed.*warning" | grep -oE "[0-9]+ warning" | awk '{print $1}' || true)
 
-          echo "total_ran=${TOTAL_RAN:-0}" >> $GITHUB_OUTPUT
+          echo "coverage=${COVERAGE:-0}" >> $GITHUB_OUTPUT
           echo "passed=${PASSED:-0}" >> $GITHUB_OUTPUT
           echo "failed=${FAILED:-0}" >> $GITHUB_OUTPUT
-          echo "skipped=${SKIPPED:-0}" >> $GITHUB_OUTPUT
+          echo "warning=${WARNING:-0}" >> $GITHUB_OUTPUT
 
   frontend_unit_tests:
     needs: build
     runs-on: ubuntu-latest
     outputs:
-      total_ran: ${{ steps.tests.outputs.total_ran }}
-      passed: ${{ steps.tests.outputs.passed }}
-      failed: ${{ steps.tests.outputs.failed }}
+      summary: ${{ steps.tests.outputs.summary }}
     steps:
       - uses: actions/checkout@v4
 
@@ -231,35 +219,10 @@ jobs:
         id: tests
         run: |
           # Run Django tests inside frontend container and save output
-          TEST_OUTPUT=$(docker compose exec -T frontend python manage.py test --verbosity=2 || true)
-          echo "$TEST_OUTPUT"
+          SUMMARY=$(docker compose exec -T frontend python manage.py test --verbosity=2 || true)
+          echo "$SUMMARY"
 
-          # Parse the test results using regex
-          # Example Django summary: "Ran 10 tests in 0.123s\n\nOK" or "FAILED (failures=1, errors=0)"
-          TOTAL=$(echo "$TEST_OUTPUT" | grep -Eo 'Ran [0-9]+ tests?' | awk '{print $2}')
-          PASSED=""
-          FAILED=""
-          if echo "$TEST_OUTPUT" | grep -q "OK"; then
-            PASSED="$TOTAL"
-            FAILED=0
-          else
-            # extract failures and errors
-            FAILURES=$(echo "$TEST_OUTPUT" | grep -Eo 'failures=[0-9]+' | awk -F= '{print $2}')
-            ERRORS=$(echo "$TEST_OUTPUT" | grep -Eo 'errors=[0-9]+' | awk -F= '{print $2}')
-            FAILURES=${FAILURES:-0}
-            ERRORS=${ERRORS:-0}
-            FAILED=$((FAILURES + ERRORS))
-            PASSED=$((TOTAL - FAILED))
-          fi
-
-          echo "Total tests ran: $TOTAL"
-          echo "Passed: $PASSED"
-          echo "Failed: $FAILED"
-
-          # Set outputs for later jobs
-          echo "total_ran=$TOTAL" >> $GITHUB_OUTPUT
-          echo "passed=$PASSED" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
 
   report_pr_comment:
     needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests]
@@ -270,15 +233,14 @@ jobs:
         id: generate_comment
         run: |
           # --- Backend Unit Tests ---
-          BACKEND_TESTS_TOTAL_RAN="${{ needs.backend_unit_tests.outputs.total_ran }}"
+          BACKEND_TESTS_COVERAGE="${{ needs.backend_unit_tests.outputs.coverage }}"
           BACKEND_TESTS_PASSED="${{ needs.backend_unit_tests.outputs.passed }}"
           BACKEND_TESTS_FAILED="${{ needs.backend_unit_tests.outputs.failed }}"
-          BACKEND_TESTS_SKIPPED="${{ needs.backend_unit_tests.outputs.skipped }}"
+          BACKEND_TESTS_WARNING="${{ needs.backend_unit_tests.outputs.warning }}"
 
           # --- Frontend Unit Tests ---
-          FRONTEND_TESTS_TOTAL_RAN="${{ needs.frontend_unit_tests.outputs.total_ran }}"
-          FRONTEND_TESTS_PASSED="${{ needs.frontend_unit_tests.outputs.passed }}"
-          FRONTEND_TESTS_FAILED="${{ needs.frontend_unit_tests.outputs.failed }}"
+          FRONTEND_SUMMARY="${{ needs.frontend_unit_tests.outputs.summary }}"
+
 
           # --- Static Analysis (Flake8) ---
           BACKEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.backend_flake8_errors }}"
@@ -287,12 +249,8 @@ jobs:
           FRONTEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.frontend_flake8_warnings }}"
 
           # --- Dependency Scan (Safety) ---
-          BACKEND_SAFETY_CRITICAL="${{ needs.dependency_scan.outputs.backend_safety_critical }}"
-          BACKEND_SAFETY_HIGH="${{ needs.dependency_scan.outputs.backend_safety_high }}"
-          BACKEND_SAFETY_MEDIUM="${{ needs.dependency_scan.outputs.backend_safety_medium }}"
-          FRONTEND_SAFETY_CRITICAL="${{ needs.dependency_scan.outputs.frontend_safety_critical }}"
-          FRONTEND_SAFETY_HIGH="${{ needs.dependency_scan.outputs.frontend_safety_high }}"
-          FRONTEND_SAFETY_MEDIUM="${{ needs.dependency_scan.outputs.frontend_safety_medium }}"
+          BACKEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.backend_safety_summary }}"
+          FRONTEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.frontend_safety_summary }}"
 
           # --- Container Scan (Trivy) ---
           BACKEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_backend_trivy_critical }}"
@@ -317,19 +275,23 @@ jobs:
             echo "* Skipped: ${BACKEND_TESTS_SKIPPED}"
             echo ""
             echo "#### Frontend Unit Tests"
-            echo "* Total: ${FRONTEND_TESTS_TOTAL_RAN}"
-            echo "* Passed: ${FRONTEND_TESTS_PASSED}"
-            echo "* Failed: ${FRONTEND_TESTS_FAILED}"
+            echo '```'
+            echo "${FRONTEND_SUMMARY}"
+            echo '```'
             echo ""
             echo "#### Static Analysis (Flake8)"
             echo "* Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}"
             echo "* Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}"
             echo ""
             echo "#### Dependency Scan (Safety)"
-            echo "| Module   | Critical | High | Medium |"
-            echo "|----------|----------|------|--------|"
-            echo "| Backend  | ${BACKEND_SAFETY_CRITICAL} | ${BACKEND_SAFETY_HIGH} | ${BACKEND_SAFETY_MEDIUM} |"
-            echo "| Frontend | ${FRONTEND_SAFETY_CRITICAL} | ${FRONTEND_SAFETY_HIGH} | ${FRONTEND_SAFETY_MEDIUM} |"
+            echo "Front End Safety"
+            echo '```'
+            echo "${FRONTEND_SAFETY_SUMMARY}"
+            echo '```'
+            echo "Backend Safety"
+            echo '```'
+            echo "${BACKEND_SAFETY_SUMMARY}"
+            echo '```'
             echo ""
             echo "#### Container Scan (Trivy)"
             echo "| Image    | Critical | High | Medium |"
