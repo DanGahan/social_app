@@ -36,8 +36,6 @@ jobs:
           python-version: '3.9' # Use Python 3.9 as per Dockerfiles
       - name: Install Backend Dependencies
         run: pip install -r backend/requirements.txt
-      - name: Install jq
-        run: apt-get install jq -y
       - name: Run Backend Static Analysis (Flake8) and Capture Results
         id: backend_flake8
         run: |
@@ -221,8 +219,8 @@ jobs:
           # Run Django tests inside frontend container and save output
           SUMMARY=$(docker compose exec -T frontend python manage.py test --verbosity=2 || true)
           echo "$SUMMARY"
-
-          echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
   report_pr_comment:
     needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests]
