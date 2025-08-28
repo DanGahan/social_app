@@ -249,8 +249,8 @@ jobs:
           FRONTEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.frontend_flake8_warnings }}"
 
           # --- Dependency Scan (Safety) ---
-          FRONTEND_SAFETY_SUMMARY_ESCAPED="${FRONTEND_SAFETY_SUMMARY}"
-          BACKEND_SAFETY_SUMMARY_ESCAPED="${BACKEND_SAFETY_SUMMARY}"
+          FRONTEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.frontend_safety_summary }}"
+          BACKEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.backend_safety_summary }}"
 
           # --- Container Scan (Trivy) ---
           BACKEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_backend_trivy_critical }}"
@@ -286,12 +286,12 @@ jobs:
             echo "#### Dependency Scan (Safety)"
             echo "Front End Safety"
             echo '```json'
-            echo "${FRONTEND_SAFETY_SUMMARY_ESCAPED}"
+            echo "${FRONTEND_SAFETY_SUMMARY}"
             echo '```'
             echo ""
             echo "Backend Safety"
             echo '```json'
-            echo "${BACKEND_SAFETY_SUMMARY_ESCAPED}"
+            echo "${BACKEND_SAFETY_SUMMARY}"
             echo '```'
             echo ""
             echo "#### Container Scan (Trivy)"
