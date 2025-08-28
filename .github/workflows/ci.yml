@@ -78,25 +78,24 @@ jobs:
           python-version: '3.9'
       - name: Install Safety
         run: pip install safety jq
-      - name: Run Backend Dependency Scan and Capture Results
-        id: backend_safety
-        run: |
-          SAFETY_OUTPUT=$(safety check -r backend/requirements.txt --output json 2>/dev/null \
-            | sed -n '/^{/,/^}$/p' \
-            | jq '(.vulnerabilities // []) as $vulns
-                  | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
-
-          echo "backend_safety_summary=$(echo "$SAFETY_OUTPUT" | base64)" >> $GITHUB_OUTPUT
 
       - name: Run Frontend Dependency Scan and Capture Results
         id: frontend_safety
         run: |
           SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt --output json 2>/dev/null \
             | sed -n '/^{/,/^}$/p' \
-            | jq '(.vulnerabilities // []) as $vulns
-                  | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
+            | jq -c '(.vulnerabilities // []) as $vulns
+                      | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
+          echo "frontend_safety_summary=$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
 
-          echo "frontend_safety_summary=$(echo "$SAFETY_OUTPUT" | base64)" >> $GITHUB_OUTPUT
+      - name: Run Backend Dependency Scan and Capture Results
+        id: backend_safety
+        run: |
+          SAFETY_OUTPUT=$(safety check -r backend/requirements.txt --output json 2>/dev/null \
+            | sed -n '/^{/,/^}$/p' \
+            | jq -c '(.vulnerabilities // []) as $vulns
+                      | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
+          echo "backend_safety_summary=$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
 
 
   container_scan:
@@ -253,8 +252,8 @@ jobs:
           FRONTEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.frontend_flake8_warnings }}"
 
           # --- Dependency Scan (Safety) ---
-          FRONTEND_SAFETY_SUMMARY=$(echo "${{ needs.dependency_scan.outputs.frontend_safety_summary }}" | base64 --decode)
-          BACKEND_SAFETY_SUMMARY=$(echo "${{ needs.dependency_scan.outputs.backend_safety_summary }}" | base64 --decode)
+          FRONTEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.frontend_safety_summary }}"
+          BACKEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.backend_safety_summary }}"
 
           # --- Container Scan (Trivy) ---
           BACKEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_backend_trivy_critical }}"
