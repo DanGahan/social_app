@@ -86,7 +86,10 @@ jobs:
             | sed -n '/^{/,/^}$/p' \
             | jq -c '(.vulnerabilities // []) as $vulns
                       | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
-          echo "frontend_safety_summary=$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
+                    echo "$SUMMARY"
+          echo "frontend_safety_summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Run Backend Dependency Scan and Capture Results
         id: backend_safety
@@ -95,8 +98,9 @@ jobs:
             | sed -n '/^{/,/^}$/p' \
             | jq -c '(.vulnerabilities // []) as $vulns
                       | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
-          echo "backend_safety_summary=$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
-
+            echo "backend_safety_summary<<EOF" >> $GITHUB_OUTPUT
+            echo "$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
 
   container_scan:
     needs: build
@@ -222,7 +226,7 @@ jobs:
         id: tests
         run: |
           # Run Django tests inside frontend container and save output
-          SUMMARY=$(docker compose exec -T frontend python manage.py test --verbosity=2 || true)
+          SUMMARY=$(docker compose exec -T frontend python manage.py test --verbosity=2 || true && docker compose exec -T frontend python manage.py test --verbosity=2)
           echo "$SUMMARY"
           echo "summary<<EOF" >> $GITHUB_OUTPUT
           echo "$SUMMARY" >> $GITHUB_OUTPUT
@@ -289,10 +293,14 @@ jobs:
             echo ""
             echo "#### Dependency Scan (Safety)"
             echo "Front End Safety"
-            echo "$FRONTEND_SAFETY_SUMMARY"
+            echo '```'
+            echo "${FRONTEND_SAFETY_SUMMARY}"
+            echo '```'
             echo ""
             echo "Backend Safety"
-            echo "$BACKEND_SAFETY_SUMMARY"
+            echo '```'
+            echo "${BACKEND_SAFETY_SUMMARY}"
+            echo '```'
             echo ""
             echo "#### Container Scan (Trivy)"
             echo "| Image    | Critical | High | Medium |"
