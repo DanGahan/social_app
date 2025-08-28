@@ -1,12 +1,14 @@
 # populate_db.py
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from models import Base, User, Post, Connection, ConnectionRequest
-from config import Config
-from werkzeug.security import generate_password_hash
 import random
 from datetime import datetime, timedelta
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from werkzeug.security import generate_password_hash
+
+from config import Config
+from models import Base, Connection, ConnectionRequest, Post, User
 
 # Database setup
 app_config = Config()
@@ -29,7 +31,7 @@ IMAGE_URLS = [
     "https://wildnordics.com/wp-content/uploads/2019/01/France.jpg",
     "https://delveintoeurope.com/wp-content/uploads/2018/06/wengen2-1024x683.jpg",
     "https://www.mediastorehouse.co.uk/p/780/beautiful-beach-tranquil-scenery-33032242.jpg",
-    "https://i.natgeofe.com/n/9ad480f8-ca3a-46b2-842d-889d93afc43e/deosai-national-park-pakistan.jpg"
+    "https://i.natgeofe.com/n/9ad480f8-ca3a-46b2-842d-889d93afc43e/deosai-national-park-pakistan.jpg",
 ]
 
 PROFILE_PIC_URLS = [
@@ -37,11 +39,33 @@ PROFILE_PIC_URLS = [
     "https://res.cloudinary.com/jerrick/image/upload/d_642250b563292b35f27461a7.png,f_jpg,q_auto,w_720/6734c8df768161001d967e25.png",
     "https://www.befunky.com/images/wp/wp-2024-12-creative-profile-pics-double-exposure.jpg?auto=avif,webp&format=jpg&width=944",
     "https://marketplace.canva.com/EAFOWUXOOvs/1/0/1600w/canva-green-gradient-minimalist-simple-instagram-profile-picture-tBlf3wVYGhg.jpg",
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw9ozccPOSAwiNtYwqPLk6Gzbk-ltR8cv7Hw&s"
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw9ozccPOSAwiNtYwqPLk6Gzbk-ltR8cv7Hw&s",
 ]
 
-FIRST_NAMES = ["Alice", "Bob", "Charlie", "Diana", "Edward", "Fiona", "George", "Hannah", "Ian", "Julia"]
-LAST_NAMES = ["Smith", "Jones", "Williams", "Brown", "Davies", "Evans", "Wilson", "Taylor", "Wright", "White"]
+FIRST_NAMES = [
+    "Alice",
+    "Bob",
+    "Charlie",
+    "Diana",
+    "Edward",
+    "Fiona",
+    "George",
+    "Hannah",
+    "Ian",
+    "Julia",
+]
+LAST_NAMES = [
+    "Smith",
+    "Jones",
+    "Williams",
+    "Brown",
+    "Davies",
+    "Evans",
+    "Wilson",
+    "Taylor",
+    "Wright",
+    "White",
+]
 
 CAPTION_MESSAGES = [
     "Such a beautiful scene!",
@@ -53,8 +77,9 @@ CAPTION_MESSAGES = [
     "Incredible landscape.",
     "Pure serenity.",
     "A moment of peace.",
-    "Simply gorgeous."
+    "Simply gorgeous.",
 ]
+
 
 # ----------------------------
 # Populate test data
@@ -82,12 +107,17 @@ def populate_data(session=None):
     for i in range(1, 21):
         email = f"user{i}@example.com"
         password_hash = generate_password_hash(f"password{i}")
-        display_name = f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
+        display_name = (
+            f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
+        )
         profile_picture_url = random.choice(PROFILE_PIC_URLS)
 
-        user = User(email=email, password_hash=password_hash,
-                    display_name=display_name,
-                    profile_picture_url=profile_picture_url)
+        user = User(
+            email=email,
+            password_hash=password_hash,
+            display_name=display_name,
+            profile_picture_url=profile_picture_url,
+        )
         session.add(user)
         users.append(user)
 
@@ -104,8 +134,15 @@ def populate_data(session=None):
             random_days = random.randint(0, 6)
             random_hours = random.randint(0, 23)
             random_minutes = random.randint(0, 59)
-            created_at = datetime.now() - timedelta(days=random_days, hours=random_hours, minutes=random_minutes)
-            post = Post(user_id=user.id, image_url=image_url, caption=caption, created_at=created_at)
+            created_at = datetime.now() - timedelta(
+                days=random_days, hours=random_hours, minutes=random_minutes
+            )
+            post = Post(
+                user_id=user.id,
+                image_url=image_url,
+                caption=caption,
+                created_at=created_at,
+            )
             session.add(post)
             posts.append(post)
 
@@ -120,7 +157,11 @@ def populate_data(session=None):
         for user2 in possible_connections[:2]:
             u1_id = min(user1.id, user2.id)
             u2_id = max(user1.id, user2.id)
-            existing_connection = session.query(Connection).filter_by(user_id1=u1_id, user_id2=u2_id).first()
+            existing_connection = (
+                session.query(Connection)
+                .filter_by(user_id1=u1_id, user_id2=u2_id)
+                .first()
+            )
             if not existing_connection:
                 connection = Connection(user_id1=u1_id, user_id2=u2_id)
                 session.add(connection)
@@ -130,11 +171,13 @@ def populate_data(session=None):
     print(f"Created {connections_count} connections.")
     print("Test data population complete.")
 
+
 # ----------------------------
 # Main
 # ----------------------------
 def main():
     populate_data()
+
 
 if __name__ == "__main__":
     main()

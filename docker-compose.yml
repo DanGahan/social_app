@@ -38,6 +38,8 @@ services:
     container_name: social_frontend
     ports:
       - "8000:8000"
+    volumes:
+      - ./frontend:/app
     depends_on:
       backend:
         condition: service_started
