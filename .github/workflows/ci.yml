@@ -88,9 +88,7 @@ jobs:
                       | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
 
           echo $SAFETY_OUTPUT
-          echo "frontend_safety_summary<<EOF" >> $GITHUB_OUTPUT
-          echo "$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "frontend_safety_summary=${SAFETY_OUTPUT}" >> $GITHUB_OUTPUT
 
       - name: Run Backend Dependency Scan and Capture Results
         id: backend_safety
@@ -100,9 +98,7 @@ jobs:
             | jq -c '(.vulnerabilities // []) as $vulns
                       | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
             echo $SAFETY_OUTPUT
-            echo "backend_safety_summary<<EOF" >> $GITHUB_OUTPUT
-            echo "$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            echo "backend_safety_summary=${SAFETY_OUTPUT}" >> $GITHUB_OUTPUT
 
   container_scan:
     needs: build
@@ -295,14 +291,10 @@ jobs:
             echo ""
             echo "#### Dependency Scan (Safety)"
             echo "Front End Safety"
-            echo '```'
             echo "${FRONTEND_SAFETY_SUMMARY}"
-            echo '```'
             echo ""
             echo "Backend Safety"
-            echo '```'
             echo "${BACKEND_SAFETY_SUMMARY}"
-            echo '```'
             echo ""
             echo "#### Container Scan (Trivy)"
             echo "| Image    | Critical | High | Medium |"
