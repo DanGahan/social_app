@@ -77,13 +77,14 @@ jobs:
         with:
           python-version: '3.9'
       - name: Install Safety
-        run: pip install safety
+        run: pip install safety jq
       - name: Run Backend Dependency Scan and Capture Results
         id: backend_safety
         run: |
           SAFETY_OUTPUT=$(safety check -r requirements.txt --output json 2>/dev/null | sed -n '/^{/,/^}$/p')
           echo "$SAFETY_OUTPUT"
           SAFETY_SUMMARY=$(echo "$SAFETY_OUTPUT" | jq '(.vulnerabilities // []) as $vulns| reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({};. + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
+          echo $SAFETY_SUMMARY
           echo "summary=$SAFETY_SUMMARY" >> $GITHUB_OUTPUT
       - name: Run Frontend Dependency Scan and Capture Results
         id: frontend_safety
@@ -91,6 +92,7 @@ jobs:
           SAFETY_OUTPUT=$(safety check -r requirements.txt --output json 2>/dev/null | sed -n '/^{/,/^}$/p')
           echo "$SAFETY_OUTPUT"
           SAFETY_SUMMARY=$(echo "$SAFETY_OUTPUT" | jq '(.vulnerabilities // []) as $vulns| reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({};. + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
+          echo $SAFETY_SUMMARY
           echo "summary=$SAFETY_SUMMARY" >> $GITHUB_OUTPUT
 
   container_scan:
@@ -267,15 +269,16 @@ jobs:
             echo "### CI/CD Pipeline Results"
             echo ""
             echo "#### Backend Unit Tests"
-            echo "* Total: ${BACKEND_TESTS_TOTAL_RAN}"
+            echo "* Coverage: ${BACKEND_TESTS_COVERAGE}"
             echo "* Passed: ${BACKEND_TESTS_PASSED}"
             echo "* Failed: ${BACKEND_TESTS_FAILED}"
-            echo "* Skipped: ${BACKEND_TESTS_SKIPPED}"
+            echo "* Warnings: ${BACKEND_TESTS_WARNING}"
             echo ""
             echo "#### Frontend Unit Tests"
             echo '```'
             echo "${FRONTEND_SUMMARY}"
             echo '```'
+            echo "EOF"
             echo ""
             echo "#### Static Analysis (Flake8)"
             echo "* Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}"
@@ -286,6 +289,7 @@ jobs:
             echo '```'
             echo "${FRONTEND_SAFETY_SUMMARY}"
             echo '```'
+            echo ""
             echo "Backend Safety"
             echo '```'
             echo "${BACKEND_SAFETY_SUMMARY}"
