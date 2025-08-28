@@ -288,14 +288,10 @@ jobs:
             echo ""
             echo "#### Dependency Scan (Safety)"
             echo "Front End Safety"
-            echo '```json'
             echo "$FRONTEND_SAFETY_SUMMARY"
-            echo '```'
             echo ""
             echo "Backend Safety"
-            echo '```json'
             echo "$BACKEND_SAFETY_SUMMARY"
-            echo '```'
             echo ""
             echo "#### Container Scan (Trivy)"
             echo "| Image    | Critical | High | Medium |"
