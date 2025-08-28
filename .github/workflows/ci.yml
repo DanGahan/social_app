@@ -92,7 +92,7 @@ jobs:
           SAFETY_OUTPUT=$(safety check -r requirements.txt --output json 2>/dev/null | sed -n '/^{/,/^}$/p')
           echo "$SAFETY_OUTPUT"
           SAFETY_SUMMARY=$(echo "$SAFETY_OUTPUT" | jq '(.vulnerabilities // []) as $vulns| reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({};. + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
-          echo $SAFETY_SUMMARY
+          echo "$SAFETY_SUMMARY"
           echo "summary=$SAFETY_SUMMARY" >> $GITHUB_OUTPUT
 
   container_scan:
