@@ -81,20 +81,30 @@ jobs:
       - name: Run Backend Dependency Scan and Capture Results
         id: backend_safety
         run: |
-          SAFETY_OUTPUT=$(safety check -r backend/requirements.txt --output json 2>/dev/null | sed -n '/^{/,/^}$/p')
-          echo "$SAFETY_OUTPUT"
-          SAFETY_SUMMARY=$(echo "$SAFETY_OUTPUT" | jq '(.vulnerabilities // []) as $vulns| reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({};. + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
-          echo $SAFETY_SUMMARY
-          echo "backend_safety_summary=${SAFETY_SUMMARY}" >> $GITHUB_OUTPUT
+            echo "backend_safety_summary<<EOF" >> $GITHUB_OUTPUT
+            safety check -r backend/requirements.txt --output json 2>/dev/null \
+              | sed -n '/^{/,/^}$/p' \
+              | jq '(.vulnerabilities // []) as $vulns
+                    | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev (
+                        {};
+                        . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) }
+                      )' \
+              >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Run Frontend Dependency Scan and Capture Results
         id: frontend_safety
         run: |
-          SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt --output json 2>/dev/null | sed -n '/^{/,/^}$/p')
-          echo "$SAFETY_OUTPUT"
-          SAFETY_SUMMARY=$(echo "$SAFETY_OUTPUT" | jq '(.vulnerabilities // []) as $vulns| reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({};. + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
-          echo $SAFETY_SUMMARY
-          echo "frontend_safety_summary=${SAFETY_SUMMARY}" >> $GITHUB_OUTPUT
+            echo "frontend_safety_summary<<EOF" >> $GITHUB_OUTPUT
+            safety check -r frontend/requirements.txt --output json 2>/dev/null \
+              | sed -n '/^{/,/^}$/p' \
+              | jq '(.vulnerabilities // []) as $vulns
+                    | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev (
+                        {};
+                        . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) }
+                      )' \
+              >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
 
 
   container_scan:
