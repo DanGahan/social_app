@@ -85,15 +85,19 @@ jobs:
           echo "$SAFETY_OUTPUT"
           SAFETY_SUMMARY=$(echo "$SAFETY_OUTPUT" | jq '(.vulnerabilities // []) as $vulns| reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({};. + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
           echo $SAFETY_SUMMARY
-          echo "summary=$SAFETY_SUMMARY" >> $GITHUB_OUTPUT
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$SAFETY_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT"
       - name: Run Frontend Dependency Scan and Capture Results
         id: frontend_safety
         run: |
           SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt --output json 2>/dev/null | sed -n '/^{/,/^}$/p')
           echo "$SAFETY_OUTPUT"
           SAFETY_SUMMARY=$(echo "$SAFETY_OUTPUT" | jq '(.vulnerabilities // []) as $vulns| reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({};. + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
-          echo "$SAFETY_SUMMARY"
-          echo "summary=$SAFETY_SUMMARY" >> $GITHUB_OUTPUT
+          echo $SAFETY_SUMMARY
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$SAFETY_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT"
 
   container_scan:
     needs: build
