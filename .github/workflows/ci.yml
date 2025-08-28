@@ -85,7 +85,7 @@ jobs:
           SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt --output json 2>/dev/null \
             | sed -n '/^{/,/^}$/p' \
             | jq -c '(.vulnerabilities // []) as $vulns
-                      | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
+                      | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
 
           echo $SAFETY_OUTPUT
           echo "frontend_safety_summary<<EOF" >> $GITHUB_OUTPUT
@@ -98,7 +98,7 @@ jobs:
           SAFETY_OUTPUT=$(safety check -r backend/requirements.txt --output json 2>/dev/null \
             | sed -n '/^{/,/^}$/p' \
             | jq -c '(.vulnerabilities // []) as $vulns
-                      | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })')
+                      | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
             echo $SAFETY_OUTPUT
             echo "backend_safety_summary<<EOF" >> $GITHUB_OUTPUT
             echo "$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
