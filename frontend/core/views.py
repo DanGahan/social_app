@@ -410,7 +410,7 @@ def search_users_view(request):
         users = response.json()
         return JsonResponse({"users": users})
     except requests.exceptions.RequestException as e:
-        return JsonResponse({"error": f"Failed to search users: {e}"}, status=500)
+        return JsonResponse({"error": "Failed to search users."}, status=500)
 
 
 def get_user_profile_and_posts(request, user_id):
@@ -452,7 +452,7 @@ def get_user_profile_and_posts(request, user_id):
         return JsonResponse({"error": f"Request to Flask backend failed: {e}"}, status=500)
     except Exception as e:  # Catch any other unexpected errors
         return JsonResponse(
-            {"error": f"An unexpected error occurred in Django view: {e}"},
+            {"error": "An unexpected error occurred in Django view."},
             status=500,
         )
 
@@ -478,7 +478,7 @@ def api_request_connection(request):
                 response.raise_for_status()
                 return JsonResponse(response.json())
             except requests.exceptions.RequestException as e:
-                return JsonResponse({"error": f"Failed to send request: {e}"}, status=500)
+                return JsonResponse({"error": "Failed to send request."}, status=500)
         else:
             return JsonResponse(
                 {"error": "Please provide a user ID to connect to."},
