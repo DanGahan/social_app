@@ -478,7 +478,7 @@ def api_request_connection(request):
                 response.raise_for_status()
                 return JsonResponse(response.json())
             except requests.exceptions.RequestException as e:
-                return JsonResponse({"error": f"Failed to send request: {e}"}, status=500)
+                return JsonResponse({"error": "Failed to send request."}, status=500)
         else:
             return JsonResponse(
                 {"error": "Please provide a user ID to connect to."},
