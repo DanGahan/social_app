@@ -6,3 +6,7 @@ PyJWT
 flask-restx
 pytest
 pytest-cov
+isort
+black
+flake8
+setuptools==78.1.1

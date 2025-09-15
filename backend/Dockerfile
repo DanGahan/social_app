@@ -1,4 +1,5 @@
-FROM python:3.9-slim-buster
+FROM python:3.9-slim-bookworm
+RUN apt-get update && apt-get upgrade -y && apt-get clean
 
 WORKDIR /app
 
