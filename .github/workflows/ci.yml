@@ -415,9 +415,9 @@ jobs:
           # Debug: show output in logs
           echo "$OUTPUT"
 
-          ESCAPED_OUTPUT=$(echo "$OUTPUT" | sed 's/PR_COMMENT_EOF/PR_COMMENT_EOF_ESCAPED/g')
-          cat <<GEMINI_OUTPUT >> $GITHUB_OUTPUT
+          ENCODED_OUTPUT=$(echo "$OUTPUT" | base64 -w 0)
+          cat <<ENCODED_OUTPUT >> $GITHUB_OUTPUT
           summary<<EOF
-          $ESCAPED_OUTPUT
+          $ENCODED_OUTPUT
           EOF
-          GEMINI_OUTPUT
+          ENCODED_OUTPUT
