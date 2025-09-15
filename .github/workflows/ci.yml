@@ -274,7 +274,7 @@ jobs:
 
           # write multi-line output safely using a literal block
           {
-            echo "pr_comment<<'PR_COMMENT_EOF'"
+            echo "pr_comment<<PR_COMMENT_DELIMITER"
             echo "### CI/CD Pipeline Results"
             echo ""
             echo "#### Backend Unit Tests"
@@ -314,8 +314,7 @@ jobs:
             echo '```'
             echo "${GEMINI_REVIEW_SUMMARY}" | base64 --decode
             echo '```'
-            PR_COMMENT_EOF
-            COMMENT_OUTPUT
+            echo "PR_COMMENT_DELIMITER"
           } >> $GITHUB_OUTPUT
 
       - name: Post PR Comment
