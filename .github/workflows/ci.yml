@@ -302,7 +302,7 @@ jobs:
             echo "#### Container Scan (Trivy)"
             echo "| Image    | Critical | High | Medium |"
             echo "|----------|----------|------|--------|"
-            echo "| Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |
+            echo "| Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |"
             echo "| Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |"
             echo ""
             echo "#### Shakedown Test"
