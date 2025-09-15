@@ -339,7 +339,7 @@ jobs:
         uses: google-github-actions/run-gemini-cli@v0.1.10
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          command: |
+          prompt: |
             PR_DIFF=$(curl -L ${{ github.event.pull_request.diff_url }})
 
             # Collect all outputs from previous jobs
@@ -362,7 +362,6 @@ jobs:
             FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
             SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
 
-            gemini-cli generate-pr-review --prompt "$(cat <<EOF
             Review the following Pull Request. Provide a human-understandable overview of the updates, analyze the test results, and give a recommendation whether to merge or not.
 
             ## Pull Request Diff
@@ -403,5 +402,3 @@ jobs:
             ```
 
             Based on the above, provide a concise summary and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
-            EOF
-            )"
