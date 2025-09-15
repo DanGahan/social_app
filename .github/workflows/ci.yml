@@ -310,11 +310,12 @@ jobs:
             echo "${SHAKEDOWN_SUMMARY}"
             echo '```'
             echo ""
-            echo "#### Gemini Review"
-            echo '```'
-            echo "${GEMINI_REVIEW_SUMMARY//\`/\`}"
-            echo '```'
-            echo "EOF"
+            #### Gemini Review
+            \`\`\`
+            ${GEMINI_REVIEW_SUMMARY//\`/\`}
+            \`\`\`
+            EOF
+            COMMENT_OUTPUT
           } >> $GITHUB_OUTPUT
 
       - name: Post PR Comment
