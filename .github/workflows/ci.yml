@@ -336,6 +336,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+      - name: Debug GEMINI_API_KEY
+        run: echo "Key length is ${#GEMINI_API_KEY}"   # should print a nonzero number
       - name: Generate Gemini Review
         id: gemini_review_step
         uses: google-github-actions/run-gemini-cli@v0.1.10
