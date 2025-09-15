@@ -104,12 +104,12 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     outputs:
-      parse_backend_trivy_critical: ${{ steps.backend_trivy.outputs.critical }}
-      parse_backend_trivy_high: ${{ steps.backend_trivy.outputs.high }}
-      parse_backend_trivy_medium: ${{ steps.backend_trivy.outputs.medium }}
-      parse_frontend_trivy_critical: ${{ steps.frontend_trivy.outputs.critical }}
-      parse_frontend_trivy_high: ${{ steps.frontend_trivy.outputs.high }}
-      parse_frontend_trivy_medium: ${{ steps.frontend_trivy.outputs.medium }}
+      parse_backend_trivy_critical: ${{ steps.parse_backend_trivy.outputs.critical }}
+      parse_backend_trivy_high: ${{ steps.parse_backend_trivy.outputs.high }}
+      parse_backend_trivy_medium: ${{ steps.parse_backend_trivy.outputs.medium }}
+      parse_frontend_trivy_critical: ${{ steps.parse_frontend_trivy.outputs.critical }}
+      parse_frontend_trivy_high: ${{ steps.parse_frontend_trivy.outputs.high }}
+      parse_frontend_trivy_medium: ${{ steps.parse_frontend_trivy.outputs.medium }}
 
     steps:
       - uses: actions/checkout@v4
