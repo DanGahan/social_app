@@ -22,10 +22,10 @@ jobs:
   static_analysis:
     needs: build
     outputs:
-      backend_flake8_errors: ${{ steps.backend_flake8.outputs.errors }}
-      backend_flake8_warnings: ${{ steps.backend_flake8.outputs.warnings }}
-      frontend_flake8_errors: ${{ steps.frontend_flake8.outputs.errors }}
-      frontend_flake8_warnings: ${{ steps.frontend_flake8.outputs.warnings }}
+      backend_flake8_errors: ${{ steps.backend_flake8.outputs.backend_flake8_errors }}
+      backend_flake8_warnings: ${{ steps.backend_flake8.outputs.backend_flake8_warnings }}
+      frontend_flake8_errors: ${{ steps.frontend_flake8.outputs.frontend_flake8_errors }}
+      frontend_flake8_warnings: ${{ steps.frontend_flake8.outputs.frontend_flake8_warnings }}
     runs-on: ubuntu-latest
 
     steps:
