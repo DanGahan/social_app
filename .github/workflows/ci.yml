@@ -312,7 +312,7 @@ jobs:
             echo ""
             echo "#### Gemini Review"
             ```
-            ${GEMINI_REVIEW_SUMMARY}
+            echo ${GEMINI_REVIEW_SUMMARY} | base64 --decode
             ```
             PR_COMMENT_EOF
             COMMENT_OUTPUT
