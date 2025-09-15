@@ -410,7 +410,7 @@ def search_users_view(request):
         users = response.json()
         return JsonResponse({"users": users})
     except requests.exceptions.RequestException as e:
-        return JsonResponse({"error": f"Failed to search users: {e}"}, status=500)
+        return JsonResponse({"error": "Failed to search users."}, status=500)
 
 
 def get_user_profile_and_posts(request, user_id):
