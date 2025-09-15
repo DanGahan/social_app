@@ -311,9 +311,9 @@ jobs:
             echo '```'
             echo ""
             #### Gemini Review
-            \`\`\`
-            ${GEMINI_REVIEW_SUMMARY//\`/\`}
-            \`\`\`
+            ```
+            "$(echo "${GEMINI_REVIEW_SUMMARY}" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed 's/`/\\`/g')"
+            ```
             EOF
             COMMENT_OUTPUT
           } >> $GITHUB_OUTPUT
