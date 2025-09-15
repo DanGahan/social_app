@@ -414,7 +414,8 @@ jobs:
           # Debug: show output in logs
           echo "$OUTPUT"
 
-          # Make it available to later jobs
-          echo "summary<<EOF" >> $GITHUB_OUTPUT
-          echo "$OUTPUT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          cat <<GEMINI_OUTPUT >> $GITHUB_OUTPUT
+          summary<<EOF
+          $OUTPUT
+          EOF
+          GEMINI_OUTPUT
