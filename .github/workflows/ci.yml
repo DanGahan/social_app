@@ -311,9 +311,9 @@ jobs:
             echo '```'
             echo ""
             echo "#### Gemini Review"
-            ```
-            echo ${GEMINI_REVIEW_SUMMARY} | base64 --decode
-            ```
+            echo '```'
+            echo "${GEMINI_REVIEW_SUMMARY}" | base64 --decode
+            echo '```'
             PR_COMMENT_EOF
             COMMENT_OUTPUT
           } >> $GITHUB_OUTPUT
