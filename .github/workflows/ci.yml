@@ -409,7 +409,7 @@ jobs:
           EOT
           )
 
-          OUTPUT=$(gemini-cli review --prompt "$PROMPT")
+          OUTPUT=$(gemini review --prompt "$PROMPT")
 
           # Debug: show output in logs
           echo "$OUTPUT"
