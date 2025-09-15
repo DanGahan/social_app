@@ -67,8 +67,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     outputs:
-      backend_safety_summary: ${{ steps.backend_safety.outputs.summary }}
-      frontend_safety_summary: ${{ steps.frontend_safety.outputs.summary }}
+      backend_safety_summary: ${{ steps.backend_safety.outputs.backend_safety_summary }}
+      frontend_safety_summary: ${{ steps.frontend_safety.outputs.frontend_safety_summary }}
 
     steps:
       - uses: actions/checkout@v4
