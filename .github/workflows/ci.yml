@@ -312,7 +312,7 @@ jobs:
             echo ""
             echo "#### Gemini Review"
             ```
-            $(printf %s "${GEMINI_REVIEW_SUMMARY}" | sed "s/PR_COMMENT_EOF/PR_COMMENT_EOF_ESCAPED/g")
+            ${GEMINI_REVIEW_SUMMARY}
             ```
             PR_COMMENT_EOF
             COMMENT_OUTPUT
@@ -415,7 +415,7 @@ jobs:
           # Debug: show output in logs
           echo "$OUTPUT"
 
-          ESCAPED_OUTPUT=$(echo "$OUTPUT" | jq -Rs . | sed 's/^"//; s/"$//' | sed 's/PR_COMMENT_EOF/PR_COMMENT_EOF_ESCAPED/g')
+          ESCAPED_OUTPUT=$(echo "$OUTPUT" | sed 's/PR_COMMENT_EOF/PR_COMMENT_EOF_ESCAPED/g')
           cat <<GEMINI_OUTPUT >> $GITHUB_OUTPUT
           summary<<EOF
           $ESCAPED_OUTPUT
