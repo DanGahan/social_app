@@ -452,7 +452,7 @@ def get_user_profile_and_posts(request, user_id):
         return JsonResponse({"error": f"Request to Flask backend failed: {e}"}, status=500)
     except Exception as e:  # Catch any other unexpected errors
         return JsonResponse(
-            {"error": f"An unexpected error occurred in Django view: {e}"},
+            {"error": "An unexpected error occurred in Django view."},
             status=500,
         )
 
