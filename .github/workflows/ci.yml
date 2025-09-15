@@ -332,14 +332,15 @@ jobs:
       pull-requests: write
     outputs:
       summary: ${{ steps.gemini_review_step.outputs.summary }}
+    env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - name: Generate Gemini Review
         id: gemini_review_step
         uses: google-github-actions/run-gemini-cli@v0.1.10
+
         with:
-          env: |
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           prompt: |
             PR_DIFF=$(curl -L ${{ github.event.pull_request.diff_url }})
 
