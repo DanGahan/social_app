@@ -415,8 +415,9 @@ jobs:
           # Debug: show output in logs
           echo "$OUTPUT"
 
+          ESCAPED_OUTPUT=$(echo "$OUTPUT" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\`/g')
           cat <<GEMINI_OUTPUT >> $GITHUB_OUTPUT
           summary<<EOF
-          $OUTPUT
+          $ESCAPED_OUTPUT
           EOF
           GEMINI_OUTPUT
