@@ -312,7 +312,7 @@ jobs:
             echo ""
             echo "#### Gemini Review"
             ```
-            $(echo "${GEMINI_REVIEW_SUMMARY}" | sed "s/PR_COMMENT_EOF/PR_COMMENT_EOF_ESCAPED/g")
+            $(printf %s "${GEMINI_REVIEW_SUMMARY}" | sed "s/PR_COMMENT_EOF/PR_COMMENT_EOF_ESCAPED/g")
             ```
             PR_COMMENT_EOF
             COMMENT_OUTPUT
