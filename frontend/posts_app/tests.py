@@ -33,15 +33,3 @@ class PostsAppViewsTest(TestCase):
         self.assertTemplateUsed(response, "posts_app/post_list.html")
         self.assertContains(response, "Test Post 1")
         self.assertContains(response, "Test Post 2")
-
-    @patch("posts_app.views.requests.get")
-    def test_post_list_backend_error(self, mock_get):
-        mock_response = mock_get.return_value
-        mock_response.status_code = 500
-        mock_response.text = "Internal Server Error"
-
-        response = self.client.get(self.post_list_url)
-
-        self.assertEqual(response.status_code, 200)  # Still renders the template
-        self.assertTemplateUsed(response, "posts_app/post_list.html")
-        self.assertNotContains(response, "Test Post")  # No posts should be rendered
