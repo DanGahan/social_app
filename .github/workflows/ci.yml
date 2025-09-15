@@ -334,77 +334,73 @@ jobs:
       summary: ${{ steps.gemini_review_step.outputs.summary }}
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Gemini CLI
-        uses: google-github-actions/setup-gemini-cli@v1
-        with:
-          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
       - name: Generate Gemini Review
         id: gemini_review_step
-        run: |
-          PR_DIFF=$(curl -L ${{ github.event.pull_request.diff_url }})
+        uses: google-github-actions/run-gemini-cli@v1
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          command: |
+            PR_DIFF=$(curl -L ${{ github.event.pull_request.diff_url }})
 
-          # Collect all outputs from previous jobs
-          BACKEND_TESTS_COVERAGE="${{ needs.backend_unit_tests.outputs.coverage }}"
-          BACKEND_TESTS_PASSED="${{ needs.backend_unit_tests.outputs.passed }}"
-          BACKEND_TESTS_FAILED="${{ needs.backend_unit_tests.outputs.failed }}"
-          BACKEND_TESTS_WARNING="${{ needs.backend_unit_tests.outputs.warning }}"
-          FRONTEND_SUMMARY="${{ needs.frontend_unit_tests.outputs.summary }}"
-          BACKEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.backend_flake8_errors }}"
-          BACKEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.backend_flake8_warnings }}"
-          FRONTEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.frontend_flake8_errors }}"
-          FRONTEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.frontend_flake8_warnings }}"
-          FRONTEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.frontend_safety_summary }}"
-          BACKEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.backend_safety_summary }}"
-          BACKEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_backend_trivy_critical }}"
-          BACKEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_backend_trivy_high }}"
-          BACKEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_backend_trivy_medium }}"
-          FRONTEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_frontend_trivy_critical }}"
-          FRONTEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_frontend_trivy_high }}"
-          FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
-          SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
+            # Collect all outputs from previous jobs
+            BACKEND_TESTS_COVERAGE="${{ needs.backend_unit_tests.outputs.coverage }}"
+            BACKEND_TESTS_PASSED="${{ needs.backend_unit_tests.outputs.passed }}"
+            BACKEND_TESTS_FAILED="${{ needs.backend_unit_tests.outputs.failed }}"
+            BACKEND_TESTS_WARNING="${{ needs.backend_unit_tests.outputs.warning }}"
+            FRONTEND_SUMMARY="${{ needs.frontend_unit_tests.outputs.summary }}"
+            BACKEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.backend_flake8_errors }}"
+            BACKEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.backend_flake8_warnings }}"
+            FRONTEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.frontend_flake8_errors }}"
+            FRONTEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.frontend_flake8_warnings }}"
+            FRONTEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.frontend_safety_summary }}"
+            BACKEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.backend_safety_summary }}"
+            BACKEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_backend_trivy_critical }}"
+            BACKEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_backend_trivy_high }}"
+            BACKEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_backend_trivy_medium }}"
+            FRONTEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_frontend_trivy_critical }}"
+            FRONTEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_frontend_trivy_high }}"
+            FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
+            SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
 
-          PROMPT="Review the following Pull Request. Provide a human-understandable overview of the updates, analyze the test results, and give a recommendation whether to merge or not.
+            PROMPT="Review the following Pull Request. Provide a human-understandable overview of the updates, analyze the test results, and give a recommendation whether to merge or not.
 
-          ## Pull Request Diff
-          ```diff
-          ${PR_DIFF}
-          ```
+            ## Pull Request Diff
+            ```diff
+            ${PR_DIFF}
+            ```
 
-          ## Test Results
+            ## Test Results
 
-          ### Backend Unit Tests
-          * Coverage: ${BACKEND_TESTS_COVERAGE}
-          * Passed: ${BACKEND_TESTS_PASSED}
-          * Failed: ${BACKEND_TESTS_FAILED}
-          * Warnings: ${BACKEND_TESTS_WARNING}
+            ### Backend Unit Tests
+            * Coverage: ${BACKEND_TESTS_COVERAGE}
+            * Passed: ${BACKEND_TESTS_PASSED}
+            * Failed: ${BACKEND_TESTS_FAILED}
+            * Warnings: ${BACKEND_TESTS_WARNING}
 
-          ### Frontend Unit Tests
-          ```
-          ${FRONTEND_SUMMARY}
-          ```
+            ### Frontend Unit Tests
+            ```
+            ${FRONTEND_SUMMARY}
+            ```
 
-          ### Static Analysis (Flake8)
-          * Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}
-          * Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}
+            ### Static Analysis (Flake8)
+            * Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}
+            * Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}
 
-          ### Dependency Scan (Safety)
-          Front End Safety: ${FRONTEND_SAFETY_SUMMARY}
-          Backend Safety: ${BACKEND_SAFETY_SUMMARY}
+            ### Dependency Scan (Safety)
+            Front End Safety: ${FRONTEND_SAFETY_SUMMARY}
+            Backend Safety: ${BACKEND_SAFETY_SUMMARY}
 
-          ### Container Scan (Trivy)
-          | Image    | Critical | High | Medium |
-          |----------|----------|------|--------|
-          | Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |
-          | Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |
+            ### Container Scan (Trivy)
+            | Image    | Critical | High | Medium |
+            |----------|----------|------|--------|
+            | Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |
+            | Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |
 
-          ### Shakedown Test
-          ```
-          ${SHAKEDOWN_SUMMARY}
-          ```
+            ### Shakedown Test
+            ```
+            ${SHAKEDOWN_SUMMARY}
+            ```
 
-          Based on the above, provide a concise summary and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions')."
+            Based on the above, provide a concise summary and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions')."
 
-          GEMINI_OUTPUT=$(gemini-cli generate-pr-review --prompt "${PROMPT}")
-          echo "summary<<EOF" >> $GITHUB_OUTPUT
-          echo "${GEMINI_OUTPUT}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+            gemini-cli generate-pr-review --prompt "${PROMPT}"
