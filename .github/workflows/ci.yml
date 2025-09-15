@@ -362,7 +362,8 @@ jobs:
             FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
             SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
 
-            PROMPT="Review the following Pull Request. Provide a human-understandable overview of the updates, analyze the test results, and give a recommendation whether to merge or not.
+            gemini-cli generate-pr-review --prompt "$(cat <<EOF
+            Review the following Pull Request. Provide a human-understandable overview of the updates, analyze the test results, and give a recommendation whether to merge or not.
 
             ## Pull Request Diff
             ```diff
@@ -401,6 +402,6 @@ jobs:
             ${SHAKEDOWN_SUMMARY}
             ```
 
-            Based on the above, provide a concise summary and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions')."
-
-            gemini-cli generate-pr-review --prompt "${PROMPT}"
+            Based on the above, provide a concise summary and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
+            EOF
+            )"
