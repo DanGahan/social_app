@@ -1,0 +1,404 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker Images
+        run: docker compose build
+
+  static_analysis:
+    needs: build
+    outputs:
+      backend_flake8_errors: ${{ steps.backend_flake8.outputs.backend_flake8_errors }}
+      backend_flake8_warnings: ${{ steps.backend_flake8.outputs.backend_flake8_warnings }}
+      frontend_flake8_errors: ${{ steps.frontend_flake8.outputs.frontend_flake8_errors }}
+      frontend_flake8_warnings: ${{ steps.frontend_flake8.outputs.frontend_flake8_warnings }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9' # Use Python 3.9 as per Dockerfiles
+      - name: Install Backend Dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Run Backend Static Analysis (Flake8) and Capture Results
+        id: backend_flake8
+        run: |
+          set -x
+          pip install flake8
+          FLAKE8_OUTPUT=$(flake8 backend/ --config=backend/.flake8 --exit-zero || true) # Added || true
+          echo "$FLAKE8_OUTPUT"
+          ERRORS=$(echo "$FLAKE8_OUTPUT" | grep -c 'E[0-9]{3}' || true)
+          WARNINGS=$(echo "$FLAKE8_OUTPUT" | grep -c 'W[0-9]{3}' || true)
+          echo "backend_flake8_errors=${ERRORS}" >> $GITHUB_OUTPUT
+          echo "backend_flake8_warnings=${WARNINGS}" >> $GITHUB_OUTPUT
+      - name: Install Frontend Dependencies
+        run: pip install -r frontend/requirements.txt
+      - name: Run Frontend Static Analysis (Flake8) and Capture Results
+        id: frontend_flake8
+        run: |
+          set -x
+          pip install flake8
+          FLAKE8_OUTPUT=$(flake8 frontend --config=frontend/.flake8 --exit-zero || true) # Added || true
+          echo "$FLAKE8_OUTPUT"
+          ERRORS=$(echo "$FLAKE8_OUTPUT" | grep -c 'E[0-9]{3}' || true)
+          WARNINGS=$(echo "$FLAKE8_OUTPUT" | grep -c 'W[0-9]{3}' || true)
+          echo "frontend_flake8_errors=${ERRORS}" >> $GITHUB_OUTPUT
+          echo "frontend_flake8_warnings=${WARNINGS}" >> $GITHUB_OUTPUT
+      - name: Run Django System Checks
+        run: python frontend/manage.py check
+
+  dependency_scan:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      backend_safety_summary: ${{ steps.backend_safety.outputs.backend_safety_summary }}
+      frontend_safety_summary: ${{ steps.frontend_safety.outputs.frontend_safety_summary }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - name: Install Safety
+        run: pip install safety jq
+
+      - name: Run Frontend Dependency Scan and Capture Results
+        id: frontend_safety
+        run: |
+          SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt --output json 2>/dev/null \
+            | sed -n '/^{/,/^}$/p' \
+            | jq -c '(.vulnerabilities // []) as $vulns
+                      | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
+
+          echo $SAFETY_OUTPUT
+          echo "frontend_safety_summary=${SAFETY_OUTPUT}" >> $GITHUB_OUTPUT
+
+      - name: Run Backend Dependency Scan and Capture Results
+        id: backend_safety
+        run: |
+          SAFETY_OUTPUT=$(safety check -r backend/requirements.txt --output json 2>/dev/null \
+            | sed -n '/^{/,/^}$/p' \
+            | jq -c '(.vulnerabilities // []) as $vulns
+                      | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
+            echo $SAFETY_OUTPUT
+            echo "backend_safety_summary=${SAFETY_OUTPUT}" >> $GITHUB_OUTPUT
+
+  container_scan:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      parse_backend_trivy_critical: ${{ steps.parse_backend_trivy.outputs.critical }}
+      parse_backend_trivy_high: ${{ steps.parse_backend_trivy.outputs.high }}
+      parse_backend_trivy_medium: ${{ steps.parse_backend_trivy.outputs.medium }}
+      parse_frontend_trivy_critical: ${{ steps.parse_frontend_trivy.outputs.critical }}
+      parse_frontend_trivy_high: ${{ steps.parse_frontend_trivy.outputs.high }}
+      parse_frontend_trivy_medium: ${{ steps.parse_frontend_trivy.outputs.medium }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Backend Docker Image
+        run: docker build -t social-backend:latest ./backend
+      - name: Build Frontend Docker Image
+        run: docker build -t social-frontend:latest ./frontend
+      - name: List Docker Images
+        run: docker images
+      - name: Run Trivy Scan on Backend Image and Capture Results
+        id: backend_trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'social-backend:latest'
+          format: 'json'
+          exit-code: '1'
+          severity: 'CRITICAL'
+          ignore-unfixed: true
+          output: 'trivy-backend-results.json'
+      - name: Parse Backend Trivy Results
+        id: parse_backend_trivy
+        run: |
+          CRITICAL=$(jq '.Results[].Vulnerabilities[] | select(.Severity == "CRITICAL")' trivy-backend-results.json | wc -l)
+          HIGH=$(jq '.Results[].Vulnerabilities[] | select(.Severity == "HIGH")' trivy-backend-results.json | wc -l)
+          MEDIUM=$(jq '.Results[].Vulnerabilities[] | select(.Severity == "MEDIUM")' trivy-backend-results.json | wc -l)
+          echo "critical=${CRITICAL}" >> $GITHUB_OUTPUT
+          echo "high=${HIGH}" >> $GITHUB_OUTPUT
+          echo "medium=${MEDIUM}" >> $GITHUB_OUTPUT
+      - name: Run Trivy Scan on Frontend Image and Capture Results
+        id: frontend_trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'social-frontend:latest'
+          format: 'json'
+          exit-code: '1'
+          severity: 'CRITICAL'
+          ignore-unfixed: true
+          output: 'trivy-frontend-results.json'
+      - name: Parse Frontend Trivy Results
+        id: parse_frontend_trivy
+        run: |
+          CRITICAL=$(jq '.Results[].Vulnerabilities[] | select(.Severity == "CRITICAL")' trivy-frontend-results.json | wc -l)
+          HIGH=$(jq '.Results[].Vulnerabilities[] | select(.Severity == "HIGH")' trivy-frontend-results.json | wc -l)
+          MEDIUM=$(jq '.Results[].Vulnerabilities[] | select(.Severity == "MEDIUM")' trivy-frontend-results.json | wc -l)
+          echo "critical=${CRITICAL}" >> $GITHUB_OUTPUT
+          echo "high=${HIGH}" >> $GITHUB_OUTPUT
+          echo "medium=${MEDIUM}" >> $GITHUB_OUTPUT
+
+  shakedown_test:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      summary: ${{ steps.shakedown_results.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create docker-compose wrapper
+        run: |
+          mkdir -p /tmp/bin
+          echo '#!/bin/bash' > /tmp/bin/docker-compose
+          echo 'docker compose "$@"' >> /tmp/bin/docker-compose
+          chmod +x /tmp/bin/docker-compose
+          echo "/tmp/bin" >> $GITHUB_PATH
+      - name: Run Shakedown Test and Capture Results
+        id: shakedown_results
+        run: |
+          SHAKEDOWN_OUTPUT=$(docker compose down && docker compose build && docker compose up -d && ./scripts/shakedown_test.sh || true)
+          echo "$SHAKEDOWN_OUTPUT"
+          RESULTS=$(echo "$SHAKEDOWN_OUTPUT" | grep -E 'PASSED|FAILED')
+          # Use multi-line syntax to safely write to GITHUB_OUTPUT
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESULTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+  backend_unit_tests:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      coverage: ${{ steps.backend_tests.outputs.coverage}}
+      passed: ${{ steps.backend_tests.outputs.passed }}
+      failed: ${{ steps.backend_tests.outputs.failed }}
+      warning: ${{ steps.backend_tests.outputs.warning }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bring up Docker Compose
+        run: docker compose up -d
+      - name: Run Backend Unit Tests and Capture Results
+        id: backend_tests
+        run: |
+          TEST_OUTPUT=$(docker compose exec backend bash -c "PYTHONPATH=/app pytest --cov=. --cov-report=term-missing --disable-warnings || true") # Added --disable-warnings and || true
+          echo "$TEST_OUTPUT"
+          COVERAGE=$(echo "$TEST_OUTPUT" | grep -E "^TOTAL" | awk '{print $4}' || true)
+          PASSED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) passed' | grep -oP '\d+' || true)
+          FAILED=$(echo "$TEST_OUTPUT" | grep -oP '(\d+) failed' | grep -oP '\d+' || true)
+          WARNING=$(echo "$TEST_OUTPUT" | grep -E "passed.*warning" | grep -oE "[0-9]+ warning" | awk '{print $1}' || true)
+
+          echo "coverage=${COVERAGE:-0}" >> $GITHUB_OUTPUT
+          echo "passed=${PASSED:-0}" >> $GITHUB_OUTPUT
+          echo "failed=${FAILED:-0}" >> $GITHUB_OUTPUT
+          echo "warning=${WARNING:-0}" >> $GITHUB_OUTPUT
+
+  frontend_unit_tests:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      summary: ${{ steps.tests.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bring up Docker Compose
+        run: docker compose up -d
+
+      - name: Run Frontend Unit Tests
+        id: tests
+        run: |
+          # Run Django tests inside frontend container and save output
+          SUMMARY=$(docker compose exec -T frontend python manage.py test --verbosity=2)
+          echo "$SUMMARY"
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  report_pr_comment:
+    needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests, gemini_review]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate PR Comment
+        id: generate_comment
+        run: |
+          # --- Backend Unit Tests ---
+          BACKEND_TESTS_COVERAGE="${{ needs.backend_unit_tests.outputs.coverage }}"
+          BACKEND_TESTS_PASSED="${{ needs.backend_unit_tests.outputs.passed }}"
+          BACKEND_TESTS_FAILED="${{ needs.backend_unit_tests.outputs.failed }}"
+          BACKEND_TESTS_WARNING="${{ needs.backend_unit_tests.outputs.warning }}"
+
+          # --- Frontend Unit Tests ---
+          FRONTEND_SUMMARY="${{ needs.frontend_unit_tests.outputs.summary }}"
+
+
+          # --- Static Analysis (Flake8) ---
+          BACKEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.backend_flake8_errors }}"
+          BACKEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.backend_flake8_warnings }}"
+          FRONTEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.frontend_flake8_errors }}"
+          FRONTEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.frontend_flake8_warnings }}"
+
+          # --- Dependency Scan (Safety) ---
+          FRONTEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.frontend_safety_summary }}"
+          BACKEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.backend_safety_summary }}"
+
+          # --- Container Scan (Trivy) ---
+          BACKEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_backend_trivy_critical }}"
+          BACKEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_backend_trivy_high }}"
+          BACKEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_backend_trivy_medium }}"
+          FRONTEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_frontend_trivy_critical }}"
+          FRONTEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_frontend_trivy_high }}"
+          FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
+
+          # --- Shakedown Test ---
+          SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
+
+          # --- Gemini Review ---
+          GEMINI_REVIEW_SUMMARY="${{ needs.gemini_review.outputs.summary }}"
+
+          # write multi-line output safely using a literal block
+          {
+            echo "pr_comment<<EOF"
+            echo "### CI/CD Pipeline Results"
+            echo ""
+            echo "#### Backend Unit Tests"
+            echo "* Coverage: ${BACKEND_TESTS_COVERAGE}"
+            echo "* Passed: ${BACKEND_TESTS_PASSED}"
+            echo "* Failed: ${BACKEND_TESTS_FAILED}"
+            echo "* Warnings: ${BACKEND_TESTS_WARNING}"
+            echo ""
+            echo "#### Frontend Unit Tests"
+            echo '```'
+            echo "${FRONTEND_SUMMARY}"
+            echo '```'
+            echo ""
+            echo "#### Static Analysis (Flake8)"
+            echo "* Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}"
+            echo "* Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}"
+            echo ""
+            echo "#### Dependency Scan (Safety)"
+            echo "Front End Safety"
+            echo "${FRONTEND_SAFETY_SUMMARY}"
+            echo ""
+            echo "Backend Safety"
+            echo "${BACKEND_SAFETY_SUMMARY}"
+            echo ""
+            echo "#### Container Scan (Trivy)"
+            echo "| Image    | Critical | High | Medium |"
+            echo "|----------|----------|------|--------|"
+            echo "| Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |"
+            echo "| Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |"
+            echo ""
+            echo "#### Shakedown Test"
+            echo '```'
+            echo "${SHAKEDOWN_SUMMARY}"
+            echo '```'
+            echo ""
+            echo "#### Gemini Review"
+            echo '```'
+            echo "${GEMINI_REVIEW_SUMMARY//\`/\`}"
+            echo '```'
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Post PR Comment
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: ${{ steps.generate_comment.outputs.pr_comment }}
+
+  gemini_review:
+    needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      summary: ${{ steps.gemini_review_step.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate Gemini Review
+        id: gemini_review_step
+        uses: google-github-actions/run-gemini-cli@v0.1.10
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          prompt: |
+            PR_DIFF=$(curl -L ${{ github.event.pull_request.diff_url }})
+
+            # Collect all outputs from previous jobs
+            BACKEND_TESTS_COVERAGE="${{ needs.backend_unit_tests.outputs.coverage }}"
+            BACKEND_TESTS_PASSED="${{ needs.backend_unit_tests.outputs.passed }}"
+            BACKEND_TESTS_FAILED="${{ needs.backend_unit_tests.outputs.failed }}"
+            BACKEND_TESTS_WARNING="${{ needs.backend_unit_tests.outputs.warning }}"
+            FRONTEND_SUMMARY="${{ needs.frontend_unit_tests.outputs.summary }}"
+            BACKEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.backend_flake8_errors }}"
+            BACKEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.backend_flake8_warnings }}"
+            FRONTEND_FLAKE8_ERRORS="${{ needs.static_analysis.outputs.frontend_flake8_errors }}"
+            FRONTEND_FLAKE8_WARNINGS="${{ needs.static_analysis.outputs.frontend_flake8_warnings }}"
+            FRONTEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.frontend_safety_summary }}"
+            BACKEND_SAFETY_SUMMARY="${{ needs.dependency_scan.outputs.backend_safety_summary }}"
+            BACKEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_backend_trivy_critical }}"
+            BACKEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_backend_trivy_high }}"
+            BACKEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_backend_trivy_medium }}"
+            FRONTEND_TRIVY_CRITICAL="${{ needs.container_scan.outputs.parse_frontend_trivy_critical }}"
+            FRONTEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_frontend_trivy_high }}"
+            FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
+            SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
+
+            Review the following Pull Request. Provide a human-understandable overview of the updates, analyze the test results, and give a recommendation whether to merge or not.
+
+            ## Pull Request Diff
+            ```diff
+            ${PR_DIFF}
+            ```
+
+            ## Test Results
+
+            ### Backend Unit Tests
+            * Coverage: ${BACKEND_TESTS_COVERAGE}
+            * Passed: ${BACKEND_TESTS_PASSED}
+            * Failed: ${BACKEND_TESTS_FAILED}
+            * Warnings: ${BACKEND_TESTS_WARNING}
+
+            ### Frontend Unit Tests
+            ```
+            ${FRONTEND_SUMMARY}
+            ```
+
+            ### Static Analysis (Flake8)
+            * Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}
+            * Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}
+
+            ### Dependency Scan (Safety)
+            Front End Safety: ${FRONTEND_SAFETY_SUMMARY}
+            Backend Safety: ${BACKEND_SAFETY_SUMMARY}
+
+            ### Container Scan (Trivy)
+            | Image    | Critical | High | Medium |
+            |----------|----------|------|--------|
+            | Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |
+            | Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |
+
+            ### Shakedown Test
+            ```
+            ${SHAKEDOWN_SUMMARY}
+            ```
+
+            Based on the above, provide a concise summary and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
