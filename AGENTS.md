@@ -42,6 +42,8 @@ This project is a social media application with a Python-based backend and front
 ## Security
 
 - Before finalizing changes, run dependency scans on both the frontend and backend Docker images to ensure no new vulnerabilities are introduced.
+- To check for open code scanning alerts, use the command `gh code-scanning alert list`. If this command fails because the `code-scanning` extension is not installed, use the GitHub API directly: `gh api /repos/DanGahan/social_app/code-scanning/alerts`.
+- To check for dependency vulnerabilities (Dependabot alerts), use the command `gh api /repos/DanGahan/social_app/vulnerability-alerts`.
 
 ## GitHub Workflow
 

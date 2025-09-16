@@ -1,8 +1,12 @@
 import json
+import logging
 from datetime import datetime
 
 import requests
 from django.contrib import messages
+
+logger = logging.getLogger(__name__)
+
 from django.http import JsonResponse  # New import
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -449,10 +453,12 @@ def get_user_profile_and_posts(request, user_id):
 
         return JsonResponse({"profile": profile_data, "posts": user_posts})
     except requests.exceptions.RequestException as e:
-        return JsonResponse({"error": f"Request to Flask backend failed: {e}"}, status=500)
+        logger.error(f"Request to Flask backend failed: {e}")
+        return JsonResponse({"error": "Failed to retrieve user data."}, status=500)
     except Exception as e:  # Catch any other unexpected errors
+        logger.error(f"An unexpected error occurred in Django view: {e}")
         return JsonResponse(
-            {"error": "An unexpected error occurred in Django view."},
+            {"error": "An unexpected error occurred."},
             status=500,
         )
 
