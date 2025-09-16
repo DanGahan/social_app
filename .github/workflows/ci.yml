@@ -333,7 +333,48 @@ jobs:
     outputs:
       summary: ${{ steps.gemini_review_step.outputs.summary }}
     env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      PROMPT_TEMPLATE: |
+        Strictly using the provided "Pull Request Diff" and nothing else, provide a human-understandable overview of the changes. Then, analyze the provided "Test Results" and give a clear recommendation on whether to merge the pull request.
+
+        ## Pull Request Diff
+        ```diff
+        %s
+        ```
+
+        ## Test Results
+
+        ### Backend Unit Tests
+        * Coverage: %s
+        * Passed: %s
+        * Failed: %s
+        * Warnings: %s
+
+        ### Frontend Unit Tests
+        ```
+        %s
+        ```
+
+        ### Static Analysis (Flake8)
+        * Backend: Errors: %s, Warnings: %s
+        * Frontend: Errors: %s, Warnings: %s
+
+        ### Dependency Scan (Safety)
+        Front End Safety: %s
+        Backend Safety: %s
+
+        ### Container Scan (Trivy)
+        | Image    | Critical | High | Medium |
+        |----------|----------|------|--------|
+        | Backend  | %s | %s | %s |
+        | Frontend | %s | %s | %s |
+
+        ### Shakedown Test
+        ```
+        %s
+        ```
+
+        Based on the above, provide a concise summary and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
     steps:
       - uses: actions/checkout@v4
       - name: Debug GEMINI_API_KEY
@@ -343,7 +384,6 @@ jobs:
       - name: Generate Gemini Review
         id: gemini_review_step
         run: |
-          PROMPT=$(cat <<'EOT'
           PR_DIFF=$(curl -L ${{ github.event.pull_request.diff_url }})
 
           # Collect all outputs from previous jobs
@@ -366,48 +406,26 @@ jobs:
           FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
           SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
 
-          Strictly using the provided "Pull Request Diff" and nothing else, provide a human-understandable overview of the changes. Then, analyze the provided "Test Results" and give a clear recommendation on whether to merge the pull request.
-
-          ## Pull Request Diff
-          ```diff
-          ${PR_DIFF}
-          ```
-
-          ## Test Results
-
-          ### Backend Unit Tests
-          * Coverage: ${BACKEND_TESTS_COVERAGE}
-          * Passed: ${BACKEND_TESTS_PASSED}
-          * Failed: ${BACKEND_TESTS_FAILED}
-          * Warnings: ${BACKEND_TESTS_WARNING}
-
-          ### Frontend Unit Tests
-          ```
-          ${FRONTEND_SUMMARY}
-          ```
-
-          ### Static Analysis (Flake8)
-          * Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}
-          * Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}
-
-          ### Dependency Scan (Safety)
-          Front End Safety: ${FRONTEND_SAFETY_SUMMARY}
-          Backend Safety: ${BACKEND_SAFETY_SUMMARY}
-
-          ### Container Scan (Trivy)
-          | Image    | Critical | High | Medium |
-          |----------|----------|------|--------|
-          | Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |
-          | Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |
-
-          ### Shakedown Test
-          ```
-          ${SHAKEDOWN_SUMMARY}
-          ```
-
-          Based on the above, provide a concise summary and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
-          EOT
-          )
+          PROMPT=$(printf "$PROMPT_TEMPLATE" \
+            "$PR_DIFF" \
+            "$BACKEND_TESTS_COVERAGE" \
+            "$BACKEND_TESTS_PASSED" \
+            "$BACKEND_TESTS_FAILED" \
+            "$BACKEND_TESTS_WARNING" \
+            "$FRONTEND_SUMMARY" \
+            "$BACKEND_FLAKE8_ERRORS" \
+            "$BACKEND_FLAKE8_WARNINGS" \
+            "$FRONTEND_FLAKE8_ERRORS" \
+            "$FRONTEND_FLAKE8_WARNINGS" \
+            "$FRONTEND_SAFETY_SUMMARY" \
+            "$BACKEND_SAFETY_SUMMARY" \
+            "$BACKEND_TRIVY_CRITICAL" \
+            "$BACKEND_TRIVY_HIGH" \
+            "$BACKEND_TRIVY_MEDIUM" \
+            "$FRONTEND_TRIVY_CRITICAL" \
+            "$FRONTEND_TRIVY_HIGH" \
+            "$FRONTEND_TRIVY_MEDIUM" \
+            "$SHAKEDOWN_SUMMARY")
 
           OUTPUT=$(gemini "$PROMPT")
 
