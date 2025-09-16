@@ -386,6 +386,18 @@ jobs:
         run: |
           PR_DIFF=$(curl -L ${{ github.event.pull_request.diff_url }})
 
+          # --- Prompt 1: Generate Change Summary ---
+          SUMMARY_PROMPT=$(cat <<EOT
+          Strictly using the provided "Pull Request Diff" and nothing else, provide a human-understandable overview of the changes.
+          ## Pull Request Diff
+          \`\`\`diff
+          $PR_DIFF
+          \`\`\`
+          EOT
+          )
+          CHANGE_SUMMARY=$(gemini "$SUMMARY_PROMPT")
+
+          # --- Prompt 2: Generate Analysis and Recommendation ---
           # Collect all outputs from previous jobs
           BACKEND_TESTS_COVERAGE="${{ needs.backend_unit_tests.outputs.coverage }}"
           BACKEND_TESTS_PASSED="${{ needs.backend_unit_tests.outputs.passed }}"
@@ -406,35 +418,52 @@ jobs:
           FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
           SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
 
-          PROMPT=$(printf "$PROMPT_TEMPLATE" \
-            "$PR_DIFF" \
-            "$BACKEND_TESTS_COVERAGE" \
-            "$BACKEND_TESTS_PASSED" \
-            "$BACKEND_TESTS_FAILED" \
-            "$BACKEND_TESTS_WARNING" \
-            "$FRONTEND_SUMMARY" \
-            "$BACKEND_FLAKE8_ERRORS" \
-            "$BACKEND_FLAKE8_WARNINGS" \
-            "$FRONTEND_FLAKE8_ERRORS" \
-            "$FRONTEND_FLAKE8_WARNINGS" \
-            "$FRONTEND_SAFETY_SUMMARY" \
-            "$BACKEND_SAFETY_SUMMARY" \
-            "$BACKEND_TRIVY_CRITICAL" \
-            "$BACKEND_TRIVY_HIGH" \
-            "$BACKEND_TRIVY_MEDIUM" \
-            "$FRONTEND_TRIVY_CRITICAL" \
-            "$FRONTEND_TRIVY_HIGH" \
-            "$FRONTEND_TRIVY_MEDIUM" \
-            "$SHAKEDOWN_SUMMARY")
+          ANALYSIS_PROMPT=$(cat <<EOT
+          You are a senior software engineer reviewing a pull request.
+          First, here is the summary of changes in the pull request:
+          $CHANGE_SUMMARY
 
-          echo "--- PROMPT ---"
-          echo "$PROMPT"
-          echo "--- END PROMPT ---"
+          Next, here are the results from the automated test pipeline:
+          ## Test Results
+          ### Backend Unit Tests
+          * Coverage: $BACKEND_TESTS_COVERAGE
+          * Passed: $BACKEND_TESTS_PASSED
+          * Failed: $BACKEND_TESTS_FAILED
+          * Warnings: $BACKEND_TESTS_WARNING
 
-          OUTPUT=$(gemini "$PROMPT")
+          ### Frontend Unit Tests
+          \`\`\`
+          $FRONTEND_SUMMARY
+          \`\`\`
 
-          # Debug: show output in logs
-          echo "$OUTPUT"
+          ### Static Analysis (Flake8)
+          * Backend: Errors: $BACKEND_FLAKE8_ERRORS, Warnings: $BACKEND_FLAKE8_WARNINGS
+          * Frontend: Errors: $FRONTEND_FLAKE8_ERRORS, Warnings: $FRONTEND_FLAKE8_WARNINGS
+
+          ### Dependency Scan (Safety)
+          Front End Safety: $FRONTEND_SAFETY_SUMMARY
+          Backend Safety: $BACKEND_SAFETY_SUMMARY
+
+          ### Container Scan (Trivy)
+          | Image    | Critical | High | Medium |
+          |----------|----------|------|--------|
+          | Backend  | $BACKEND_TRIVY_CRITICAL | $BACKEND_TRIVY_HIGH | $BACKEND_TRIVY_MEDIUM |
+          | Frontend | $FRONTEND_TRIVY_CRITICAL | $FRONTEND_TRIVY_HIGH | $FRONTEND_TRIVY_MEDIUM |
+
+          ### Shakedown Test
+          \`\`\`
+          $SHAKEDOWN_SUMMARY
+          \`\`\`
+
+          Based on the change summary and the test results, provide a concise analysis of the test results and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
+          EOT
+          )
+          ANALYSIS_AND_RECOMMENDATION=$(gemini "$ANALYSIS_PROMPT")
+
+          # --- Combine and Output ---
+          OUTPUT="$CHANGE_SUMMARY\n\n$ANALYSIS_AND_RECOMMENDATION"
+
+          echo "$OUTPUT" # Debug
 
           ENCODED_OUTPUT=$(echo "$OUTPUT" | base64 -w 0)
           cat <<ENCODED_OUTPUT >> $GITHUB_OUTPUT
