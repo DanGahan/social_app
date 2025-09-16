@@ -427,6 +427,10 @@ jobs:
             "$FRONTEND_TRIVY_MEDIUM" \
             "$SHAKEDOWN_SUMMARY")
 
+          echo "--- PROMPT ---"
+          echo "$PROMPT"
+          echo "--- END PROMPT ---"
+
           OUTPUT=$(gemini "$PROMPT")
 
           # Debug: show output in logs
