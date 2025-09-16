@@ -366,7 +366,7 @@ jobs:
           FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
           SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
 
-          Review the following Pull Request. Provide a human-understandable overview of the updates, analyze the test results, and give a recommendation whether to merge or not.
+          Strictly using the provided "Pull Request Diff" and nothing else, provide a human-understandable overview of the changes. Then, analyze the provided "Test Results" and give a clear recommendation on whether to merge the pull request.
 
           ## Pull Request Diff
           ```diff
