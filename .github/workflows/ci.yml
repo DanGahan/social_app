@@ -333,19 +333,73 @@ jobs:
     outputs:
       summary: ${{ steps.gemini_review_step.outputs.summary }}
     env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      PROMPT_TEMPLATE: |
+        Strictly using the provided "Pull Request Diff" and nothing else, provide a human-understandable overview of the changes. Then, analyze the provided "Test Results" and give a clear recommendation on whether to merge the pull request.
+
+        ## Pull Request Diff
+        ```diff
+        %s
+        ```
+
+        ## Test Results
+
+        ### Backend Unit Tests
+        * Coverage: %s
+        * Passed: %s
+        * Failed: %s
+        * Warnings: %s
+
+        ### Frontend Unit Tests
+        ```
+        %s
+        ```
+
+        ### Static Analysis (Flake8)
+        * Backend: Errors: %s, Warnings: %s
+        * Frontend: Errors: %s, Warnings: %s
+
+        ### Dependency Scan (Safety)
+        Front End Safety: %s
+        Backend Safety: %s
+
+        ### Container Scan (Trivy)
+        | Image    | Critical | High | Medium |
+        |----------|----------|------|--------|
+        | Backend  | %s | %s | %s |
+        | Frontend | %s | %s | %s |
+
+        ### Shakedown Test
+        ```
+        %s
+        ```
+
+        Based on the above, provide a concise summary and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
     steps:
       - uses: actions/checkout@v4
       - name: Debug GEMINI_API_KEY
         run: echo "Key length is ${#GEMINI_API_KEY}"   # should print a nonzero number
       - name: Install gemini-cli
-        run: npm install -g @google/gemini-cli
+        run: |
+          npm cache clean --force
+          npm install -g @google/gemini-cli
       - name: Generate Gemini Review
         id: gemini_review_step
         run: |
-          PROMPT=$(cat <<'EOT'
           PR_DIFF=$(curl -L ${{ github.event.pull_request.diff_url }})
 
+          # --- Prompt 1: Generate Change Summary ---
+          SUMMARY_PROMPT=$(cat <<EOT
+          Strictly using the provided "Pull Request Diff" and nothing else, provide a human-understandable overview of the changes.
+          ## Pull Request Diff
+          \`\`\`diff
+          $PR_DIFF
+          \`\`\`
+          EOT
+          )
+          CHANGE_SUMMARY=$(gemini "$SUMMARY_PROMPT")
+
+          # --- Prompt 2: Generate Analysis and Recommendation ---
           # Collect all outputs from previous jobs
           BACKEND_TESTS_COVERAGE="${{ needs.backend_unit_tests.outputs.coverage }}"
           BACKEND_TESTS_PASSED="${{ needs.backend_unit_tests.outputs.passed }}"
@@ -366,53 +420,52 @@ jobs:
           FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
           SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
 
-          Review the following Pull Request. Provide a human-understandable overview of the updates, analyze the test results, and give a recommendation whether to merge or not.
+          ANALYSIS_PROMPT=$(cat <<EOT
+          You are a senior software engineer reviewing a pull request.
+          First, here is the summary of changes in the pull request:
+          $CHANGE_SUMMARY
 
-          ## Pull Request Diff
-          ```diff
-          ${PR_DIFF}
-          ```
-
+          Next, here are the results from the automated test pipeline:
           ## Test Results
-
           ### Backend Unit Tests
-          * Coverage: ${BACKEND_TESTS_COVERAGE}
-          * Passed: ${BACKEND_TESTS_PASSED}
-          * Failed: ${BACKEND_TESTS_FAILED}
-          * Warnings: ${BACKEND_TESTS_WARNING}
+          * Coverage: $BACKEND_TESTS_COVERAGE
+          * Passed: $BACKEND_TESTS_PASSED
+          * Failed: $BACKEND_TESTS_FAILED
+          * Warnings: $BACKEND_TESTS_WARNING
 
           ### Frontend Unit Tests
-          ```
-          ${FRONTEND_SUMMARY}
-          ```
+          \`\`\`
+          $FRONTEND_SUMMARY
+          \`\`\`
 
           ### Static Analysis (Flake8)
-          * Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}
-          * Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}
+          * Backend: Errors: $BACKEND_FLAKE8_ERRORS, Warnings: $BACKEND_FLAKE8_WARNINGS
+          * Frontend: Errors: $FRONTEND_FLAKE8_ERRORS, Warnings: $FRONTEND_FLAKE8_WARNINGS
 
           ### Dependency Scan (Safety)
-          Front End Safety: ${FRONTEND_SAFETY_SUMMARY}
-          Backend Safety: ${BACKEND_SAFETY_SUMMARY}
+          Front End Safety: $FRONTEND_SAFETY_SUMMARY
+          Backend Safety: $BACKEND_SAFETY_SUMMARY
 
           ### Container Scan (Trivy)
           | Image    | Critical | High | Medium |
           |----------|----------|------|--------|
-          | Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |
-          | Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |
+          | Backend  | $BACKEND_TRIVY_CRITICAL | $BACKEND_TRIVY_HIGH | $BACKEND_TRIVY_MEDIUM |
+          | Frontend | $FRONTEND_TRIVY_CRITICAL | $FRONTEND_TRIVY_HIGH | $FRONTEND_TRIVY_MEDIUM |
 
           ### Shakedown Test
-          ```
-          ${SHAKEDOWN_SUMMARY}
-          ```
+          \`\`\`
+          $SHAKEDOWN_SUMMARY
+          \`\`\`
 
-          Based on the above, provide a concise summary and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
+          Based on the change summary and the test results, provide a concise analysis of the test results and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
           EOT
           )
+          ANALYSIS_AND_RECOMMENDATION=$(gemini "$ANALYSIS_PROMPT")
 
-          OUTPUT=$(gemini "$PROMPT")
+          # --- Combine and Output ---
+          OUTPUT="$CHANGE_SUMMARY\n\n$ANALYSIS_AND_RECOMMENDATION"
 
-          # Debug: show output in logs
-          echo "$OUTPUT"
+          echo "$OUTPUT" # Debug
 
           ENCODED_OUTPUT=$(echo "$OUTPUT" | base64 -w 0)
           cat <<ENCODED_OUTPUT >> $GITHUB_OUTPUT
