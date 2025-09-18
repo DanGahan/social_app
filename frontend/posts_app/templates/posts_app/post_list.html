@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User {{ user_id }} Posts</title>
-</head>
-<body>
+{% extends 'base.html' %}
+
+{% block title %}User {{ user_id }} Posts{% endblock %}
+
+{% block content %}
     <h1>Posts for User {{ user_id }}</h1>
 
     {% if posts %}
@@ -21,5 +18,4 @@
     {% else %}
         <p>No posts found for this user.</p>
     {% endif %}
-</body>
-</html>
+{% endblock %}
