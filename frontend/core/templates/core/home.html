@@ -12,9 +12,9 @@
     </div>
 
     <div class="tabs">
-        <button class="create-post-button-tab" onclick="openTab(event, 'CreatePostContent')">
+        <a href="{% url 'add_post' %}" class="create-post-button-tab">
             &#x2795;
-        </button>
+        </a>
         <button class="tablinks" onclick="openTab(event, 'ConnectionsPosts')" id="defaultOpen">Posts</button>
         <button class="tablinks" onclick="openTab(event, 'MyPosts')">My Posts</button>
         <button class="tablinks" onclick="openTab(event, 'Connections')">Connections</button>
