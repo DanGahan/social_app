@@ -49,6 +49,7 @@
   <script>
     let activeTab = 'Upload';
     const allowedExtensions = ['png', 'jpeg', 'jpg', 'gif', 'webp', 'heic'];
+    let mediaStream = null;
 
     function openTab(evt, tabName) {
       var i, tabcontent, tablinks;
@@ -64,6 +65,12 @@
       evt.currentTarget.className += " active";
       activeTab = tabName;
       clearErrors();
+
+      if (tabName === 'Camera') {
+        startCamera();
+      } else {
+        stopCamera();
+      }
     }
 
     function clearErrors() {
@@ -73,6 +80,61 @@
       document.getElementById('library-error').innerText = '';
       document.getElementById('caption-error').innerText = '';
     }
+
+    // Camera functionality
+    const cameraStream = document.getElementById('camera-stream');
+    const captureBtn = document.getElementById('capture-btn');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+    let capturedImageBlob = null;
+
+    async function startCamera() {
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        cameraStream.srcObject = mediaStream;
+        cameraStream.play();
+        document.getElementById('camera-error').innerText = '';
+      } catch (err) {
+        document.getElementById('camera-error').innerText = 'Could not access camera. Please ensure permissions are granted.';
+        console.error("Error accessing camera: ", err);
+      }
+    }
+
+    function stopCamera() {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        cameraStream.srcObject = null;
+      }
+    }
+
+    captureBtn.addEventListener('click', () => {
+      context.drawImage(cameraStream, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        capturedImageBlob = blob;
+        // Optionally display the captured image
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(blob);
+        img.width = 320;
+        img.height = 240;
+        document.getElementById('Camera').appendChild(img);
+      }, 'image/png'); // You can change the image format here
+    });
+
+    // Library functionality
+    const libraryInput = document.getElementById('library-input');
+    libraryInput.addEventListener('change', (event) => {
+      if (event.target.files.length > 0) {
+        const file = event.target.files[0];
+        const fileName = file.name;
+        const fileExtension = fileName.split('.').pop().toLowerCase();
+        if (!allowedExtensions.includes(fileExtension)) {
+          document.getElementById('library-error').innerText = 'Unsupported file type';
+          event.target.value = ''; // Clear the input
+          return;
+        }
+        capturedImageBlob = file;
+      }
+    });
 
     // Character counter for caption
     const captionInput = document.getElementById('caption-input');
@@ -137,14 +199,12 @@
           document.getElementById('url-error').innerText = 'Invalid URL';
           return;
         }
-      } else if (activeTab === 'Camera') {
-        // Camera implementation will go here
-        document.getElementById('camera-error').innerText = 'Camera functionality not yet implemented';
-        return;
-      } else if (activeTab === 'Library') {
-        // Library implementation will go here
-        document.getElementById('library-error').innerText = 'Library functionality not yet implemented';
-        return;
+      } else if (activeTab === 'Camera' || activeTab === 'Library') {
+        if (!capturedImageBlob) {
+          document.getElementById('camera-error').innerText = 'Please capture or select an image.';
+          return;
+        }
+        fileToUpload = capturedImageBlob;
       }
 
       let finalImageUrl = imageUrl;
