@@ -2,45 +2,54 @@
 
 {% block content %}
   <h2>Add a New Post</h2>
-  <form id="add-post-form">
+  <form id="add-post-form" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
     <!-- Tab navigation -->
     <div class="tabs">
-      <button class="tablinks" onclick="openTab(event, 'Upload')">Upload</button>
-      <button class="tablinks" onclick="openTab(event, 'URL')">URL</button>
-      <button class="tablinks" onclick="openTab(event, 'Camera')">Camera</button>
-      <button class="tablinks" onclick="openTab(event, 'Library')">Library</button>
+      <button type="button" class="tablinks active" onclick="openTab(event, 'Upload')">Upload</button>
+      <button type="button" class="tablinks" onclick="openTab(event, 'URL')">URL</button>
+      <button type="button" class="tablinks" onclick="openTab(event, 'Camera')">Camera</button>
+      <button type="button" class="tablinks" onclick="openTab(event, 'Library')">Library</button>
     </div>
 
     <!-- Tab content -->
-    <div id="Upload" class="tabcontent">
-      <input type="file" id="file-input" accept="image/png, image/jpeg, image/gif, image/webp, image/heic">
+    <div id="Upload" class="tabcontent" style="display: block;">
+      <input type="file" id="file-input" name="file_upload" accept="image/png, image/jpeg, image/gif, image/webp, image/heic">
+      <p id="file-error" class="error-message"></p>
     </div>
 
     <div id="URL" class="tabcontent">
-      <input type="text" id="url-input" placeholder="Enter image URL">
+      <input type="text" id="url-input" name="image_url" placeholder="Enter image URL">
+      <p id="url-error" class="error-message"></p>
     </div>
 
     <div id="Camera" class="tabcontent">
       <video id="camera-stream" width="320" height="240" autoplay></video>
-      <button id="capture-btn">Capture</button>
+      <button type="button" id="capture-btn">Capture</button>
       <canvas id="canvas" width="320" height="240"></canvas>
+      <p id="camera-error" class="error-message"></p>
     </div>
 
     <div id="Library" class="tabcontent">
-      <input type="file" id="library-input" accept="image/*">
+      <input type="file" id="library-input" name="library_upload" accept="image/*">
+      <p id="library-error" class="error-message"></p>
     </div>
 
     <!-- Caption -->
     <div>
       <label for="caption-input">Caption:</label>
-      <textarea id="caption-input" maxlength="140"></textarea>
+      <textarea id="caption-input" name="caption" maxlength="140"></textarea>
       <p id="char-counter">140 characters remaining</p>
+      <p id="caption-error" class="error-message"></p>
     </div>
 
-    <button type="submit">Post</button>
+    <button type="submit" id="post-submit-btn">Post</button>
   </form>
 
   <script>
+    let activeTab = 'Upload';
+    const allowedExtensions = ['png', 'jpeg', 'jpg', 'gif', 'webp', 'heic'];
+
     function openTab(evt, tabName) {
       var i, tabcontent, tablinks;
       tabcontent = document.getElementsByClassName("tabcontent");
@@ -53,8 +62,139 @@
       }
       document.getElementById(tabName).style.display = "block";
       evt.currentTarget.className += " active";
+      activeTab = tabName;
+      clearErrors();
     }
 
-    // Add your JavaScript for handling camera, validation, and form submission here
+    function clearErrors() {
+      document.getElementById('file-error').innerText = '';
+      document.getElementById('url-error').innerText = '';
+      document.getElementById('camera-error').innerText = '';
+      document.getElementById('library-error').innerText = '';
+      document.getElementById('caption-error').innerText = '';
+    }
+
+    // Character counter for caption
+    const captionInput = document.getElementById('caption-input');
+    const charCounter = document.getElementById('char-counter');
+    captionInput.addEventListener('input', () => {
+      const remaining = 140 - captionInput.value.length;
+      charCounter.innerText = `${remaining} characters remaining`;
+      if (remaining < 0) {
+        charCounter.style.color = 'red';
+      } else {
+        charCounter.style.color = 'black';
+      }
+    });
+
+    // Form submission handling
+    document.getElementById('add-post-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      clearErrors();
+
+      const caption = captionInput.value;
+      if (caption.length === 0) {
+        document.getElementById('caption-error').innerText = 'Caption is required';
+        return;
+      }
+      if (caption.length > 140) {
+        document.getElementById('caption-error').innerText = 'Caption too long (max 140 characters)';
+        return;
+      }
+
+      let imageUrl = '';
+      let fileToUpload = null;
+
+      if (activeTab === 'Upload') {
+        const fileInput = document.getElementById('file-input');
+        if (fileInput.files.length > 0) {
+          fileToUpload = fileInput.files[0];
+          const fileName = fileToUpload.name;
+          const fileExtension = fileName.split('.').pop().toLowerCase();
+          if (!allowedExtensions.includes(fileExtension)) {
+            document.getElementById('file-error').innerText = 'Unsupported file type';
+            return;
+          }
+        } else {
+          document.getElementById('file-error').innerText = 'Image upload is required';
+          return;
+        }
+      } else if (activeTab === 'URL') {
+        const urlInput = document.getElementById('url-input');
+        imageUrl = urlInput.value;
+        if (imageUrl.length === 0) {
+          document.getElementById('url-error').innerText = 'Image URL is required';
+          return;
+        }
+        try {
+          new URL(imageUrl);
+          const urlExtension = imageUrl.split('.').pop().toLowerCase();
+          if (!allowedExtensions.includes(urlExtension)) {
+            document.getElementById('url-error').innerText = 'Unsupported image URL type';
+            return;
+          }
+        } catch (_) {
+          document.getElementById('url-error').innerText = 'Invalid URL';
+          return;
+        }
+      } else if (activeTab === 'Camera') {
+        // Camera implementation will go here
+        document.getElementById('camera-error').innerText = 'Camera functionality not yet implemented';
+        return;
+      } else if (activeTab === 'Library') {
+        // Library implementation will go here
+        document.getElementById('library-error').innerText = 'Library functionality not yet implemented';
+        return;
+      }
+
+      let finalImageUrl = imageUrl;
+
+      if (fileToUpload) {
+        const formData = new FormData();
+        formData.append('file', fileToUpload);
+
+        const uploadResponse = await fetch('/api/posts/upload', {
+          method: 'POST',
+          headers: {
+            'x-access-token': '{{ request.session.jwt_token }}' // Assuming JWT token is available in session
+          },
+          body: formData,
+        });
+
+        if (uploadResponse.ok) {
+          const data = await uploadResponse.json();
+          finalImageUrl = data.filename; // Assuming backend returns filename
+        } else {
+          document.getElementById('file-error').innerText = 'Image upload failed';
+          return;
+        }
+      }
+
+      const postData = {
+        image_url: finalImageUrl,
+        caption: caption,
+      };
+
+      const postResponse = await fetch('/api/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': '{{ request.session.jwt_token }}' // Assuming JWT token is available in session
+        },
+        body: JSON.stringify(postData),
+      });
+
+      if (postResponse.ok) {
+        window.location.href = '/users/{{ request.session.user_id }}/posts'; // Redirect to user's posts
+      } else {
+        const errorData = await postResponse.json();
+        document.getElementById('caption-error').innerText = errorData.message || 'Failed to create post';
+      }
+    });
+
+    // Initial tab display
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelector('.tablinks').click();
+    });
   </script>
 {% endblock %}
