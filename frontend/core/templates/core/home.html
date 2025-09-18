@@ -158,10 +158,10 @@
             {% csrf_token %}
             <!-- Tab navigation -->
             <div class="tabs">
-                <button type="button" class="tablinks active" onclick="openTab(event, 'Upload')">Upload</button>
-                <button type="button" class="tablinks" onclick="openTab(event, 'URL')">URL</button>
-                <button type="button" class="tablinks" onclick="openTab(event, 'Camera')">Camera</button>
-                <button type="button" class="tablinks" onclick="openTab(event, 'Library')">Library</button>
+                <button type="button" class="tablinks active" onclick="openCreatePostTab(event, 'Upload')">Upload</button>
+                <button type="button" class="tablinks" onclick="openCreatePostTab(event, 'URL')">URL</button>
+                                <button type="button" class="tablinks" onclick="openCreatePostTab(event, 'Camera')">Camera</button>
+                <button type="button" class="tablinks" onclick="openCreatePostTab(event, 'Library')">Library</button>
             </div>
 
             <!-- Tab content -->
@@ -203,13 +203,13 @@
             const allowedExtensions = ['png', 'jpeg', 'jpg', 'gif', 'webp', 'heic'];
             let mediaStream = null;
 
-            function openTab(evt, tabName) {
+            function openCreatePostTab(evt, tabName) {
                 var i, tabcontent, tablinks;
-                tabcontent = document.getElementsByClassName("tabcontent");
+                tabcontent = document.querySelectorAll('#CreatePostContent .tabcontent');
                 for (i = 0; i < tabcontent.length; i++) {
                     tabcontent[i].style.display = "none";
                 }
-                tablinks = document.getElementsByClassName("tablinks");
+                tablinks = document.querySelectorAll('#CreatePostContent .tablinks');
                 for (i = 0; i < tablinks.length; i++) {
                     tablinks[i].className = tablinks[i].className.replace(" active", "");
                 }
