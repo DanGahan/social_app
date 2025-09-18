@@ -9,6 +9,7 @@ The Social App is a platform designed to allow users to connect with each other,
 The frontend of the Social App is built using **Django**, a high-level Python web framework. It handles user authentication (registration, login), displays the main application interface (home page with posts, connections, and requests), and interacts with the backend API to fetch and send data. Key components include:
 *   **`core/` app:** Contains the main views, templates, and URL configurations for the core functionalities like user authentication, home page, and connection management.
 *   **`posts_app/` app:** Handles functionalities related to user posts.
+    *   **Add Post Screen:** A new screen for creating posts with a tabbed interface for image input (Upload, URL, Camera, Library). Includes client-side validation for file types, caption length, and required fields.
 *   **Templates (`.html` files):** Define the structure and layout of the web pages, using Django's template language to render dynamic content.
 *   **Static files (`.css`, `.js`, images):** Provide styling, client-side interactivity, and visual assets.
 
@@ -74,8 +75,13 @@ The backend of the Social App is built using **Flask**, a lightweight Python web
 
 *   **`GET /users/<int:user_id>/sent_requests`**
     *   **Purpose:** Retrieves pending connection requests sent by a user.
-    *   **Structure:** Requires a valid JWT token.
+    *   **Structure:** Requires a valid JWT token. Accepts `to_user_id` in the request body.
     *   **Returns:** A list of sent requests, including `request_id`, `to_user_id`, `to_user_email`, `to_user_display_name`, `to_user_profile_picture_url`, and `created_at`.
+
+*   **`POST /api/posts/upload-image`**
+    *   **Purpose:** Uploads an image for a post.
+    *   **Structure:** Accepts a file upload.
+    *   **Returns:** URL to the saved image.
 
 *   **`GET /users/<int:user_id>/posts`**
     *   **Purpose:** Retrieves posts made by a specific user.

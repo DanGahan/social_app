@@ -19,6 +19,7 @@ This project is a social media application with a Python-based backend and front
   - `app.py`: Main Flask application file.
   - `models.py`: SQLAlchemy database models.
   - `requirements.txt`: Backend Python dependencies.
+  - `uploads/`: Directory for storing uploaded images.
 - `frontend/`: The Django application that serves as the user-facing frontend.
   - `core/`: Core Django app for user registration, login, and profiles.
   - `posts_app/`: Django app for creating and viewing posts.
@@ -33,6 +34,7 @@ This project is a social media application with a Python-based backend and front
 - **Populating the database**: After a container rebuild, run `docker-compose exec backend python populate_db.py` to seed the database with initial data.
 - **Running backend tests**: `docker-compose exec backend pytest`
 - **Running frontend tests**: `docker-compose exec frontend python manage.py test`
+- **Uploading images**: The backend provides a `POST /api/posts/upload-image` endpoint for uploading images.
 
 ## Code Quality
 
