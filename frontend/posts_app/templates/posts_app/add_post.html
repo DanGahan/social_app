@@ -213,7 +213,7 @@
         const formData = new FormData();
         formData.append('file', fileToUpload);
 
-        const uploadResponse = await fetch('/api/posts/upload', {
+        const uploadResponse = await fetch('/api/posts/upload-image', {
           method: 'POST',
           headers: {
             'x-access-token': '{{ request.session.jwt_token }}' // Assuming JWT token is available in session
