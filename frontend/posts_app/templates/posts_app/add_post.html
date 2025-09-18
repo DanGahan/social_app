@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h2>Add a New Post</h2>
+  <form id="add-post-form">
+    <!-- Tab navigation -->
+    <div class="tabs">
+      <button class="tablinks" onclick="openTab(event, 'Upload')">Upload</button>
+      <button class="tablinks" onclick="openTab(event, 'URL')">URL</button>
+      <button class="tablinks" onclick="openTab(event, 'Camera')">Camera</button>
+      <button class="tablinks" onclick="openTab(event, 'Library')">Library</button>
+    </div>
+
+    <!-- Tab content -->
+    <div id="Upload" class="tabcontent">
+      <input type="file" id="file-input" accept="image/png, image/jpeg, image/gif, image/webp, image/heic">
+    </div>
+
+    <div id="URL" class="tabcontent">
+      <input type="text" id="url-input" placeholder="Enter image URL">
+    </div>
+
+    <div id="Camera" class="tabcontent">
+      <video id="camera-stream" width="320" height="240" autoplay></video>
+      <button id="capture-btn">Capture</button>
+      <canvas id="canvas" width="320" height="240"></canvas>
+    </div>
+
+    <div id="Library" class="tabcontent">
+      <input type="file" id="library-input" accept="image/*">
+    </div>
+
+    <!-- Caption -->
+    <div>
+      <label for="caption-input">Caption:</label>
+      <textarea id="caption-input" maxlength="140"></textarea>
+      <p id="char-counter">140 characters remaining</p>
+    </div>
+
+    <button type="submit">Post</button>
+  </form>
+
+  <script>
+    function openTab(evt, tabName) {
+      var i, tabcontent, tablinks;
+      tabcontent = document.getElementsByClassName("tabcontent");
+      for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+      }
+      tablinks = document.getElementsByClassName("tablinks");
+      for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+      }
+      document.getElementById(tabName).style.display = "block";
+      evt.currentTarget.className += " active";
+    }
+
+    // Add your JavaScript for handling camera, validation, and form submission here
+  </script>
+{% endblock %}
