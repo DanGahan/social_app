@@ -21,7 +21,7 @@
     </div>
 
     <div id="ConnectionsPosts" class="tabcontent">
-        
+
         {% if connections_posts %}
             <ul>
                 {% for post in connections_posts %}
@@ -163,7 +163,7 @@
     <p><a href="{% url 'logout' %}">Logout</a></p>
 
     {# Lightbox Modal #}
-    <div id="myLightbox" class="lightbox">
+    <div id="myLightbox" class="lightbox hidden">
         <span class="close-button" onclick="closeLightbox()">&times;</span>
         <img class="lightbox-content" id="img01">
     </div>
