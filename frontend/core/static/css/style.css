@@ -1,0 +1,462 @@
+/* General Body Styles */
+body {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif; /* Changed font order */
+    margin: 0;
+    padding: 20px;
+    background-color: #f0f0f0; /* Off-white/light gray */
+    color: #333; /* Dark gray for text */
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 800px;
+    margin: 40px auto;
+    background-color: #ffffff; /* Clean white background for content */
+    padding: 30px;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    border: 1px solid #e0e0e0; /* Light border */
+    /* Removed position: relative; as it's no longer needed for absolute positioning of profile pic */
+}
+
+/* Headings */
+h1, h2, h3 {
+    font-weight: normal;
+    color: #222; /* Slightly darker for headings */
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+/* Forms */
+form {
+    margin-top: 20px;
+}
+
+form p {
+    margin-bottom: 15px;
+}
+
+form label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+form input[type="text"],
+form input[type="email"],
+form input[type="password"],
+form input[type="url"],
+form textarea {
+    width: calc(100% - 22px); /* Account for padding and border */
+    padding: 10px;
+    border: 1px solid #ccc; /* Light gray border */
+    border-radius: 3px;
+    font-size: 1em;
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+
+form button[type="submit"] {
+    background-color: #007bff; /* A classic, functional blue */
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
+}
+
+form button[type="submit"]:hover {
+    background-color: #0056b3;
+}
+
+/* Links */
+a {
+    color: black; /* Default link color to black */
+    text-decoration: none;
+    font-weight: bold; /* Default link text to bold */
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Ensure links within connections grid are black */
+.connections-grid a {
+    color: black;
+}
+
+/* Ensure tab links are black */
+.tablinks {
+    color: black;
+}
+
+/* Messages */
+.messages {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 20px;
+}
+
+.messages li {
+    padding: 12px 15px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    font-size: 0.95em;
+    border: 1px solid grey; /* Grey outline */
+    background-color: white; /* White background */
+    color: black; /* Black text */
+}
+
+.messages .success {
+    /* No specific background or border color, inherited from .messages li */
+    color: black; /* Black text */
+}
+
+.messages .error {
+    /* No specific background or border color, inherited from .messages li */
+    color: black; /* Black text */
+}
+
+.messages .warning {
+    /* No specific background or border color, inherited from .messages li */
+    color: black; /* Black text */
+}
+
+/* Post List Styling */
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+li {
+    background-color: #f9f9f9;
+    border: 1px solid #eee;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+li .post-image {
+    max-width: 100%; /* Ensure images don't overflow their container */
+    width: 100%; /* Make images responsive */
+    height: auto;
+    display: block;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+}
+
+li p {
+    margin-bottom: 5px;
+}
+
+li small {
+    color: #777;
+    font-size: 0.85em;
+}
+
+.post-author-info {
+    display: flex; /* Use flexbox */
+    align-items: center; /* Vertically align items in the middle */
+    margin-bottom: 10px; /* Add some space below the info */
+}
+
+.connections-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3 columns, equal width */
+    gap: 15px; /* Space between grid items */
+    margin-top: 15px;
+}
+
+.connection-grid-item {
+    display: flex;
+    flex-direction: column; /* Stack pic and name vertically */
+    align-items: center; /* Center content horizontally */
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.connection-grid-item:hover {
+    background-color: #f0f0f0;
+}
+
+.connection-grid-item .connection-profile-pic {
+    width: 60px; /* Larger pic for grid */
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 5px;
+}
+
+.connection-grid-item .connection-display-name {
+    font-weight: bold;
+    color: #333;
+}
+
+/* Profile Picture in Home Page */
+.home-profile-pic-container {
+    float: right;
+    margin-left: 20px;
+    margin-bottom: 20px;
+}
+
+.home-profile-pic {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #ccc;
+    cursor: pointer;
+}
+
+.header-logo {
+    width: 50%; /* Set width to 50% of its container */
+    height: auto; /* Maintain aspect ratio */
+    object-fit: contain; /* Ensure the entire image is visible */
+}
+
+.post-author-pic,
+.connection-profile-pic {
+    width: 40px; /* Set a fixed width for profile pictures in posts and connections */
+    height: 40px; /* Set a fixed height for profile pictures in posts and connections */
+    border-radius: 50%; /* Make them circular */
+    object-fit: cover; /* Ensure the image covers the area without distortion */
+    margin-right: 10px; /* Add some space to the right of the picture */
+}
+
+/* Debug Info Toggle */
+#debug-info-toggle {
+    display: none; /* Hide the actual checkbox */
+}
+
+.debug-info-label {
+    cursor: pointer; /* Indicate it's clickable */
+    color: black; /* Make text black */
+    text-align: center; /* Center the text */
+    text-decoration: none; /* Remove underline */
+    font-weight: bold; /* Make text bold */
+    display: block; /* Make it a block element to allow text-align to work */
+}
+
+.debug-info-content {
+    display: none; /* Hide content by default */
+}
+
+#debug-info-toggle:checked + .debug-info-label + .debug-info-content {
+    display: block; /* Show content when checkbox is checked */
+}
+
+.jwt-token-value {
+    word-wrap: break-word; /* Ensure long tokens wrap */
+    display: inline-block; /* Allow word-wrap to work */
+    max-width: 100%; /* Ensure it doesn't overflow its container */
+}
+
+.display-name-text {
+    margin: 0;
+    font-weight: normal;
+    text-align: center;
+}
+
+/* Tab Styles */
+.tabs {
+    /* overflow: hidden; */ /* Removed */
+    /* border: 1px solid #ccc; */ /* Removed outline */
+    background-color: #ffffff; /* White background */
+    margin-bottom: 20px;
+    display: flex; /* Use flexbox for alignment */
+    align-items: center; /* Vertically align items */
+    margin-top: 20px; /* Add margin to separate from username */
+}
+
+.tabs button {
+    background-color: inherit;
+    /* float: left; */ /* Removed float */
+    border: none;
+    outline: none; /* Remove outline */
+    cursor: pointer;
+    padding: 14px 16px;
+    transition: 0.3s;
+    font-size: 17px;
+}
+
+.tabs button:hover {
+    background-color: #ffffff; /* No hover color change */
+}
+
+.tabs button.active {
+    background-color: #ffffff; /* Remove grey highlight */
+    font-weight: bold; /* Make selected tab text bold */
+}
+
+.tabcontent {
+    display: none;
+    padding: 6px 12px;
+    border: 1px solid #ccc; /* Keep top and bottom border */
+    border-left: none; /* Remove left border */
+    border-right: none; /* Remove right border */
+    border-top: none; /* Keep existing rule */
+}
+
+/* My Posts Header with + button */
+.my-posts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+/* New style for + button in tab bar */
+.create-post-button-tab {
+    display: flex; /* Use flexbox for centering */
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: black; /* Black circle */
+    color: white;
+    font-size: 24px; /* Set font size for the + */
+    line-height: 1; /* Adjust line height for vertical centering */
+    text-decoration: none;
+    border: 2px solid black; /* Black border */
+    transition: background-color 0.2s ease;
+    margin-right: 10px; /* Space between + and first tab */
+    flex-shrink: 0; /* Prevent shrinking */
+    min-width: 30px; /* Ensure minimum width */
+    min-height: 30px; /* Ensure minimum height */
+    font-weight: bold; /* Make the + bold */
+}
+
+/* Original create-post-button (if still needed elsewhere) */
+.create-post-button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: #007bff;
+    color: white;
+    padding: 0;
+    font-size: 24px;
+    text-decoration: none;
+    line-height: 1;
+    border: 2px solid #007bff;
+    transition: background-color 0.2s ease;
+}
+
+.create-post-button:hover {
+    background-color: #0056b3;
+}
+
+/* Lightbox Styles */
+.lightbox {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1000; /* Sit on top */
+    left: 50%; /* Center horizontally */
+    top: 50%; /* Center vertically */
+    transform: translate(-50%, -50%); /* Adjust for element's own size */
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    /* overflow: auto; */ /* Removed */
+    background-color: rgba(0,0,0,0.9); /* Black w/ opacity */
+    padding-top: 0; /* Remove padding-top */
+    display: flex; /* Use flexbox for centering content */
+    align-items: center; /* Center vertically */
+    justify-content: center; /* Center horizontally */
+}
+
+.lightbox-content {
+    /* margin: auto; */ /* Removed */
+    display: block;
+    /* max-width: 80%; */ /* Removed */
+    /* max-height: 80%; */ /* Removed */
+    width: 100%; /* Ensure it takes full width of flex container */
+    height: 100%; /* Ensure it takes full height of flex container */
+    object-fit: contain; /* Scale image to fit within bounds */
+}
+
+.close-button {
+    position: absolute;
+    top: 15px;
+    right: 35px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    transition: 0.3s;
+    cursor: pointer;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: #bbb;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Modal Styles (for user profile) */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1001; /* Sit on top (higher than lightbox) */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.8); /* Black w/ opacity */
+    padding-top: 60px; /* Location of the box */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto; /* 5% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; /* Could be more or less, depending on screen size */
+    max-width: 600px; /* Max width for larger screens */
+    border-radius: 8px;
+    position: relative; /* For close button positioning */
+}
+
+/* Media Queries for Mobile Responsiveness */
+@media (max-width: 768px) {
+    body {
+        padding: 10px; /* Reduce body padding on small screens */
+    }
+
+    .container {
+        margin: 20px auto; /* Reduce top margin for container on small screens */
+        padding: 15px; /* Adjust container padding */
+    }
+
+    .connections-grid {
+        grid-template-columns: repeat(1, 1fr); /* Single column for connections on small screens */
+    }
+
+    .connection-grid-item {
+        padding: 8px; /* Adjust padding for connection items */
+    }
+
+    /* Adjust post image size within connections grid */
+    .connections-grid li .post-image {
+        max-width: 100%;
+        height: auto;
+    }
+
+    /* Reduce padding for list items within connections grid */
+    .connections-grid li {
+        padding: 10px;
+    }
+}
+
+.hidden {
+    display: none;
+}
