@@ -6,7 +6,7 @@ from functools import wraps
 
 import jwt
 from config import Config
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from models import Base, Connection, ConnectionRequest, Post, User
 from sqlalchemy import create_engine, or_
 from sqlalchemy.exc import IntegrityError
@@ -39,12 +39,8 @@ def token_required(f):
         if not token:
             return jsonify({"message": "Token is missing!"}), 401
         try:
-            data = jwt.decode(
-                token, app.config["SECRET_KEY"], algorithms=["HS256"]
-            )
-            current_user = (
-                session.query(User).filter_by(id=data["user_id"]).first()
-            )
+            data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
+            current_user = session.query(User).filter_by(id=data["user_id"]).first()
             if not current_user:
                 return jsonify({"message": "User not found!"}), 401
         except Exception:
@@ -101,9 +97,7 @@ def search_users(current_user):
 
     users = (
         session.query(User)
-        .filter(
-            User.display_name.ilike(f"%{query}%"), User.id != current_user.id
-        )
+        .filter(User.display_name.ilike(f"%{query}%"), User.id != current_user.id)
         .all()
     )
     app.logger.debug(f"Found users: {users}")
@@ -185,9 +179,7 @@ def request_connection(current_user):
 
     # Check if a connection already exists
     existing_connection = (
-        session.query(Connection)
-        .filter_by(user_id1=u1_id, user_id2=u2_id)
-        .first()
+        session.query(Connection).filter_by(user_id1=u1_id, user_id2=u2_id).first()
     )
     if existing_connection:
         app.logger.debug(
@@ -227,9 +219,7 @@ def request_connection(current_user):
         app.logger.error(f"Error sending connection request: {e}")
         return (
             jsonify(
-                {
-                    "message": "An error occurred while sending the connection request."
-                }
+                {"message": "An error occurred while sending the connection request."}
             ),
             500,
         )
@@ -253,9 +243,7 @@ def register_user():
     session.commit()
 
     return (
-        jsonify(
-            {"message": "User registered successfully", "user_id": new_user.id}
-        ),
+        jsonify({"message": "User registered successfully", "user_id": new_user.id}),
         201,
     )
 
@@ -308,12 +296,8 @@ def accept_connection(current_user):
         )
 
     # Create mutual connection
-    user_id1 = min(
-        connection_request.from_user_id, connection_request.to_user_id
-    )
-    user_id2 = max(
-        connection_request.from_user_id, connection_request.to_user_id
-    )
+    user_id1 = min(connection_request.from_user_id, connection_request.to_user_id)
+    user_id2 = max(connection_request.from_user_id, connection_request.to_user_id)
 
     new_connection = Connection(user_id1=user_id1, user_id2=user_id2)
     session.add(new_connection)
@@ -345,9 +329,7 @@ def deny_connection_request(current_user):
     try:
         connection_request = (
             session.query(ConnectionRequest)
-            .filter_by(
-                id=request_id, to_user_id=current_user.id, status="pending"
-            )
+            .filter_by(id=request_id, to_user_id=current_user.id, status="pending")
             .first()
         )
 
@@ -372,9 +354,7 @@ def deny_connection_request(current_user):
         app.logger.error(f"Error denying connection request: {e}")
         return (
             jsonify(
-                {
-                    "message": "An error occurred while denying the connection request."
-                }
+                {"message": "An error occurred while denying the connection request."}
             ),
             500,
         )
@@ -391,18 +371,14 @@ def get_user_connections(current_user, user_id):
 
     connections = (
         session.query(Connection)
-        .filter(
-            or_(Connection.user_id1 == user_id, Connection.user_id2 == user_id)
-        )
+        .filter(or_(Connection.user_id1 == user_id, Connection.user_id2 == user_id))
         .all()
     )
 
     connected_users = []
     for conn in connections:
         if conn.user_id1 == user_id:
-            connected_user = (
-                session.query(User).filter_by(id=conn.user_id2).first()
-            )
+            connected_user = session.query(User).filter_by(id=conn.user_id2).first()
             connected_users.append(
                 {
                     "user_id": conn.user_id2,
@@ -412,9 +388,7 @@ def get_user_connections(current_user, user_id):
                 }
             )
         else:
-            connected_user = (
-                session.query(User).filter_by(id=conn.user_id1).first()
-            )
+            connected_user = session.query(User).filter_by(id=conn.user_id1).first()
             connected_users.append(
                 {
                     "user_id": conn.user_id1,
@@ -432,9 +406,7 @@ def get_user_connections(current_user, user_id):
 def get_pending_requests(current_user, user_id):
     if current_user.id != user_id:
         return (
-            jsonify(
-                {"message": "Cannot access other user's pending requests!"}
-            ),
+            jsonify({"message": "Cannot access other user's pending requests!"}),
             403,
         )
 
@@ -527,18 +499,14 @@ def get_user_posts(current_user, user_id):
 def get_connections_posts(current_user, user_id):
     if current_user.id != user_id:
         return (
-            jsonify(
-                {"message": "Cannot access other user's connections' posts!"}
-            ),
+            jsonify({"message": "Cannot access other user's connections' posts!"}),
             403,
         )
 
     # Get connected user IDs
     connections = (
         session.query(Connection)
-        .filter(
-            or_(Connection.user_id1 == user_id, Connection.user_id2 == user_id)
-        )
+        .filter(or_(Connection.user_id1 == user_id, Connection.user_id2 == user_id))
         .all()
     )
 
@@ -591,10 +559,7 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 
 def allowed_file(filename):
-    return (
-        "." in filename
-        and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-    )
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 @app.route("/posts/upload", methods=["POST"])
@@ -608,10 +573,10 @@ def upload_file(current_user):
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+        # Return full URL path for uploaded file
+        file_url = f"/uploads/{filename}"
         return (
-            jsonify(
-                {"message": "File uploaded successfully", "filename": filename}
-            ),
+            jsonify({"message": "File uploaded successfully", "filename": file_url}),
             200,
         )
     else:
@@ -628,18 +593,20 @@ def create_post(current_user):
     if not image_url or not caption:
         return jsonify({"message": "Image URL and caption are required"}), 400
 
-    new_post = Post(
-        user_id=current_user.id, image_url=image_url, caption=caption
-    )
+    new_post = Post(user_id=current_user.id, image_url=image_url, caption=caption)
     session.add(new_post)
     session.commit()
 
     return (
-        jsonify(
-            {"message": "Post created successfully", "post_id": new_post.id}
-        ),
+        jsonify({"message": "Post created successfully", "post_id": new_post.id}),
         201,
     )
+
+
+@app.route("/uploads/<filename>")
+def uploaded_file(filename):
+    """Serve uploaded files"""
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
 if __name__ == "__main__":
