@@ -48,12 +48,13 @@ form input[type="email"],
 form input[type="password"],
 form input[type="url"],
 form textarea {
-    width: calc(100% - 22px); /* Account for padding and border */
+    width: 100%; /* Use full width */
     padding: 10px;
     border: 1px solid #ccc; /* Light gray border */
     border-radius: 3px;
     font-size: 1em;
     box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    margin: 0; /* Reset any default margins */
 }
 
 form button[type="submit"] {
@@ -69,6 +70,82 @@ form button[type="submit"] {
 
 form button[type="submit"]:hover {
     background-color: #0056b3;
+}
+
+/* Post Submit Button - Match login button style and align with text boxes */
+button#post-submit-btn {
+    background-color: black !important; /* Same as login button */
+    color: white !important; /* Same as login button */
+    padding: 10px 20px !important; /* Same size as login button */
+    border: none !important;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 1em !important; /* Same size as login button */
+    transition: background-color 0.2s ease;
+    margin: 6px 12px; /* Match the padding of the caption and URL sections for alignment */
+}
+
+button#post-submit-btn:hover {
+    background-color: #0056b3 !important; /* Same hover as other form buttons */
+}
+
+/* Library File Input - Hide default input and style custom button */
+#library-input {
+    display: none; /* Hide the default file input */
+}
+
+#library-button {
+    background-color: black !important;
+    color: white !important;
+    padding: 10px 20px !important;
+    border: none !important;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 1em !important;
+    transition: background-color 0.2s ease;
+    margin: 0 !important;
+    display: inline-block;
+}
+
+#library-button:hover {
+    background-color: #0056b3 !important;
+}
+
+/* Library preview image */
+#library-preview {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #ddd;
+    margin-top: 10px;
+    display: none;
+}
+
+/* Camera buttons - style to match library button */
+#capture-btn, #camera-switch-btn {
+    background-color: black !important;
+    color: white !important;
+    padding: 10px 20px !important;
+    border: none !important;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 1em !important;
+    transition: background-color 0.2s ease;
+    margin: 0 10px 10px 0 !important;
+    display: inline-block;
+}
+
+#capture-btn:hover, #camera-switch-btn:hover {
+    background-color: #0056b3 !important;
+}
+
+/* Camera preview styling - full size like posts */
+#camera-stream, #camera-captured-image {
+    max-width: 100%;
+    width: 100%;
+    height: auto;
+    display: block;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
 }
 
 /* Links */
@@ -272,6 +349,7 @@ li small {
     display: flex; /* Use flexbox for alignment */
     align-items: center; /* Vertically align items */
     margin-top: 20px; /* Add margin to separate from username */
+    flex-wrap: nowrap; /* Prevent wrapping of tab buttons */
 }
 
 .tabs button {
@@ -283,6 +361,8 @@ li small {
     padding: 14px 16px;
     transition: 0.3s;
     font-size: 17px;
+    white-space: nowrap; /* Prevent text wrapping */
+    flex-shrink: 0; /* Prevent buttons from shrinking */
 }
 
 .tabs button:hover {

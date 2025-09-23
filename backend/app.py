@@ -1,16 +1,18 @@
 import datetime
 import logging
+import os
 import sys
 from functools import wraps
 
 import jwt
 from config import Config
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from models import Base, Connection, ConnectionRequest, Post, User
 from sqlalchemy import create_engine, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -288,7 +290,10 @@ def accept_connection(current_user):
     )
 
     if not connection_request:
-        return jsonify({"message": "Pending connection request not found"}), 404
+        return (
+            jsonify({"message": "Pending connection request not found"}),
+            404,
+        )
 
     # Create mutual connection
     user_id1 = min(connection_request.from_user_id, connection_request.to_user_id)
@@ -545,6 +550,63 @@ def get_connections_posts(current_user, user_id):
             }
         )
     return jsonify(posts_data), 200
+
+
+UPLOAD_FOLDER = "./uploads"
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "heic", "webp"}
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route("/posts/upload", methods=["POST"])
+@token_required
+def upload_file(current_user):
+    if "file" not in request.files:
+        return jsonify({"message": "No file part"}), 400
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"message": "No selected file"}), 400
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+        # Return full URL path for uploaded file
+        file_url = f"/uploads/{filename}"
+        return (
+            jsonify({"message": "File uploaded successfully", "filename": file_url}),
+            200,
+        )
+    else:
+        return jsonify({"message": "File type not allowed"}), 400
+
+
+@app.route("/posts", methods=["POST"])
+@token_required
+def create_post(current_user):
+    data = request.get_json()
+    image_url = data.get("image_url")
+    caption = data.get("caption")
+
+    if not image_url or not caption:
+        return jsonify({"message": "Image URL and caption are required"}), 400
+
+    new_post = Post(user_id=current_user.id, image_url=image_url, caption=caption)
+    session.add(new_post)
+    session.commit()
+
+    return (
+        jsonify({"message": "Post created successfully", "post_id": new_post.id}),
+        201,
+    )
+
+
+@app.route("/uploads/<filename>")
+def uploaded_file(filename):
+    """Serve uploaded files"""
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
 if __name__ == "__main__":

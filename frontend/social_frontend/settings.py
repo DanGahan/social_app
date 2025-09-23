@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -26,6 +27,28 @@ SECRET_KEY = "django-insecure-c89=g658kx$nigj!x-&r!#+e2+@9)axk0($pnek8xk(71bh8cm
 DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
+
+# CSRF trusted origins for HTTPS
+CSRF_TRUSTED_ORIGINS = [
+    "https://localhost",
+    "https://127.0.0.1",
+    # Your detected local IPs
+    "https://172.16.0.168",  # Main LAN IP
+    "https://172.16.104.1",  # Docker/VPN interface
+    "https://172.16.3.1",  # Additional interface
+    # Common development IPs
+    "https://192.168.1.1",
+    "https://192.168.1.100",
+    "https://192.168.0.1",
+    "https://192.168.0.100",
+    "https://10.0.0.1",
+    "https://10.0.0.100",
+]
+
+# Allow environment variable override for custom IP
+custom_ip = os.environ.get("LOCAL_IP")
+if custom_ip:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{custom_ip}")
 
 
 # Application definition

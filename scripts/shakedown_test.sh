@@ -40,6 +40,26 @@ run_test_step "4. Waiting for services to become healthy..." \
     "4. Waiting for services to become healthy: PASSED" \
     "4. Waiting for services to become healthy: FAILED"
 
+# Additional debugging for CI environment
+echo "4.1. Additional debugging for frontend readiness..."
+echo "Docker container status:"
+docker-compose ps
+echo "Testing direct connectivity to nginx:"
+curl -s -I http://localhost/ | head -3 || echo "Failed to connect to nginx"
+echo "Waiting for nginx to become responsive (max 30s)..."
+i=1
+while [ $i -le 30 ]; do
+    if curl -s http://localhost/ > /dev/null 2>&1; then
+        echo "Nginx responding after ${i}s"
+        break
+    fi
+    sleep 1
+    if [ $i -eq 30 ]; then
+        echo "WARNING: Nginx still not responding after 30s"
+    fi
+    i=$((i + 1))
+done
+
 run_test_step "5. Waiting for 'users' table to be created..." \
     "TIMEOUT=60; while ! docker-compose exec db psql -U user -d social_db -c '\dt' | grep -q \" users \"; do sleep 5; TIMEOUT=$((TIMEOUT-5)); if [ $TIMEOUT -le 0 ]; then echo \"Timeout waiting for 'users' table!\"; exit 1; fi; done" \
     "5. 'users' table created: PASSED" \
@@ -116,21 +136,71 @@ run_test_step "10. Performing Backend GET API Exercise (/users/me)..." \
 "10. Performing Backend GET API Exercise (/users/me): PASSED" \
 "10. Performing Backend GET API Exercise (/users/me): FAILED (Expected user data not found)"
 
-# 11. Frontend Confidence Test (Login Page content)
-run_test_step '11. Performing Frontend Confidence Test (Login Page content)...' \
-'FRONTEND_LOGIN_RESPONSE=$(curl -s -L http://localhost:8000/); echo "$FRONTEND_LOGIN_RESPONSE" | grep -q "<h2>Login</h2>"' \
-"11. Performing Frontend Confidence Test (Login Page content): PASSED" \
-"11. Performing Frontend Confidence Test (Login Page content): FAILED (Did not find '<h2>Login</h2>' in content)"
+# 11. Frontend Confidence Test (Login Page content) - use docker exec for CI compatibility
+echo "11. Performing Frontend Confidence Test (Login Page content)..."
+echo "DEBUG: Testing frontend access via docker exec (CI-compatible)..."
 
-# 12. Frontend Static File Check (logo.png)
+# Use docker exec to test from inside the container network using Python
+FRONTEND_RESPONSE=$(docker-compose exec -T frontend python -c "
+import urllib.request
+try:
+    with urllib.request.urlopen('http://nginx/') as response:
+        print(response.read().decode('utf-8'))
+except:
+    try:
+        with urllib.request.urlopen('http://frontend:8000/') as response:
+            print(response.read().decode('utf-8'))
+    except:
+        pass
+" 2>/dev/null)
+
+if [ -z "$FRONTEND_RESPONSE" ]; then
+    echo "DEBUG: Docker exec failed, trying host network access..."
+    # Fallback to host network for local development
+    if curl -s -L http://localhost/ > /dev/null 2>&1; then
+        FRONTEND_RESPONSE=$(curl -s -L http://localhost/)
+        echo "DEBUG: Using host network nginx proxy"
+    elif curl -s -L http://localhost:8000/ > /dev/null 2>&1; then
+        FRONTEND_RESPONSE=$(curl -s -L http://localhost:8000/)
+        echo "DEBUG: Using host network direct frontend"
+    else
+        echo "11. Performing Frontend Confidence Test (Login Page content): FAILED (No frontend access available)"
+        exit 1
+    fi
+else
+    echo "DEBUG: Using docker internal network"
+fi
+
+echo "DEBUG: Frontend response length: ${#FRONTEND_RESPONSE}"
+echo "DEBUG: Frontend response preview:"
+echo "$FRONTEND_RESPONSE" | head -10
+echo "DEBUG: Searching for login content:"
+echo "$FRONTEND_RESPONSE" | grep -i "login" | head -3 || echo "DEBUG: No login text found"
+
+if echo "$FRONTEND_RESPONSE" | grep -q "<h2>Login</h2>"; then
+    echo "11. Performing Frontend Confidence Test (Login Page content): PASSED"
+else
+    echo "11. Performing Frontend Confidence Test (Login Page content): FAILED (Did not find '<h2>Login</h2>' in content)"
+    exit 1
+fi
+
+# 12. Frontend Static File Check (logo.png) - use docker exec with Python for CI compatibility
 run_test_step '12. Performing Frontend Static File Check (logo.png)...' \
-'HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/static/logo.png); [ "$HTTP_CODE" -eq 200 ]' \
+'HTTP_CODE=$(docker-compose exec -T frontend python -c "import urllib.request;
+try: urllib.request.urlopen(\"http://nginx/static/logo.png\"); print(\"200\")
+except:
+    try: urllib.request.urlopen(\"http://frontend:8000/static/logo.png\"); print(\"200\")
+    except: print(\"404\")" 2>/dev/null) || HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/static/logo.png 2>/dev/null); [ "$HTTP_CODE" -eq 200 ]' \
 "12. Performing Frontend Static File Check (logo.png): PASSED" \
 "12. Performing Frontend Static File Check (logo.png): FAILED (HTTP $HTTP_CODE)"
 
-# 13. Frontend Static File Check (default_profile_pic.png)
+# 13. Frontend Static File Check (default_profile_pic.png) - use docker exec with Python for CI compatibility
 run_test_step '13. Performing Frontend Static File Check (default_profile_pic.png)...' \
-'HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/static/default_profile_pic.png); [ "$HTTP_CODE" -eq 200 ]' \
+'HTTP_CODE=$(docker-compose exec -T frontend python -c "import urllib.request;
+try: urllib.request.urlopen(\"http://nginx/static/default_profile_pic.png\"); print(\"200\")
+except:
+    try: urllib.request.urlopen(\"http://frontend:8000/static/default_profile_pic.png\"); print(\"200\")
+    except: print(\"404\")" 2>/dev/null) || HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/static/default_profile_pic.png 2>/dev/null); [ "$HTTP_CODE" -eq 200 ]' \
 "13. Performing Frontend Static File Check (default_profile_pic.png): PASSED" \
 "13. Performing Frontend Static File Check (default_profile_pic.png): FAILED (HTTP $HTTP_CODE)"
 

@@ -12,7 +12,7 @@
     </div>
 
     <div class="tabs">
-        <button class="create-post-button-tab" onclick="openTab(event, 'CreatePostContent')">
+        <button class="create-post-button-tab" onclick="openTab(event, 'CreatePostContent'); openCreatePostTab(null, 'Library');">
             &#x2795;
         </button>
         <button class="tablinks" onclick="openTab(event, 'ConnectionsPosts')" id="defaultOpen">Posts</button>
@@ -153,11 +153,742 @@
 
     {# Create Post Content #}
     <div id="CreatePostContent" class="tabcontent">
-        <form method="post">
+        <h2>Add a New Post</h2>
+        <form id="add-post-form" method="post" enctype="multipart/form-data">
             {% csrf_token %}
-            {{ create_post_form.as_p }}
-            <button type="submit" name="create_post" style="background-color: black; color: white;">Post</button>
+            <!-- Tab navigation -->
+            <div class="tabs">
+                <button type="button" class="tablinks" onclick="openCreatePostTab(event, 'Library')">Library</button>
+                <button type="button" class="tablinks" onclick="openCreatePostTab(event, 'Camera')">Camera</button>
+                <button type="button" class="tablinks" onclick="openCreatePostTab(event, 'URL')">URL</button>
+            </div>
+
+            <!-- Tab content -->
+
+
+            <div id="URL" class="tabcontent">
+                <div style="margin-bottom: 15px;">
+                    <label for="url-input">Image URL:</label>
+                    <input type="text" id="url-input" name="image_url" placeholder="Enter image URL">
+                    <p id="url-error" class="error-message"></p>
+                    <p id="file-error" class="error-message"></p>
+                </div>
+            </div>
+
+            <div id="Camera" class="tabcontent">
+                <div id="camera-native" style="display: block; margin-bottom: 15px;">
+                    <video id="camera-stream" autoplay playsinline muted></video>
+                    <img id="camera-captured-image" alt="Captured image" style="display: none;">
+                    <div>
+                        <button type="button" id="camera-switch-btn">Switch Camera</button>
+                        <button type="button" id="capture-btn">Capture</button>
+                        <button type="button" id="request-permission-btn" style="margin-left: 10px; background-color: #007AFF; color: white; display: none;">Request Camera Permission</button>
+                    </div>
+                    <canvas id="canvas" style="display:none;"></canvas>
+                    <p id="camera-error" class="error-message"></p>
+                </div>
+                <div id="camera-fallback" style="display: none; margin-bottom: 15px;">
+                    <p><strong>Camera access not available.</strong></p>
+                    <p>Please use the Camera app on your device to take a photo, then use the Library tab to select it.</p>
+                    <p>Or you can use this fallback option:</p>
+                    <input type="file" id="camera-file-input" accept="image/*" capture="environment">
+                    <p><small>This will open your device's camera or photo library.</small></p>
+                </div>
+            </div>
+
+            <div id="Library" class="tabcontent">
+                <div style="margin-bottom: 15px;">
+                    <label for="library-input">Select Image:</label>
+                    <input type="file" id="library-input" name="library_upload" accept="image/*">
+                    <button type="button" id="library-button">Choose File</button>
+                    <img id="library-preview" alt="Selected image preview">
+                    <p id="library-error" class="error-message"></p>
+                </div>
+            </div>
+
+            <!-- Caption -->
+            <div style="margin-bottom: 15px; padding: 6px 12px;">
+                <label for="caption-input">Caption:</label>
+                <textarea id="caption-input" name="caption" maxlength="140" style="min-height: 60px;"></textarea>
+                <p id="char-counter">140 characters remaining</p>
+                <p id="caption-error" class="error-message"></p>
+            </div>
+
+            <button type="button" id="post-submit-btn">Post</button>
         </form>
+
+        <script>
+            let activeTab = 'URL';
+            const allowedExtensions = ['png', 'jpeg', 'jpg', 'gif', 'webp', 'heic'];
+            let mediaStream = null;
+            let currentFacingMode = 'environment'; // Start with back camera (environment)
+
+            function openCreatePostTab(evt, tabName) {
+                var i, tabcontent, tablinks;
+                tabcontent = document.querySelectorAll('#CreatePostContent .tabcontent');
+                for (i = 0; i < tabcontent.length; i++) {
+                    tabcontent[i].style.display = "none";
+                }
+                tablinks = document.querySelectorAll('#CreatePostContent .tablinks');
+                for (i = 0; i < tablinks.length; i++) {
+                    tablinks[i].className = tablinks[i].className.replace(" active", "");
+                }
+                document.getElementById(tabName).style.display = "block";
+                if(evt) {
+                    evt.currentTarget.className += " active";
+                } else {
+                    document.querySelector('#CreatePostContent .tablinks[onclick*="' + tabName + '"]').className += " active";
+                }
+                activeTab = tabName;
+                clearErrors();
+
+                if (tabName === 'Camera') {
+                    // Reset camera UI when switching to camera tab
+                    document.getElementById('camera-native').style.display = 'block';
+                    document.getElementById('camera-fallback').style.display = 'none';
+                    startCamera();
+                } else {
+                    stopCamera();
+                }
+            }
+
+            function clearErrors() {
+                if(document.getElementById('file-error')) {
+                    document.getElementById('file-error').innerText = '';
+                }
+                if(document.getElementById('url-error')) {
+                    document.getElementById('url-error').innerText = '';
+                }
+                if(document.getElementById('camera-error')) {
+                    document.getElementById('camera-error').innerText = '';
+                }
+                if(document.getElementById('library-error')) {
+                    document.getElementById('library-error').innerText = '';
+                }
+                if(document.getElementById('caption-error')) {
+                    document.getElementById('caption-error').innerText = '';
+                }
+            }
+
+            // Camera functionality
+            const cameraStream = document.getElementById('camera-stream');
+            const captureBtn = document.getElementById('capture-btn');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+            let capturedImageBlob = null;
+
+            async function startCamera() {
+                console.log("Attempting to start camera...");
+
+                // Check protocol and provide helpful message for HTTPS requirement
+                const isHttps = window.location.protocol === 'https:';
+                const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                const isMacSafari = /Safari/.test(navigator.userAgent) && /Macintosh/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+                const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+                console.log("Protocol:", window.location.protocol, "Hostname:", window.location.hostname);
+                console.log("User agent:", navigator.userAgent);
+                console.log("Is Mac Safari:", isMacSafari, "Is iOS:", isiOS);
+
+                try {
+                    // Basic support checks
+                    if (!navigator.mediaDevices) {
+                        throw new Error('Camera not supported - mediaDevices not available');
+                    }
+
+                    if (!navigator.mediaDevices.getUserMedia) {
+                        throw new Error('Camera not supported - getUserMedia not available');
+                    }
+
+                    // Check HTTPS requirement (not needed for localhost)
+                    if (!isHttps && !isLocalhost) {
+                        throw new Error('Camera requires HTTPS connection or localhost');
+                    }
+
+                    // Check available devices for debugging
+                    try {
+                        const devices = await navigator.mediaDevices.enumerateDevices();
+                        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                        console.log("Available video devices:", videoDevices.length);
+
+                        if (videoDevices.length === 0) {
+                            console.log("⚠️ No camera devices detected - this is likely a macOS permission issue");
+                            if (isMacSafari) {
+                                throw new Error('No camera devices found. Please check macOS System Settings > Privacy & Security > Camera and ensure Safari has camera access.');
+                            }
+                        }
+
+                        videoDevices.forEach((device, index) => {
+                            console.log(`Video device ${index}:`, device.label || 'Unknown device', device.deviceId);
+                        });
+                    } catch (enumErr) {
+                        console.log("Could not enumerate devices:", enumErr);
+                        if (enumErr.message && enumErr.message.includes('camera access')) {
+                            throw enumErr; // Re-throw our custom permission error
+                        }
+                    }
+
+                    // Different strategies for different browsers
+                    let constraints;
+
+                    if (isMacSafari) {
+                        console.log("Using macOS Safari ultra-basic constraints");
+                        // Mac Safari is very picky - start with absolute minimum
+                        constraints = {
+                            video: { facingMode: currentFacingMode },
+                            audio: false
+                        };
+                    } else if (isiOS) {
+                        console.log("Using iOS Safari optimized constraints");
+                        // iOS Safari prefers simpler constraints with facing mode
+                        constraints = {
+                            video: { facingMode: currentFacingMode },
+                            audio: false
+                        };
+                    } else {
+                        console.log("Using default constraints for other browsers");
+                        constraints = {
+                            video: { facingMode: currentFacingMode },
+                            audio: false
+                        };
+                    }
+
+                    console.log("Requesting camera with constraints:", constraints);
+
+                    try {
+                        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                        console.log("Camera stream obtained successfully");
+                    } catch (constraintErr) {
+                        console.log("Initial constraints failed:", constraintErr);
+
+                        // For Mac Safari, try multiple fallback strategies
+                        if (isMacSafari) {
+                            console.log("Trying Mac Safari fallback strategies...");
+
+                            const fallbackAttempts = [
+                                { video: { facingMode: currentFacingMode } },  // With facing mode
+                                { video: {} },  // Empty video object
+                                { video: { width: 640, height: 480, facingMode: currentFacingMode } },  // Simple dimensions with facing mode
+                                { video: { width: { exact: 640 }, height: { exact: 480 } } }  // Exact dimensions without facing mode
+                            ];
+
+                            let attemptIndex = 0;
+                            let fallbackWorked = false;
+
+                            for (const attempt of fallbackAttempts) {
+                                try {
+                                    console.log(`Mac Safari fallback attempt ${attemptIndex + 1}:`, attempt);
+                                    mediaStream = await navigator.mediaDevices.getUserMedia(attempt);
+                                    console.log(`Mac Safari fallback attempt ${attemptIndex + 1} worked!`);
+                                    fallbackWorked = true;
+                                    break;
+                                } catch (fallbackErr) {
+                                    console.log(`Mac Safari fallback attempt ${attemptIndex + 1} failed:`, fallbackErr);
+                                    attemptIndex++;
+                                }
+                            }
+
+                            if (!fallbackWorked) {
+                                throw new Error("All Mac Safari fallback attempts failed");
+                            }
+                        } else {
+                            console.log("Trying basic fallback for non-Mac Safari");
+                            // Basic fallback for other browsers
+                            mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                            console.log("Basic fallback constraints worked");
+                        }
+                    }
+
+                    // Set video source and play
+                    cameraStream.srcObject = mediaStream;
+
+                    // Handle autoplay for different browsers
+                    try {
+                        // Add attributes for Safari compatibility
+                        cameraStream.muted = true;
+                        cameraStream.playsInline = true;
+
+                        await cameraStream.play();
+                        console.log("Video element playing successfully");
+                    } catch (playErr) {
+                        console.log("Video play failed, trying manual play:", playErr);
+                        // Sometimes we need to trigger play manually
+                        setTimeout(() => {
+                            cameraStream.play().catch(e => console.log("Manual play also failed:", e));
+                        }, 100);
+                    }
+
+                    document.getElementById('camera-error').innerText = '';
+                    console.log("Camera started successfully.");
+
+                    // Hide permission button and show switch button when camera works
+                    document.getElementById('request-permission-btn').style.display = 'none';
+                    document.getElementById('camera-switch-btn').style.display = 'inline-block';
+
+                } catch (err) {
+                    console.error("Camera error details:", {
+                        name: err.name,
+                        message: err.message,
+                        stack: err.stack,
+                        userAgent: navigator.userAgent,
+                        isHttps: isHttps,
+                        isLocalhost: isLocalhost,
+                        isMacSafari: isMacSafari
+                    });
+
+                    let errorMessage = 'Could not access camera. ';
+                    let shouldShowFallback = false;
+
+                    if (err.message && err.message.includes('HTTPS')) {
+                        errorMessage = 'Camera access requires HTTPS connection. Using fallback option.';
+                        shouldShowFallback = true;
+                    } else if (err.name === 'NotAllowedError') {
+                        if (isMacSafari) {
+                            errorMessage += 'Please check Safari > Settings > Websites > Camera permissions, then reload the page.';
+                        } else {
+                            errorMessage += 'Please allow camera permissions when prompted and try again.';
+                        }
+                    } else if (err.name === 'NotFoundError') {
+                        errorMessage += 'No camera device found on this device.';
+                        shouldShowFallback = true;
+                    } else if (err.name === 'NotSupportedError' || err.message.includes('not supported')) {
+                        errorMessage += 'Camera not supported by this browser or device.';
+                        shouldShowFallback = true;
+                    } else if (err.name === 'NotReadableError') {
+                        errorMessage += 'Camera is already in use by another application.';
+                    } else if (err.name === 'OverconstrainedError' || err.message.includes('constraint')) {
+                        errorMessage += 'Camera settings not compatible with this device.';
+                        shouldShowFallback = true;
+                    } else {
+                        errorMessage += `Error: ${err.message || err.name || 'Unknown camera error'}`;
+                        shouldShowFallback = true;
+                    }
+
+                    document.getElementById('camera-error').innerText = errorMessage;
+
+                    // Show fallback option for Safari and other problematic browsers
+                    if (shouldShowFallback) {
+                        document.getElementById('camera-native').style.display = 'none';
+                        document.getElementById('camera-fallback').style.display = 'block';
+                        console.log("Showing camera fallback due to error:", err.name);
+                    } else {
+                        // Show permission button when camera fails but not showing fallback
+                        document.getElementById('request-permission-btn').style.display = 'inline-block';
+                        document.getElementById('camera-switch-btn').style.display = 'none';
+                    }
+                }
+            }
+
+            function stopCamera() {
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                    cameraStream.srcObject = null;
+                    console.log("Camera stopped.");
+                }
+            }
+
+            captureBtn.addEventListener('click', () => {
+                const capturedImage = document.getElementById('camera-captured-image');
+                const switchBtn = document.getElementById('camera-switch-btn');
+                const isRetakeMode = captureBtn.textContent === 'Retake';
+
+                if (isRetakeMode) {
+                    // Retake mode - go back to camera preview
+                    console.log("Retake button clicked - returning to camera preview");
+
+                    // Hide captured image and show video stream
+                    capturedImage.style.display = 'none';
+                    cameraStream.style.display = 'block';
+
+                    // Reset button text
+                    captureBtn.textContent = 'Capture';
+
+                    // Show switch camera button again
+                    switchBtn.style.display = 'inline-block';
+
+                    // Clear captured image blob
+                    capturedImageBlob = null;
+
+                    // Clear any errors
+                    document.getElementById('camera-error').innerText = '';
+
+                    return;
+                }
+
+                // Capture mode - take a picture
+                console.log("Capture button clicked.");
+                console.log("Media stream:", mediaStream);
+                console.log("Camera stream readyState:", cameraStream.readyState);
+                console.log("Video dimensions:", cameraStream.videoWidth, "x", cameraStream.videoHeight);
+
+                if (!mediaStream) {
+                    document.getElementById('camera-error').innerText = 'Camera not started. Please start camera first.';
+                    return;
+                }
+
+                // Check if video has data - use multiple readiness checks for Safari compatibility
+                const hasVideoData = cameraStream.readyState >= 2 || // HAVE_CURRENT_DATA or better
+                                   cameraStream.videoWidth > 0 ||
+                                   cameraStream.videoHeight > 0;
+
+                if (!hasVideoData) {
+                    document.getElementById('camera-error').innerText = 'Camera not ready yet. Please wait a moment and try again.';
+                    return;
+                }
+
+                try {
+                    // Make sure canvas matches video dimensions
+                    if (cameraStream.videoWidth > 0 && cameraStream.videoHeight > 0) {
+                        canvas.width = cameraStream.videoWidth;
+                        canvas.height = cameraStream.videoHeight;
+                    }
+
+                    context.drawImage(cameraStream, 0, 0, canvas.width, canvas.height);
+                    console.log("Drew image to canvas successfully");
+
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            // Create a File object with a proper name for upload
+                            const timestamp = new Date().getTime();
+                            capturedImageBlob = new File([blob], `camera_capture_${timestamp}.jpg`, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            console.log("Image captured successfully, size:", capturedImageBlob.size, "name:", capturedImageBlob.name);
+
+                            // Show the captured image and hide video stream
+                            capturedImage.src = URL.createObjectURL(blob);
+                            capturedImage.style.display = 'block';
+                            cameraStream.style.display = 'none';
+
+                            // Change button text to "Retake"
+                            captureBtn.textContent = 'Retake';
+
+                            // Hide switch camera button during preview
+                            const switchBtn = document.getElementById('camera-switch-btn');
+                            switchBtn.style.display = 'none';
+
+                            // Clear any errors
+                            document.getElementById('camera-error').innerText = '';
+                        } else {
+                            console.error("Blob creation failed");
+                            document.getElementById('camera-error').innerText = 'Failed to capture image - blob creation failed.';
+                        }
+                    }, 'image/jpeg', 0.8); // Use JPEG format with good quality
+
+                } catch (err) {
+                    console.error("Error capturing image:", err);
+                    document.getElementById('camera-error').innerText = `Failed to capture image: ${err.message}`;
+                }
+            });
+
+            // Manual permission request button
+            document.getElementById('request-permission-btn').addEventListener('click', async () => {
+                console.log("Manual permission request triggered");
+
+                try {
+                    // Clear previous errors
+                    document.getElementById('camera-error').innerText = '';
+
+                    // Simple direct request
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    console.log("Manual permission request successful!");
+
+                    // Set the stream and start camera
+                    mediaStream = stream;
+                    cameraStream.srcObject = mediaStream;
+                    await cameraStream.play();
+
+                    document.getElementById('camera-error').innerText = 'Camera access granted! Try capturing an image.';
+                    document.getElementById('camera-error').style.color = 'green';
+
+                    // Re-check devices
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                    console.log("After permission grant - Available video devices:", videoDevices.length);
+
+                } catch (err) {
+                    console.error("Manual permission request failed:", err);
+                    document.getElementById('camera-error').innerText = `Manual permission failed: ${err.message}`;
+                    document.getElementById('camera-error').style.color = 'red';
+                }
+            });
+
+            // Camera switch button
+            document.getElementById('camera-switch-btn').addEventListener('click', async () => {
+                console.log("Camera switch button clicked. Current facing mode:", currentFacingMode);
+
+                // Reset UI to camera mode
+                const capturedImage = document.getElementById('camera-captured-image');
+                const captureBtn = document.getElementById('capture-btn');
+                capturedImage.style.display = 'none';
+                captureBtn.textContent = 'Capture';
+                capturedImageBlob = null;
+
+                // Toggle between front and back camera
+                currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+                console.log("Switching to facing mode:", currentFacingMode);
+
+                // Stop current camera
+                stopCamera();
+
+                // Start camera with new facing mode
+                await startCamera();
+            });
+
+            // Camera fallback functionality
+            const cameraFileInput = document.getElementById('camera-file-input');
+            if (cameraFileInput) {
+                cameraFileInput.addEventListener('change', (event) => {
+                    if (event.target.files.length > 0) {
+                        const file = event.target.files[0];
+                        const fileName = file.name;
+                        const fileExtension = fileName.split('.').pop().toLowerCase();
+                        if (!allowedExtensions.includes(fileExtension)) {
+                            document.getElementById('camera-error').innerText = 'Unsupported file type';
+                            event.target.value = ''; // Clear the input
+                            return;
+                        }
+                        capturedImageBlob = file;
+
+                        // Show preview of selected image
+                        const img = document.createElement('img');
+                        img.src = URL.createObjectURL(file);
+                        img.style.maxWidth = '320px';
+                        img.style.maxHeight = '240px';
+                        img.style.border = '2px solid green';
+                        img.style.display = 'block';
+                        img.style.marginTop = '10px';
+
+                        // Clear previous preview
+                        const existingImg = document.getElementById('camera-fallback').querySelector('img');
+                        if (existingImg) {
+                            existingImg.remove();
+                        }
+                        document.getElementById('camera-fallback').appendChild(img);
+
+                        document.getElementById('camera-error').innerText = 'Photo selected successfully!';
+                    } else {
+                        capturedImageBlob = null;
+                    }
+                });
+            }
+
+            // Library functionality
+            const libraryInput = document.getElementById('library-input');
+            const libraryButton = document.getElementById('library-button');
+            const libraryPreview = document.getElementById('library-preview');
+
+            // Make custom button trigger file input
+            libraryButton.addEventListener('click', () => {
+                libraryInput.click();
+            });
+            libraryInput.addEventListener('change', (event) => {
+                if (event.target.files.length > 0) {
+                    const file = event.target.files[0];
+                    const fileName = file.name;
+                    const fileExtension = fileName.split('.').pop().toLowerCase();
+                    if (!allowedExtensions.includes(fileExtension)) {
+                        document.getElementById('library-error').innerText = 'Unsupported file type';
+                        event.target.value = ''; // Clear the input
+                        libraryPreview.style.display = 'none'; // Hide preview
+                        return;
+                    }
+                    capturedImageBlob = file;
+
+                    // Show image preview
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        libraryPreview.src = e.target.result;
+                        libraryPreview.style.display = 'block';
+                        document.getElementById('library-error').innerText = ''; // Clear any errors
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    capturedImageBlob = null;
+                    libraryPreview.style.display = 'none'; // Hide preview when no file selected
+                }
+            });
+
+            // Character counter for caption
+            const captionInput = document.getElementById('caption-input');
+            const charCounter = document.getElementById('char-counter');
+            captionInput.addEventListener('input', () => {
+                const remaining = 140 - captionInput.value.length;
+                charCounter.innerText = `${remaining} characters remaining`;
+                if (remaining < 0) {
+                    charCounter.style.color = 'red';
+                } else {
+                    charCounter.style.color = 'black';
+                }
+            });
+
+            // Form submission handling
+            document.getElementById('post-submit-btn').addEventListener('click', async (event) => {
+                event.preventDefault();
+                console.log("Post button clicked, activeTab:", activeTab);
+                clearErrors();
+
+                const caption = captionInput.value;
+                console.log("Caption:", caption);
+                if (caption.length === 0) {
+                    document.getElementById('caption-error').innerText = 'Caption is required';
+                    console.log("Caption is required");
+                    return;
+                }
+                if (caption.length > 140) {
+                    document.getElementById('caption-error').innerText = 'Caption too long (max 140 characters)';
+                    console.log("Caption too long");
+                    return;
+                }
+
+                let imageUrl = '';
+                let fileToUpload = null;
+
+                if (activeTab === 'URL') {
+                    const urlInput = document.getElementById('url-input');
+                    imageUrl = urlInput.value.trim();
+                    console.log("URL input:", imageUrl);
+
+                    if (imageUrl.length === 0) {
+                        document.getElementById('url-error').innerText = 'Image URL is required';
+                        console.log("URL is required");
+                        return;
+                    }
+
+                    try {
+                        new URL(imageUrl);
+                        console.log("URL is valid");
+
+                        // More flexible extension checking - check if URL contains image indicators
+                        const hasImageExtension = allowedExtensions.some(ext => imageUrl.toLowerCase().includes('.' + ext));
+                        const isImageService = imageUrl.includes('imgur.com') || imageUrl.includes('i.redd.it') ||
+                                             imageUrl.includes('github.com') || imageUrl.includes('githubusercontent.com') ||
+                                             imageUrl.includes('unsplash.com') || imageUrl.includes('pexels.com');
+
+                        if (!hasImageExtension && !isImageService) {
+                            console.log("URL might not be an image, but allowing it");
+                            // Allow it anyway - let the backend/browser handle validation
+                        }
+
+                        console.log("URL validation passed");
+                    } catch (err) {
+                        console.log("Invalid URL:", err);
+                        document.getElementById('url-error').innerText = 'Invalid URL';
+                        return;
+                    }
+                } else if (activeTab === 'Camera') {
+                    if (!capturedImageBlob) {
+                        document.getElementById('camera-error').innerText = 'Please capture an image.';
+                        return;
+                    }
+                    fileToUpload = capturedImageBlob;
+                } else if (activeTab === 'Library') {
+                    if (!capturedImageBlob) {
+                        document.getElementById('library-error').innerText = 'Please select an image.';
+                        return;
+                    }
+                    fileToUpload = capturedImageBlob;
+                }
+
+                let finalImageUrl = imageUrl;
+
+                if (fileToUpload) {
+                    console.log("Uploading file:", fileToUpload);
+                    console.log("File size:", fileToUpload.size);
+                    console.log("File type:", fileToUpload.type);
+
+                    const formData = new FormData();
+                    formData.append('file', fileToUpload);
+
+                    try {
+                        const uploadResponse = await fetch('/api/posts/upload-image', {
+                            method: 'POST',
+                            headers: {
+                                'x-access-token': '{{ request.session.jwt_token }}' // Assuming JWT token is available in session
+                            },
+                            body: formData,
+                        });
+
+                        console.log("Upload response status:", uploadResponse.status);
+
+                        if (uploadResponse.ok) {
+                            const data = await uploadResponse.json();
+                            console.log("Upload response data:", data);
+                            finalImageUrl = data.filename || data.image_url || data.url; // Try different possible keys
+                        } else {
+                            const errorText = await uploadResponse.text().catch(() => 'Unknown error');
+                            console.log("Upload failed with response:", errorText);
+
+                            let errorMessage = 'Image upload failed';
+                            if (uploadResponse.status === 401) {
+                                errorMessage += ' - Authentication required';
+                            } else if (uploadResponse.status === 413) {
+                                errorMessage += ' - File too large';
+                            } else if (uploadResponse.status === 415) {
+                                errorMessage += ' - Unsupported file type';
+                            } else {
+                                errorMessage += ` (${uploadResponse.status})`;
+                            }
+
+                            if (activeTab === 'Camera') {
+                                document.getElementById('camera-error').innerText = errorMessage;
+                            } else if (activeTab === 'Library') {
+                                document.getElementById('library-error').innerText = errorMessage;
+                            }
+                            return;
+                        }
+                    } catch (err) {
+                        console.error("Upload network error:", err);
+                        const errorMessage = 'Upload network error: ' + err.message;
+                        if (activeTab === 'Camera') {
+                            document.getElementById('camera-error').innerText = errorMessage;
+                        } else if (activeTab === 'Library') {
+                            document.getElementById('library-error').innerText = errorMessage;
+                        }
+                        return;
+                    }
+                }
+
+                const postData = {
+                    image_url: finalImageUrl,
+                    caption: caption,
+                };
+
+                console.log("Sending post data:", postData);
+                console.log("JWT token:", '{{ request.session.jwt_token }}');
+
+                try {
+                    const postResponse = await fetch('/api/posts', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-access-token': '{{ request.session.jwt_token }}' // Assuming JWT token is available in session
+                        },
+                        body: JSON.stringify(postData),
+                    });
+
+                    console.log("Post response status:", postResponse.status);
+
+                    if (postResponse.ok) {
+                        console.log("Post created successfully, reloading...");
+                        window.location.reload();
+                    } else {
+                        const errorData = await postResponse.json().catch(() => ({ message: 'Unknown error' }));
+                        console.log("Post failed:", errorData);
+                        document.getElementById('caption-error').innerText = errorData.message || 'Failed to create post';
+                    }
+                } catch (err) {
+                    console.error("Network error:", err);
+                    document.getElementById('caption-error').innerText = 'Network error. Please try again.';
+                }
+            });
+
+            // Initial tab display
+            document.addEventListener('DOMContentLoaded', () => {
+                openCreatePostTab(null, 'URL');
+            });
+        </script>
     </div>
 
     <p><a href="{% url 'logout' %}">Logout</a></p>

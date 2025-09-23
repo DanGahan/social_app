@@ -1,1 +1,4 @@
 .DS_Store
+
+# SSL Certificates - generated locally, should not be committed
+certs/
