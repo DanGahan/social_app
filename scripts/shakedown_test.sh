@@ -118,7 +118,7 @@ run_test_step "10. Performing Backend GET API Exercise (/users/me)..." \
 
 # 11. Frontend Confidence Test (Login Page content) - via nginx proxy
 run_test_step '11. Performing Frontend Confidence Test (Login Page content)...' \
-'FRONTEND_LOGIN_RESPONSE=$(curl -s -L http://localhost/); echo "$FRONTEND_LOGIN_RESPONSE" | grep -q "<h2>Login</h2>"' \
+'curl -s -L http://localhost/ | grep -q "<h2>Login</h2>"' \
 "11. Performing Frontend Confidence Test (Login Page content): PASSED" \
 "11. Performing Frontend Confidence Test (Login Page content): FAILED (Did not find '<h2>Login</h2>' in content)"
 
