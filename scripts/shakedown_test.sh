@@ -116,21 +116,21 @@ run_test_step "10. Performing Backend GET API Exercise (/users/me)..." \
 "10. Performing Backend GET API Exercise (/users/me): PASSED" \
 "10. Performing Backend GET API Exercise (/users/me): FAILED (Expected user data not found)"
 
-# 11. Frontend Confidence Test (Login Page content)
+# 11. Frontend Confidence Test (Login Page content) - via nginx proxy
 run_test_step '11. Performing Frontend Confidence Test (Login Page content)...' \
-'FRONTEND_LOGIN_RESPONSE=$(curl -s -L http://localhost:8000/); echo "$FRONTEND_LOGIN_RESPONSE" | grep -q "<h2>Login</h2>"' \
+'FRONTEND_LOGIN_RESPONSE=$(curl -s -L http://localhost/); echo "$FRONTEND_LOGIN_RESPONSE" | grep -q "<h2>Login</h2>"' \
 "11. Performing Frontend Confidence Test (Login Page content): PASSED" \
 "11. Performing Frontend Confidence Test (Login Page content): FAILED (Did not find '<h2>Login</h2>' in content)"
 
-# 12. Frontend Static File Check (logo.png)
+# 12. Frontend Static File Check (logo.png) - via nginx proxy
 run_test_step '12. Performing Frontend Static File Check (logo.png)...' \
-'HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/static/logo.png); [ "$HTTP_CODE" -eq 200 ]' \
+'HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/static/logo.png); [ "$HTTP_CODE" -eq 200 ]' \
 "12. Performing Frontend Static File Check (logo.png): PASSED" \
 "12. Performing Frontend Static File Check (logo.png): FAILED (HTTP $HTTP_CODE)"
 
-# 13. Frontend Static File Check (default_profile_pic.png)
+# 13. Frontend Static File Check (default_profile_pic.png) - via nginx proxy
 run_test_step '13. Performing Frontend Static File Check (default_profile_pic.png)...' \
-'HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/static/default_profile_pic.png); [ "$HTTP_CODE" -eq 200 ]' \
+'HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/static/default_profile_pic.png); [ "$HTTP_CODE" -eq 200 ]' \
 "13. Performing Frontend Static File Check (default_profile_pic.png): PASSED" \
 "13. Performing Frontend Static File Check (default_profile_pic.png): FAILED (HTTP $HTTP_CODE)"
 
