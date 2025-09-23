@@ -136,26 +136,41 @@ run_test_step "10. Performing Backend GET API Exercise (/users/me)..." \
 "10. Performing Backend GET API Exercise (/users/me): PASSED" \
 "10. Performing Backend GET API Exercise (/users/me): FAILED (Expected user data not found)"
 
-# 11. Frontend Confidence Test (Login Page content) - try nginx first, fallback to direct frontend
+# 11. Frontend Confidence Test (Login Page content) - use docker exec for CI compatibility
 echo "11. Performing Frontend Confidence Test (Login Page content)..."
-echo "DEBUG: Testing nginx proxy access..."
-if curl -s -L http://localhost/ > /dev/null 2>&1; then
-    FRONTEND_URL="http://localhost/"
-    echo "DEBUG: Using nginx proxy at $FRONTEND_URL"
-else
-    echo "DEBUG: Nginx proxy not responding, trying direct frontend access..."
-    # Check if frontend container port might be exposed differently in CI
-    if curl -s -L http://localhost:8000/ > /dev/null 2>&1; then
-        FRONTEND_URL="http://localhost:8000/"
-        echo "DEBUG: Using direct frontend at $FRONTEND_URL"
+echo "DEBUG: Testing frontend access via docker exec (CI-compatible)..."
+
+# Use docker exec to test from inside the container network using Python
+FRONTEND_RESPONSE=$(docker-compose exec -T frontend python -c "
+import urllib.request
+try:
+    with urllib.request.urlopen('http://nginx/') as response:
+        print(response.read().decode('utf-8'))
+except:
+    try:
+        with urllib.request.urlopen('http://frontend:8000/') as response:
+            print(response.read().decode('utf-8'))
+    except:
+        pass
+" 2>/dev/null)
+
+if [ -z "$FRONTEND_RESPONSE" ]; then
+    echo "DEBUG: Docker exec failed, trying host network access..."
+    # Fallback to host network for local development
+    if curl -s -L http://localhost/ > /dev/null 2>&1; then
+        FRONTEND_RESPONSE=$(curl -s -L http://localhost/)
+        echo "DEBUG: Using host network nginx proxy"
+    elif curl -s -L http://localhost:8000/ > /dev/null 2>&1; then
+        FRONTEND_RESPONSE=$(curl -s -L http://localhost:8000/)
+        echo "DEBUG: Using host network direct frontend"
     else
-        echo "DEBUG: Neither nginx nor direct frontend responding"
         echo "11. Performing Frontend Confidence Test (Login Page content): FAILED (No frontend access available)"
         exit 1
     fi
+else
+    echo "DEBUG: Using docker internal network"
 fi
 
-FRONTEND_RESPONSE=$(curl -s -L "$FRONTEND_URL")
 echo "DEBUG: Frontend response length: ${#FRONTEND_RESPONSE}"
 echo "DEBUG: Frontend response preview:"
 echo "$FRONTEND_RESPONSE" | head -10
@@ -169,15 +184,23 @@ else
     exit 1
 fi
 
-# 12. Frontend Static File Check (logo.png) - via nginx proxy
+# 12. Frontend Static File Check (logo.png) - use docker exec with Python for CI compatibility
 run_test_step '12. Performing Frontend Static File Check (logo.png)...' \
-'HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/static/logo.png); [ "$HTTP_CODE" -eq 200 ]' \
+'HTTP_CODE=$(docker-compose exec -T frontend python -c "import urllib.request;
+try: urllib.request.urlopen(\"http://nginx/static/logo.png\"); print(\"200\")
+except:
+    try: urllib.request.urlopen(\"http://frontend:8000/static/logo.png\"); print(\"200\")
+    except: print(\"404\")" 2>/dev/null) || HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/static/logo.png 2>/dev/null); [ "$HTTP_CODE" -eq 200 ]' \
 "12. Performing Frontend Static File Check (logo.png): PASSED" \
 "12. Performing Frontend Static File Check (logo.png): FAILED (HTTP $HTTP_CODE)"
 
-# 13. Frontend Static File Check (default_profile_pic.png) - via nginx proxy
+# 13. Frontend Static File Check (default_profile_pic.png) - use docker exec with Python for CI compatibility
 run_test_step '13. Performing Frontend Static File Check (default_profile_pic.png)...' \
-'HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/static/default_profile_pic.png); [ "$HTTP_CODE" -eq 200 ]' \
+'HTTP_CODE=$(docker-compose exec -T frontend python -c "import urllib.request;
+try: urllib.request.urlopen(\"http://nginx/static/default_profile_pic.png\"); print(\"200\")
+except:
+    try: urllib.request.urlopen(\"http://frontend:8000/static/default_profile_pic.png\"); print(\"200\")
+    except: print(\"404\")" 2>/dev/null) || HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/static/default_profile_pic.png 2>/dev/null); [ "$HTTP_CODE" -eq 200 ]' \
 "13. Performing Frontend Static File Check (default_profile_pic.png): PASSED" \
 "13. Performing Frontend Static File Check (default_profile_pic.png): FAILED (HTTP $HTTP_CODE)"
 
