@@ -40,6 +40,26 @@ run_test_step "4. Waiting for services to become healthy..." \
     "4. Waiting for services to become healthy: PASSED" \
     "4. Waiting for services to become healthy: FAILED"
 
+# Additional debugging for CI environment
+echo "4.1. Additional debugging for frontend readiness..."
+echo "Docker container status:"
+docker-compose ps
+echo "Testing direct connectivity to nginx:"
+curl -s -I http://localhost/ | head -3 || echo "Failed to connect to nginx"
+echo "Waiting for nginx to become responsive (max 30s)..."
+i=1
+while [ $i -le 30 ]; do
+    if curl -s http://localhost/ > /dev/null 2>&1; then
+        echo "Nginx responding after ${i}s"
+        break
+    fi
+    sleep 1
+    if [ $i -eq 30 ]; then
+        echo "WARNING: Nginx still not responding after 30s"
+    fi
+    i=$((i + 1))
+done
+
 run_test_step "5. Waiting for 'users' table to be created..." \
     "TIMEOUT=60; while ! docker-compose exec db psql -U user -d social_db -c '\dt' | grep -q \" users \"; do sleep 5; TIMEOUT=$((TIMEOUT-5)); if [ $TIMEOUT -le 0 ]; then echo \"Timeout waiting for 'users' table!\"; exit 1; fi; done" \
     "5. 'users' table created: PASSED" \
@@ -117,10 +137,19 @@ run_test_step "10. Performing Backend GET API Exercise (/users/me)..." \
 "10. Performing Backend GET API Exercise (/users/me): FAILED (Expected user data not found)"
 
 # 11. Frontend Confidence Test (Login Page content) - via nginx proxy
-run_test_step '11. Performing Frontend Confidence Test (Login Page content)...' \
-'curl -s -L http://localhost/ | grep -q "<h2>Login</h2>"' \
-"11. Performing Frontend Confidence Test (Login Page content): PASSED" \
-"11. Performing Frontend Confidence Test (Login Page content): FAILED (Did not find '<h2>Login</h2>' in content)"
+echo "11. Performing Frontend Confidence Test (Login Page content)..."
+FRONTEND_RESPONSE=$(curl -s -L http://localhost/)
+echo "Frontend response length: ${#FRONTEND_RESPONSE}"
+echo "Frontend response preview:"
+echo "$FRONTEND_RESPONSE" | head -10
+if echo "$FRONTEND_RESPONSE" | grep -q "<h2>Login</h2>"; then
+    echo "11. Performing Frontend Confidence Test (Login Page content): PASSED"
+else
+    echo "11. Performing Frontend Confidence Test (Login Page content): FAILED (Did not find '<h2>Login</h2>' in content)"
+    echo "Searching for other login indicators:"
+    echo "$FRONTEND_RESPONSE" | grep -i "login" || echo "No login text found"
+    exit 1
+fi
 
 # 12. Frontend Static File Check (logo.png) - via nginx proxy
 run_test_step '12. Performing Frontend Static File Check (logo.png)...' \
