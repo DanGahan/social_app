@@ -6,11 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import jwt
 import pytest
-from sqlalchemy.exc import IntegrityError
-from werkzeug.security import generate_password_hash
-
 from app import app
 from models import Connection, ConnectionRequest, Post, User
+from sqlalchemy.exc import IntegrityError
+from werkzeug.security import generate_password_hash
 
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -323,8 +322,22 @@ def test_accept_connection_missing_request_id(
     mock_current_user = User(id=1)
     # Configure mock_query to return different mocks for subsequent calls
     mock_query.side_effect = [
-        MagicMock(return_value=MagicMock(filter_by=MagicMock(return_value=MagicMock(first=MagicMock(return_value=mock_current_user))))),  # First call: session.query(User)
-        MagicMock(return_value=MagicMock(filter_by=MagicMock(return_value=MagicMock(first=MagicMock(return_value=None)))))  # Second call: session.query(ConnectionRequest) - this won't be reached due to early exit
+        MagicMock(
+            return_value=MagicMock(
+                filter_by=MagicMock(
+                    return_value=MagicMock(
+                        first=MagicMock(return_value=mock_current_user)
+                    )
+                )
+            )
+        ),  # First call: session.query(User)
+        MagicMock(
+            return_value=MagicMock(
+                filter_by=MagicMock(
+                    return_value=MagicMock(first=MagicMock(return_value=None))
+                )
+            )
+        ),  # Second call: session.query(ConnectionRequest) - this won't be reached due to early exit
     ]
     response = client.post(
         "/connections/accept",
@@ -342,13 +355,23 @@ def test_accept_connection_request_not_found(
     mock_current_user = User(id=1)
     # Create a mock for the ConnectionRequest query that returns None
     mock_connection_request_query = MagicMock()
-    mock_connection_request_query.filter_by.return_value.first.return_value = None
+    mock_connection_request_query.filter_by.return_value.first.return_value = (
+        None
+    )
 
     # Configure mock_query to return the mock_current_user for the first call (User)  # For User query in token_required
     # and the mock_connection_request_query for the second call (ConnectionRequest)  # For ConnectionRequest query in accept_connection
     mock_query.side_effect = [
-        MagicMock(return_value=MagicMock(filter_by=MagicMock(return_value=MagicMock(first=MagicMock(return_value=mock_current_user))))),
-        mock_connection_request_query
+        MagicMock(
+            return_value=MagicMock(
+                filter_by=MagicMock(
+                    return_value=MagicMock(
+                        first=MagicMock(return_value=mock_current_user)
+                    )
+                )
+            )
+        ),
+        mock_connection_request_query,
     ]
     response = client.post(
         "/connections/accept",
@@ -618,12 +641,42 @@ def test_get_user_posts_with_posts(mock_query, client, mock_jwt_decode):
         created_at=datetime.datetime.utcnow(),
         user_id=1,
     )
-    mock_query.return_value.filter_by.return_value.first.return_value = (
+
+    # Mock the sequence of queries: User lookup, Posts query, Like queries, Comment queries
+    mock_user_query = MagicMock()
+    mock_user_query.filter_by.return_value.first.return_value = (
         mock_current_user
     )
-    mock_query.return_value.filter_by.return_value.order_by.return_value.all.return_value = [
+
+    mock_posts_query = MagicMock()
+    mock_posts_query.filter_by.return_value.order_by.return_value.all.return_value = [
         mock_post
     ]
+
+    mock_like_count_query = MagicMock()
+    mock_like_count_query.filter_by.return_value.count.return_value = 0
+
+    mock_like_check_query = MagicMock()
+    mock_like_check_query.filter_by.return_value.first.return_value = None
+
+    mock_comment_count_query = MagicMock()
+    mock_comment_count_query.filter_by.return_value.count.return_value = 0
+
+    mock_comment_query = MagicMock()
+    mock_comment_query.filter_by.return_value.order_by.return_value.limit.return_value.all.return_value = (
+        []
+    )
+
+    # Set up the side_effect to return different mock objects for different query calls
+    mock_query.side_effect = [
+        mock_user_query,
+        mock_posts_query,
+        mock_like_count_query,
+        mock_like_check_query,
+        mock_comment_count_query,
+        mock_comment_query,
+    ]
+
     response = client.get(
         "/users/1/posts", headers={"x-access-token": "valid_token"}
     )
@@ -664,19 +717,57 @@ def test_get_connections_posts_with_posts(mock_query, client, mock_jwt_decode):
     mock_current_user = User(
         id=1, display_name="test", profile_picture_url="test.jpg"
     )
-    mock_user2 = User(id=2, display_name="user2")
+    mock_user2 = User(
+        id=2, display_name="user2", profile_picture_url="user2.jpg"
+    )
     mock_connection = Connection(user_id1=1, user_id2=2)
     mock_post = Post(id=1, user_id=2, created_at=datetime.datetime.utcnow())
-    mock_query.return_value.filter_by.side_effect = [
-        MagicMock(first=MagicMock(return_value=mock_current_user)),
-        MagicMock(first=MagicMock(return_value=mock_user2)),
-    ]
-    mock_query.return_value.filter.return_value.all.return_value = [
+
+    # Mock the sequence of queries: User lookup, Connections query, Posts query, Post user lookup, Like queries, Comment queries
+    mock_user_query = MagicMock()
+    mock_user_query.filter_by.return_value.first.return_value = (
+        mock_current_user
+    )
+
+    mock_connections_query = MagicMock()
+    mock_connections_query.filter.return_value.all.return_value = [
         mock_connection
     ]
-    mock_query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+
+    mock_posts_query = MagicMock()
+    mock_posts_query.filter.return_value.order_by.return_value.all.return_value = [
         mock_post
     ]
+
+    mock_post_user_query = MagicMock()
+    mock_post_user_query.filter_by.return_value.first.return_value = mock_user2
+
+    mock_like_count_query = MagicMock()
+    mock_like_count_query.filter_by.return_value.count.return_value = 0
+
+    mock_like_check_query = MagicMock()
+    mock_like_check_query.filter_by.return_value.first.return_value = None
+
+    mock_comment_count_query = MagicMock()
+    mock_comment_count_query.filter_by.return_value.count.return_value = 0
+
+    mock_comment_query = MagicMock()
+    mock_comment_query.filter_by.return_value.order_by.return_value.limit.return_value.all.return_value = (
+        []
+    )
+
+    # Set up the side_effect to return different mock objects for different query calls
+    mock_query.side_effect = [
+        mock_user_query,
+        mock_connections_query,
+        mock_posts_query,
+        mock_post_user_query,
+        mock_like_count_query,
+        mock_like_check_query,
+        mock_comment_count_query,
+        mock_comment_query,
+    ]
+
     response = client.get(
         "/users/1/connections/posts", headers={"x-access-token": "valid_token"}
     )
