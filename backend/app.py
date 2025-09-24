@@ -956,4 +956,9 @@ def delete_comment(current_user, comment_id):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    # Use environment variable for host, default to localhost for security
+    import os
+
+    host = os.environ.get("FLASK_HOST", "127.0.0.1")
+    port = int(os.environ.get("FLASK_PORT", "5000"))
+    app.run(host=host, port=port)

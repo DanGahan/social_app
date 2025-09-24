@@ -87,24 +87,37 @@ def test_upload_file_invalid_file_type(client, mock_jwt_decode, mock_current_use
     assert response.json["message"] == "File type not allowed"
 
 
+@patch("werkzeug.datastructures.FileStorage.save")
 @patch("app.secure_filename", return_value="test_image.png")
-@patch("os.path.join", return_value="/tmp/test_image.png")
+@patch("os.path.join", return_value="/secure/temp/test_image.png")
 def test_upload_file_success(
     mock_join,
     mock_secure_filename,
+    mock_save,
     client,
     mock_jwt_decode,
     mock_current_user,
 ):
     import io
 
-    data = {"file": (io.BytesIO(b"dummy image data"), "test_image.png")}
+    data = {
+        "file": FileStorage(
+            stream=io.BytesIO(b"dummy image data"),
+            filename="test_image.png",
+            content_type="image/png",
+        )
+    }
+
     response = client.post(
         "/posts/upload",
         data=data,
         content_type="multipart/form-data",
         headers={"x-access-token": "valid_token"},
     )
+
+    # Debug output to see what's happening
+    print(f"Status: {response.status_code}")
+    print(f"Response: {response.get_json()}")
 
     assert response.status_code == 200
     assert response.json["message"] == "File uploaded successfully"
@@ -171,10 +184,9 @@ def test_serve_uploaded_file_not_found(client):
 def test_upload_file_save_error(
     mock_secure_filename, mock_open, client, mock_jwt_decode, mock_current_user
 ):
-    import io
-
     # This test would be more complex in practice as it depends on file system operations
     # For now, we'll focus on the endpoint logic rather than file system errors
+    pass
 
 
 def test_upload_file_missing_token(client):

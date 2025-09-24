@@ -10,9 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-from core.views import api_comments, api_create_post, api_toggle_like, api_upload_image
-from django.contrib.sessions.backends.base import SessionBase
-from django.test import TestCase, override_settings
+from django.test import TestCase
 
 
 class FrontendBackendIntegrationTest(TestCase):
@@ -41,8 +39,6 @@ class FrontendBackendIntegrationTest(TestCase):
         mock_post.return_value = mock_response
 
         # Create test file
-        from io import BytesIO
-
         from django.core.files.uploadedfile import SimpleUploadedFile
 
         test_file = SimpleUploadedFile(

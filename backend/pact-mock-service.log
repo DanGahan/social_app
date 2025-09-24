@@ -1,0 +1,782 @@
+I, [2025-09-24T17:57:13.798483 #280]  INFO -- : Cleared interactions
+I, [2025-09-24T17:57:13.800110 #280]  INFO -- : Registered expected interaction POST /auth/register
+D, [2025-09-24T17:57:13.800302 #280] DEBUG -- : {
+  "description": "a request to register a new user",
+  "providerState": "User registration endpoint is available",
+  "request": {
+    "method": "post",
+    "path": "/auth/register",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "email": {
+        "json_class": "Pact::Term",
+        "data": {
+          "generate": "test@example.com",
+          "matcher": {
+            "json_class": "Regexp",
+            "o": 0,
+            "s": ".+@.+\\..+"
+          }
+        }
+      },
+      "password": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "securepassword"
+      }
+    }
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "user_id": {
+        "json_class": "Pact::SomethingLike",
+        "contents": 123
+      },
+      "message": "User registered successfully"
+    }
+  },
+  "metadata": null
+}
+I, [2025-09-24T17:57:13.801833 #280]  INFO -- : Received request POST /auth/register
+D, [2025-09-24T17:57:13.801904 #280] DEBUG -- : {
+  "path": "/auth/register",
+  "query": "",
+  "method": "post",
+  "body": {
+    "email": "test@example.com",
+    "password": "securepassword"
+  },
+  "headers": {
+    "Content-Length": "59",
+    "Content-Type": "application/json",
+    "Host": "localhost:1234",
+    "User-Agent": "python-requests/2.32.5",
+    "Accept-Encoding": "gzip, deflate",
+    "Accept": "*/*",
+    "Connection": "keep-alive",
+    "Version": "HTTP/1.1"
+  }
+}
+I, [2025-09-24T17:57:13.802111 #280]  INFO -- : Found matching response for POST /auth/register
+D, [2025-09-24T17:57:13.802187 #280] DEBUG -- : {
+  "status": 201,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "user_id": {
+      "json_class": "Pact::SomethingLike",
+      "contents": 123
+    },
+    "message": "User registered successfully"
+  }
+}
+I, [2025-09-24T17:57:13.803104 #280]  INFO -- : Verifying - interactions matched
+I, [2025-09-24T17:57:13.804233 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-24T17:57:13.814436 #280]  INFO -- : Cleared interactions
+I, [2025-09-24T17:57:13.815584 #280]  INFO -- : Registered expected interaction POST /auth/login
+D, [2025-09-24T17:57:13.815645 #280] DEBUG -- : {
+  "description": "a request to login",
+  "providerState": "User exists with valid credentials",
+  "request": {
+    "method": "post",
+    "path": "/auth/login",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "email": {
+        "json_class": "Pact::Term",
+        "data": {
+          "generate": "existing@example.com",
+          "matcher": {
+            "json_class": "Regexp",
+            "o": 0,
+            "s": ".+@.+\\..+"
+          }
+        }
+      },
+      "password": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "password"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "token": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "jwt.token.here"
+      },
+      "user_id": {
+        "json_class": "Pact::SomethingLike",
+        "contents": 123
+      },
+      "message": "Login successful"
+    }
+  },
+  "metadata": null
+}
+I, [2025-09-24T17:57:13.816643 #280]  INFO -- : Received request POST /auth/login
+D, [2025-09-24T17:57:13.816685 #280] DEBUG -- : {
+  "path": "/auth/login",
+  "query": "",
+  "method": "post",
+  "body": {
+    "email": "existing@example.com",
+    "password": "password"
+  },
+  "headers": {
+    "Content-Length": "57",
+    "Content-Type": "application/json",
+    "Host": "localhost:1234",
+    "User-Agent": "python-requests/2.32.5",
+    "Accept-Encoding": "gzip, deflate",
+    "Accept": "*/*",
+    "Connection": "keep-alive",
+    "Version": "HTTP/1.1"
+  }
+}
+I, [2025-09-24T17:57:13.816801 #280]  INFO -- : Found matching response for POST /auth/login
+D, [2025-09-24T17:57:13.817147 #280] DEBUG -- : {
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "token": {
+      "json_class": "Pact::SomethingLike",
+      "contents": "jwt.token.here"
+    },
+    "user_id": {
+      "json_class": "Pact::SomethingLike",
+      "contents": 123
+    },
+    "message": "Login successful"
+  }
+}
+I, [2025-09-24T17:57:13.818051 #280]  INFO -- : Verifying - interactions matched
+I, [2025-09-24T17:57:13.819241 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-24T17:57:13.827887 #280]  INFO -- : Cleared interactions
+I, [2025-09-24T17:57:13.828794 #280]  INFO -- : Registered expected interaction POST /posts
+D, [2025-09-24T17:57:13.828846 #280] DEBUG -- : {
+  "description": "a request to create a post",
+  "providerState": "User is authenticated",
+  "request": {
+    "method": "post",
+    "path": "/posts",
+    "headers": {
+      "Content-Type": "application/json",
+      "x-access-token": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "valid.jwt.token"
+      }
+    },
+    "body": {
+      "image_url": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "/uploads/image.jpg"
+      },
+      "caption": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "This is a test post"
+      }
+    }
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "message": "Post created successfully",
+      "post_id": {
+        "json_class": "Pact::SomethingLike",
+        "contents": 456
+      }
+    }
+  },
+  "metadata": null
+}
+I, [2025-09-24T17:57:13.829873 #280]  INFO -- : Received request POST /posts
+D, [2025-09-24T17:57:13.829942 #280] DEBUG -- : {
+  "path": "/posts",
+  "query": "",
+  "method": "post",
+  "body": {
+    "image_url": "/uploads/test.jpg",
+    "caption": "Test post caption"
+  },
+  "headers": {
+    "Content-Length": "66",
+    "Content-Type": "application/json",
+    "Host": "localhost:1234",
+    "User-Agent": "python-requests/2.32.5",
+    "Accept-Encoding": "gzip, deflate",
+    "Accept": "*/*",
+    "Connection": "keep-alive",
+    "X-Access-Token": "valid.jwt.token",
+    "Version": "HTTP/1.1"
+  }
+}
+I, [2025-09-24T17:57:13.830190 #280]  INFO -- : Found matching response for POST /posts
+D, [2025-09-24T17:57:13.830268 #280] DEBUG -- : {
+  "status": 201,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "message": "Post created successfully",
+    "post_id": {
+      "json_class": "Pact::SomethingLike",
+      "contents": 456
+    }
+  }
+}
+I, [2025-09-24T17:57:13.831100 #280]  INFO -- : Verifying - interactions matched
+I, [2025-09-24T17:57:13.831926 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-24T17:57:13.838154 #280]  INFO -- : Cleared interactions
+I, [2025-09-24T17:57:13.839333 #280]  INFO -- : Registered expected interaction GET /users/123/posts
+D, [2025-09-24T17:57:13.839451 #280] DEBUG -- : {
+  "description": "a request to get user posts",
+  "providerState": "User has posts",
+  "request": {
+    "method": "get",
+    "path": {
+      "json_class": "Pact::Term",
+      "data": {
+        "generate": "/users/123/posts",
+        "matcher": {
+          "json_class": "Regexp",
+          "o": 0,
+          "s": "/users/\\d+/posts"
+        }
+      }
+    },
+    "headers": {
+      "x-access-token": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "valid.jwt.token"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "json_class": "Pact::ArrayLike",
+      "contents": {
+        "post_id": {
+          "json_class": "Pact::SomethingLike",
+          "contents": 123
+        },
+        "user_id": {
+          "json_class": "Pact::SomethingLike",
+          "contents": 456
+        },
+        "image_url": {
+          "json_class": "Pact::SomethingLike",
+          "contents": "/uploads/post1.jpg"
+        },
+        "caption": {
+          "json_class": "Pact::SomethingLike",
+          "contents": "Post caption"
+        },
+        "created_at": {
+          "json_class": "Pact::Term",
+          "data": {
+            "generate": "2024-01-01T12:00:00",
+            "matcher": {
+              "json_class": "Regexp",
+              "o": 0,
+              "s": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+            }
+          }
+        },
+        "author_display_name": {
+          "json_class": "Pact::SomethingLike",
+          "contents": "John Doe"
+        },
+        "author_profile_picture_url": {
+          "json_class": "Pact::SomethingLike",
+          "contents": "/uploads/profile1.jpg"
+        },
+        "like_count": {
+          "json_class": "Pact::SomethingLike",
+          "contents": 5
+        },
+        "user_has_liked": {
+          "json_class": "Pact::SomethingLike",
+          "contents": false
+        },
+        "comment_count": {
+          "json_class": "Pact::SomethingLike",
+          "contents": 3
+        },
+        "recent_comments": {
+          "json_class": "Pact::ArrayLike",
+          "contents": {
+            "id": {
+              "json_class": "Pact::SomethingLike",
+              "contents": 789
+            },
+            "content": {
+              "json_class": "Pact::SomethingLike",
+              "contents": "Great post!"
+            },
+            "author_display_name": {
+              "json_class": "Pact::SomethingLike",
+              "contents": "Jane Smith"
+            },
+            "author_profile_picture_url": {
+              "json_class": "Pact::SomethingLike",
+              "contents": "/uploads/profile2.jpg"
+            },
+            "created_at": {
+              "json_class": "Pact::Term",
+              "data": {
+                "generate": "2024-01-01T12:30:00",
+                "matcher": {
+                  "json_class": "Regexp",
+                  "o": 0,
+                  "s": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+                }
+              }
+            }
+          },
+          "min": 1
+        }
+      },
+      "min": 1
+    }
+  },
+  "metadata": null
+}
+I, [2025-09-24T17:57:13.840525 #280]  INFO -- : Received request GET /users/123/posts
+D, [2025-09-24T17:57:13.840615 #280] DEBUG -- : {
+  "path": "/users/123/posts",
+  "query": "",
+  "method": "get",
+  "headers": {
+    "Host": "localhost:1234",
+    "User-Agent": "python-requests/2.32.5",
+    "Accept-Encoding": "gzip, deflate",
+    "Accept": "*/*",
+    "Connection": "keep-alive",
+    "X-Access-Token": "valid.jwt.token",
+    "Version": "HTTP/1.1"
+  }
+}
+I, [2025-09-24T17:57:13.840782 #280]  INFO -- : Found matching response for GET /users/123/posts
+D, [2025-09-24T17:57:13.840976 #280] DEBUG -- : {
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "json_class": "Pact::ArrayLike",
+    "contents": {
+      "post_id": {
+        "json_class": "Pact::SomethingLike",
+        "contents": 123
+      },
+      "user_id": {
+        "json_class": "Pact::SomethingLike",
+        "contents": 456
+      },
+      "image_url": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "/uploads/post1.jpg"
+      },
+      "caption": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "Post caption"
+      },
+      "created_at": {
+        "json_class": "Pact::Term",
+        "data": {
+          "generate": "2024-01-01T12:00:00",
+          "matcher": {
+            "json_class": "Regexp",
+            "o": 0,
+            "s": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          }
+        }
+      },
+      "author_display_name": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "John Doe"
+      },
+      "author_profile_picture_url": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "/uploads/profile1.jpg"
+      },
+      "like_count": {
+        "json_class": "Pact::SomethingLike",
+        "contents": 5
+      },
+      "user_has_liked": {
+        "json_class": "Pact::SomethingLike",
+        "contents": false
+      },
+      "comment_count": {
+        "json_class": "Pact::SomethingLike",
+        "contents": 3
+      },
+      "recent_comments": {
+        "json_class": "Pact::ArrayLike",
+        "contents": {
+          "id": {
+            "json_class": "Pact::SomethingLike",
+            "contents": 789
+          },
+          "content": {
+            "json_class": "Pact::SomethingLike",
+            "contents": "Great post!"
+          },
+          "author_display_name": {
+            "json_class": "Pact::SomethingLike",
+            "contents": "Jane Smith"
+          },
+          "author_profile_picture_url": {
+            "json_class": "Pact::SomethingLike",
+            "contents": "/uploads/profile2.jpg"
+          },
+          "created_at": {
+            "json_class": "Pact::Term",
+            "data": {
+              "generate": "2024-01-01T12:30:00",
+              "matcher": {
+                "json_class": "Regexp",
+                "o": 0,
+                "s": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+              }
+            }
+          }
+        },
+        "min": 1
+      }
+    },
+    "min": 1
+  }
+}
+I, [2025-09-24T17:57:13.841908 #280]  INFO -- : Verifying - interactions matched
+I, [2025-09-24T17:57:13.842714 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-24T17:57:13.852870 #280]  INFO -- : Cleared interactions
+I, [2025-09-24T17:57:13.853999 #280]  INFO -- : Registered expected interaction POST /posts/123/like
+D, [2025-09-24T17:57:13.854092 #280] DEBUG -- : {
+  "description": "a request to toggle like on a post",
+  "providerState": "Post exists and user is connected to post author",
+  "request": {
+    "method": "post",
+    "path": {
+      "json_class": "Pact::Term",
+      "data": {
+        "generate": "/posts/123/like",
+        "matcher": {
+          "json_class": "Regexp",
+          "o": 0,
+          "s": "/posts/\\d+/like"
+        }
+      }
+    },
+    "headers": {
+      "x-access-token": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "valid.jwt.token"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "message": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "Post liked successfully"
+      },
+      "action": {
+        "json_class": "Pact::Term",
+        "data": {
+          "generate": "liked",
+          "matcher": {
+            "json_class": "Regexp",
+            "o": 0,
+            "s": "(liked|unliked)"
+          }
+        }
+      },
+      "like_count": {
+        "json_class": "Pact::SomethingLike",
+        "contents": 6
+      },
+      "user_has_liked": {
+        "json_class": "Pact::SomethingLike",
+        "contents": true
+      }
+    }
+  },
+  "metadata": null
+}
+I, [2025-09-24T17:57:13.855159 #280]  INFO -- : Received request POST /posts/123/like
+D, [2025-09-24T17:57:13.855204 #280] DEBUG -- : {
+  "path": "/posts/123/like",
+  "query": "",
+  "method": "post",
+  "headers": {
+    "Host": "localhost:1234",
+    "User-Agent": "python-requests/2.32.5",
+    "Accept-Encoding": "gzip, deflate",
+    "Accept": "*/*",
+    "Connection": "keep-alive",
+    "X-Access-Token": "valid.jwt.token",
+    "Version": "HTTP/1.1"
+  }
+}
+I, [2025-09-24T17:57:13.855299 #280]  INFO -- : Found matching response for POST /posts/123/like
+D, [2025-09-24T17:57:13.855374 #280] DEBUG -- : {
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "message": {
+      "json_class": "Pact::SomethingLike",
+      "contents": "Post liked successfully"
+    },
+    "action": {
+      "json_class": "Pact::Term",
+      "data": {
+        "generate": "liked",
+        "matcher": {
+          "json_class": "Regexp",
+          "o": 0,
+          "s": "(liked|unliked)"
+        }
+      }
+    },
+    "like_count": {
+      "json_class": "Pact::SomethingLike",
+      "contents": 6
+    },
+    "user_has_liked": {
+      "json_class": "Pact::SomethingLike",
+      "contents": true
+    }
+  }
+}
+I, [2025-09-24T17:57:13.856408 #280]  INFO -- : Verifying - interactions matched
+I, [2025-09-24T17:57:13.857234 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-24T17:57:13.861365 #280]  INFO -- : Cleared interactions
+I, [2025-09-24T17:57:13.862657 #280]  INFO -- : Registered expected interaction POST /posts/123/comments
+D, [2025-09-24T17:57:13.862776 #280] DEBUG -- : {
+  "description": "a request to add a comment",
+  "providerState": "Post exists and user is connected to post author",
+  "request": {
+    "method": "post",
+    "path": {
+      "json_class": "Pact::Term",
+      "data": {
+        "generate": "/posts/123/comments",
+        "matcher": {
+          "json_class": "Regexp",
+          "o": 0,
+          "s": "/posts/\\d+/comments"
+        }
+      }
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "x-access-token": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "valid.jwt.token"
+      }
+    },
+    "body": {
+      "content": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "This is a test comment"
+      }
+    }
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "message": "Comment added successfully",
+      "comment": {
+        "id": {
+          "json_class": "Pact::SomethingLike",
+          "contents": 987
+        },
+        "content": {
+          "json_class": "Pact::SomethingLike",
+          "contents": "This is a test comment"
+        },
+        "author_display_name": {
+          "json_class": "Pact::SomethingLike",
+          "contents": "Test User"
+        },
+        "author_profile_picture_url": {
+          "json_class": "Pact::SomethingLike",
+          "contents": "/uploads/profile.jpg"
+        },
+        "created_at": {
+          "json_class": "Pact::Term",
+          "data": {
+            "generate": "2024-01-01T13:00:00",
+            "matcher": {
+              "json_class": "Regexp",
+              "o": 0,
+              "s": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+            }
+          }
+        }
+      }
+    }
+  },
+  "metadata": null
+}
+I, [2025-09-24T17:57:13.863906 #280]  INFO -- : Received request POST /posts/123/comments
+D, [2025-09-24T17:57:13.864006 #280] DEBUG -- : {
+  "path": "/posts/123/comments",
+  "query": "",
+  "method": "post",
+  "body": {
+    "content": "This is a test comment"
+  },
+  "headers": {
+    "Content-Length": "37",
+    "Content-Type": "application/json",
+    "Host": "localhost:1234",
+    "User-Agent": "python-requests/2.32.5",
+    "Accept-Encoding": "gzip, deflate",
+    "Accept": "*/*",
+    "Connection": "keep-alive",
+    "X-Access-Token": "valid.jwt.token",
+    "Version": "HTTP/1.1"
+  }
+}
+I, [2025-09-24T17:57:13.864153 #280]  INFO -- : Found matching response for POST /posts/123/comments
+D, [2025-09-24T17:57:13.864261 #280] DEBUG -- : {
+  "status": 201,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "message": "Comment added successfully",
+    "comment": {
+      "id": {
+        "json_class": "Pact::SomethingLike",
+        "contents": 987
+      },
+      "content": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "This is a test comment"
+      },
+      "author_display_name": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "Test User"
+      },
+      "author_profile_picture_url": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "/uploads/profile.jpg"
+      },
+      "created_at": {
+        "json_class": "Pact::Term",
+        "data": {
+          "generate": "2024-01-01T13:00:00",
+          "matcher": {
+            "json_class": "Regexp",
+            "o": 0,
+            "s": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          }
+        }
+      }
+    }
+  }
+}
+I, [2025-09-24T17:57:13.865220 #280]  INFO -- : Verifying - interactions matched
+I, [2025-09-24T17:57:13.866086 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-24T17:57:13.874902 #280]  INFO -- : Cleared interactions
+I, [2025-09-24T17:57:13.876047 #280]  INFO -- : Registered expected interaction POST /posts/99999/like
+D, [2025-09-24T17:57:13.876217 #280] DEBUG -- : {
+  "description": "a request to like a non-existent post",
+  "providerState": "Post does not exist",
+  "request": {
+    "method": "post",
+    "path": "/posts/99999/like",
+    "headers": {
+      "x-access-token": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "valid.jwt.token"
+      }
+    }
+  },
+  "response": {
+    "status": 404,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "error": {
+        "json_class": "Pact::SomethingLike",
+        "contents": "Post not found"
+      },
+      "status_code": {
+        "json_class": "Pact::SomethingLike",
+        "contents": 404
+      }
+    }
+  },
+  "metadata": null
+}
+I, [2025-09-24T17:57:13.877163 #280]  INFO -- : Received request POST /posts/99999/like
+D, [2025-09-24T17:57:13.877205 #280] DEBUG -- : {
+  "path": "/posts/99999/like",
+  "query": "",
+  "method": "post",
+  "headers": {
+    "Host": "localhost:1234",
+    "User-Agent": "python-requests/2.32.5",
+    "Accept-Encoding": "gzip, deflate",
+    "Accept": "*/*",
+    "Connection": "keep-alive",
+    "X-Access-Token": "valid.jwt.token",
+    "Version": "HTTP/1.1"
+  }
+}
+I, [2025-09-24T17:57:13.877311 #280]  INFO -- : Found matching response for POST /posts/99999/like
+D, [2025-09-24T17:57:13.877404 #280] DEBUG -- : {
+  "status": 404,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "error": {
+      "json_class": "Pact::SomethingLike",
+      "contents": "Post not found"
+    },
+    "status_code": {
+      "json_class": "Pact::SomethingLike",
+      "contents": 404
+    }
+  }
+}
+I, [2025-09-24T17:57:13.878313 #280]  INFO -- : Verifying - interactions matched
+I, [2025-09-24T17:57:13.879137 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
