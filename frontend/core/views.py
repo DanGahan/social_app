@@ -641,3 +641,191 @@ def serve_uploaded_image(request, filename):
         from django.http import Http404
 
         raise Http404("Image not found")
+
+
+@csrf_exempt
+def api_toggle_like(request, post_id):
+    """Proxy for toggling like on a post"""
+    jwt_token = request.session.get("jwt_token")
+
+    if not jwt_token:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    if request.method == "POST":
+        try:
+            headers = {"x-access-token": jwt_token, "Content-Type": "application/json"}
+
+            response = requests.post(
+                f"{FLASK_BACKEND_URL}/posts/{post_id}/like",
+                headers=headers,
+            )
+
+            # Return the backend response
+            if response.ok:
+                return JsonResponse(response.json())
+            else:
+                try:
+                    error_data = response.json()
+                    return JsonResponse(error_data, status=response.status_code)
+                except:
+                    return JsonResponse(
+                        {"error": response.text or "Like operation failed"},
+                        status=response.status_code,
+                    )
+
+        except requests.exceptions.RequestException as e:
+            return JsonResponse({"error": "Failed to toggle like."}, status=500)
+
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def api_add_comment(request, post_id):
+    """Proxy for adding a comment to a post"""
+    jwt_token = request.session.get("jwt_token")
+
+    if not jwt_token:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    if request.method == "POST":
+        try:
+            headers = {"x-access-token": jwt_token, "Content-Type": "application/json"}
+
+            # Forward the JSON data to the backend
+            data = json.loads(request.body)
+
+            response = requests.post(
+                f"{FLASK_BACKEND_URL}/posts/{post_id}/comments",
+                headers=headers,
+                json=data,
+            )
+
+            # Return the backend response
+            if response.ok:
+                return JsonResponse(response.json())
+            else:
+                try:
+                    error_data = response.json()
+                    return JsonResponse(error_data, status=response.status_code)
+                except:
+                    return JsonResponse(
+                        {"error": response.text or "Comment creation failed"},
+                        status=response.status_code,
+                    )
+
+        except requests.exceptions.RequestException as e:
+            return JsonResponse({"error": "Failed to add comment."}, status=500)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data."}, status=400)
+
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+def api_get_comments(request, post_id):
+    """Proxy for getting comments for a post"""
+    jwt_token = request.session.get("jwt_token")
+
+    if not jwt_token:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    if request.method == "GET":
+        try:
+            headers = {"x-access-token": jwt_token}
+
+            # Get pagination parameters
+            page = request.GET.get("page", "1")
+            per_page = request.GET.get("per_page", "10")
+
+            response = requests.get(
+                f"{FLASK_BACKEND_URL}/posts/{post_id}/comments?page={page}&per_page={per_page}",
+                headers=headers,
+            )
+
+            # Return the backend response
+            if response.ok:
+                return JsonResponse(response.json())
+            else:
+                try:
+                    error_data = response.json()
+                    return JsonResponse(error_data, status=response.status_code)
+                except:
+                    return JsonResponse(
+                        {"error": response.text or "Failed to get comments"},
+                        status=response.status_code,
+                    )
+
+        except requests.exceptions.RequestException as e:
+            return JsonResponse({"error": "Failed to get comments."}, status=500)
+
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def api_comments(request, post_id):
+    """Combined proxy for adding and getting comments for a post"""
+    jwt_token = request.session.get("jwt_token")
+
+    if not jwt_token:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    if request.method == "POST":
+        try:
+            headers = {"x-access-token": jwt_token, "Content-Type": "application/json"}
+
+            # Forward the JSON data to the backend
+            data = json.loads(request.body)
+
+            response = requests.post(
+                f"{FLASK_BACKEND_URL}/posts/{post_id}/comments",
+                headers=headers,
+                json=data,
+            )
+
+            # Return the backend response
+            if response.ok:
+                return JsonResponse(response.json())
+            else:
+                try:
+                    error_data = response.json()
+                    return JsonResponse(error_data, status=response.status_code)
+                except:
+                    return JsonResponse(
+                        {"error": response.text or "Comment creation failed"},
+                        status=response.status_code,
+                    )
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data."}, status=400)
+        except requests.exceptions.RequestException as e:
+            return JsonResponse({"error": "Failed to add comment."}, status=500)
+
+    elif request.method == "GET":
+        try:
+            headers = {"x-access-token": jwt_token}
+
+            # Get pagination parameters
+            page = request.GET.get("page", "1")
+            per_page = request.GET.get("per_page", "10")
+
+            response = requests.get(
+                f"{FLASK_BACKEND_URL}/posts/{post_id}/comments?page={page}&per_page={per_page}",
+                headers=headers,
+            )
+
+            # Return the backend response
+            if response.ok:
+                return JsonResponse(response.json())
+            else:
+                try:
+                    error_data = response.json()
+                    return JsonResponse(error_data, status=response.status_code)
+                except:
+                    return JsonResponse(
+                        {"error": response.text or "Failed to get comments"},
+                        status=response.status_code,
+                    )
+
+        except requests.exceptions.RequestException as e:
+            return JsonResponse({"error": "Failed to get comments."}, status=500)
+
+    return JsonResponse({"error": "Method not allowed"}, status=405)

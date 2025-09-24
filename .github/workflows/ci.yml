@@ -224,8 +224,12 @@ jobs:
         id: tests
         run: |
           # Run Django tests inside frontend container and save output
-          SUMMARY=$(docker compose exec -T frontend python manage.py test --verbosity=2)
-          echo "$SUMMARY"
+          FULL_OUTPUT=$(docker compose exec -T frontend python manage.py test)
+          echo "$FULL_OUTPUT"
+
+          # Extract only relevant test information, excluding migration and database messages
+          SUMMARY=$(echo "$FULL_OUTPUT" | grep -v -E "(Creating test database|Destroying test database|Uploading file:)" | grep -E "(Found [0-9]+ test|System check identified no issues|Ran [0-9]+ tests|OK$|FAILED|ERROR)")
+
           echo "summary<<EOF" >> $GITHUB_OUTPUT
           echo "$SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT

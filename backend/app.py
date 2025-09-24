@@ -7,7 +7,8 @@ from functools import wraps
 import jwt
 from config import Config
 from flask import Flask, jsonify, request, send_from_directory
-from models import Base, Connection, ConnectionRequest, Post, User
+from models import (Base, Comment, Connection, ConnectionRequest, Like, Post,
+                    User)
 from sqlalchemy import create_engine, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -480,6 +481,37 @@ def get_user_posts(current_user, user_id):
 
     posts_data = []
     for post in posts:
+        # Get like information
+        like_count = session.query(Like).filter_by(post_id=post.id).count()
+        user_has_liked = bool(
+            session.query(Like)
+            .filter_by(user_id=current_user.id, post_id=post.id)
+            .first()
+        )
+
+        # Get comment information
+        comment_count = session.query(Comment).filter_by(post_id=post.id).count()
+        recent_comments = (
+            session.query(Comment)
+            .filter_by(post_id=post.id)
+            .order_by(Comment.created_at.asc())
+            .limit(3)
+            .all()
+        )
+
+        recent_comments_data = []
+        for comment in recent_comments:
+            comment_user = session.query(User).filter_by(id=comment.user_id).first()
+            recent_comments_data.append(
+                {
+                    "id": comment.id,
+                    "content": comment.content,
+                    "created_at": comment.created_at.isoformat(),
+                    "author_display_name": comment_user.display_name,
+                    "author_profile_picture_url": comment_user.profile_picture_url,
+                }
+            )
+
         posts_data.append(
             {
                 "post_id": post.id,
@@ -487,8 +519,12 @@ def get_user_posts(current_user, user_id):
                 "image_url": post.image_url,
                 "created_at": post.created_at.isoformat(),
                 "user_id": post.user_id,
-                "author_display_name": current_user.display_name,  # Add this
-                "author_profile_picture_url": current_user.profile_picture_url,  # Add this
+                "author_display_name": current_user.display_name,
+                "author_profile_picture_url": current_user.profile_picture_url,
+                "like_count": like_count,
+                "user_has_liked": user_has_liked,
+                "comment_count": comment_count,
+                "recent_comments": recent_comments_data,
             }
         )
     return jsonify(posts_data), 200
@@ -538,6 +574,37 @@ def get_connections_posts(current_user, user_id):
         if not post_user:
             continue  # Skip to the next post
 
+        # Get like information
+        like_count = session.query(Like).filter_by(post_id=post.id).count()
+        user_has_liked = bool(
+            session.query(Like)
+            .filter_by(user_id=current_user.id, post_id=post.id)
+            .first()
+        )
+
+        # Get comment information
+        comment_count = session.query(Comment).filter_by(post_id=post.id).count()
+        recent_comments = (
+            session.query(Comment)
+            .filter_by(post_id=post.id)
+            .order_by(Comment.created_at.asc())
+            .limit(3)
+            .all()
+        )
+
+        recent_comments_data = []
+        for comment in recent_comments:
+            comment_user = session.query(User).filter_by(id=comment.user_id).first()
+            recent_comments_data.append(
+                {
+                    "id": comment.id,
+                    "content": comment.content,
+                    "created_at": comment.created_at.isoformat(),
+                    "author_display_name": comment_user.display_name,
+                    "author_profile_picture_url": comment_user.profile_picture_url,
+                }
+            )
+
         posts_data.append(
             {
                 "post_id": post.id,
@@ -547,6 +614,10 @@ def get_connections_posts(current_user, user_id):
                 "user_id": post.user_id,
                 "author_display_name": post_user.display_name,
                 "author_profile_picture_url": post_user.profile_picture_url,
+                "like_count": like_count,
+                "user_has_liked": user_has_liked,
+                "comment_count": comment_count,
+                "recent_comments": recent_comments_data,
             }
         )
     return jsonify(posts_data), 200
@@ -607,6 +678,281 @@ def create_post(current_user):
 def uploaded_file(filename):
     """Serve uploaded files"""
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
+
+@app.route("/posts/<int:post_id>/like", methods=["POST"])
+@token_required
+def toggle_like(current_user, post_id):
+    """Toggle like on a post (like if not liked, unlike if already liked)"""
+    # Check if post exists
+    post = session.query(Post).filter_by(id=post_id).first()
+    if not post:
+        return jsonify({"message": "Post not found"}), 404
+
+    # Check if user has access to this post (must be from a connection or own post)
+    if post.user_id != current_user.id:
+        # Check if post author is a connection
+        connections = (
+            session.query(Connection)
+            .filter(
+                or_(
+                    (Connection.user_id1 == current_user.id)
+                    & (Connection.user_id2 == post.user_id),
+                    (Connection.user_id1 == post.user_id)
+                    & (Connection.user_id2 == current_user.id),
+                )
+            )
+            .first()
+        )
+        if not connections:
+            return (
+                jsonify(
+                    {
+                        "message": "Access denied. You can only like posts from connections."
+                    }
+                ),
+                403,
+            )
+
+    # Check if user already liked this post
+    existing_like = (
+        session.query(Like).filter_by(user_id=current_user.id, post_id=post_id).first()
+    )
+
+    if existing_like:
+        # Unlike the post
+        session.delete(existing_like)
+        session.commit()
+        action = "unliked"
+    else:
+        # Like the post
+        new_like = Like(user_id=current_user.id, post_id=post_id)
+        session.add(new_like)
+        session.commit()
+        action = "liked"
+
+    # Get current like count
+    like_count = session.query(Like).filter_by(post_id=post_id).count()
+
+    return (
+        jsonify(
+            {
+                "message": f"Post {action} successfully",
+                "action": action,
+                "like_count": like_count,
+                "user_has_liked": action == "liked",
+            }
+        ),
+        200,
+    )
+
+
+@app.route("/posts/<int:post_id>/likes", methods=["GET"])
+@token_required
+def get_post_likes(current_user, post_id):
+    """Get like information for a post"""
+    # Check if post exists
+    post = session.query(Post).filter_by(id=post_id).first()
+    if not post:
+        return jsonify({"message": "Post not found"}), 404
+
+    # Check if user has access to this post
+    if post.user_id != current_user.id:
+        connections = (
+            session.query(Connection)
+            .filter(
+                or_(
+                    (Connection.user_id1 == current_user.id)
+                    & (Connection.user_id2 == post.user_id),
+                    (Connection.user_id1 == post.user_id)
+                    & (Connection.user_id2 == current_user.id),
+                )
+            )
+            .first()
+        )
+        if not connections:
+            return jsonify({"message": "Access denied"}), 403
+
+    # Get like count
+    like_count = session.query(Like).filter_by(post_id=post_id).count()
+
+    # Check if current user liked this post
+    user_has_liked = bool(
+        session.query(Like).filter_by(user_id=current_user.id, post_id=post_id).first()
+    )
+
+    return (
+        jsonify(
+            {
+                "post_id": post_id,
+                "like_count": like_count,
+                "user_has_liked": user_has_liked,
+            }
+        ),
+        200,
+    )
+
+
+@app.route("/posts/<int:post_id>/comments", methods=["POST"])
+@token_required
+def add_comment(current_user, post_id):
+    """Add a comment to a post"""
+    data = request.get_json()
+    content = data.get("content", "").strip()
+
+    if not content:
+        return jsonify({"message": "Comment content is required"}), 400
+
+    if len(content) > 500:
+        return jsonify({"message": "Comment must be 500 characters or less"}), 400
+
+    # Check if post exists
+    post = session.query(Post).filter_by(id=post_id).first()
+    if not post:
+        return jsonify({"message": "Post not found"}), 404
+
+    # Check if user has access to this post
+    if post.user_id != current_user.id:
+        connections = (
+            session.query(Connection)
+            .filter(
+                or_(
+                    (Connection.user_id1 == current_user.id)
+                    & (Connection.user_id2 == post.user_id),
+                    (Connection.user_id1 == post.user_id)
+                    & (Connection.user_id2 == current_user.id),
+                )
+            )
+            .first()
+        )
+        if not connections:
+            return (
+                jsonify(
+                    {
+                        "message": "Access denied. You can only comment on posts from connections."
+                    }
+                ),
+                403,
+            )
+
+    # Create new comment
+    new_comment = Comment(user_id=current_user.id, post_id=post_id, content=content)
+    session.add(new_comment)
+    session.commit()
+
+    return (
+        jsonify(
+            {
+                "message": "Comment added successfully",
+                "comment": {
+                    "id": new_comment.id,
+                    "content": new_comment.content,
+                    "created_at": new_comment.created_at.isoformat(),
+                    "user_id": current_user.id,
+                    "author_display_name": current_user.display_name,
+                    "author_profile_picture_url": current_user.profile_picture_url,
+                },
+            }
+        ),
+        201,
+    )
+
+
+@app.route("/posts/<int:post_id>/comments", methods=["GET"])
+@token_required
+def get_post_comments(current_user, post_id):
+    """Get comments for a post with pagination"""
+    # Check if post exists
+    post = session.query(Post).filter_by(id=post_id).first()
+    if not post:
+        return jsonify({"message": "Post not found"}), 404
+
+    # Check if user has access to this post
+    if post.user_id != current_user.id:
+        connections = (
+            session.query(Connection)
+            .filter(
+                or_(
+                    (Connection.user_id1 == current_user.id)
+                    & (Connection.user_id2 == post.user_id),
+                    (Connection.user_id1 == post.user_id)
+                    & (Connection.user_id2 == current_user.id),
+                )
+            )
+            .first()
+        )
+        if not connections:
+            return jsonify({"message": "Access denied"}), 403
+
+    # Pagination parameters
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 10, type=int)
+
+    # Limit per_page to prevent abuse
+    if per_page > 50:
+        per_page = 50
+
+    # Get comments with pagination
+    comments_query = (
+        session.query(Comment)
+        .filter_by(post_id=post_id)
+        .order_by(Comment.created_at.asc())
+    )
+
+    total_comments = comments_query.count()
+    comments = comments_query.offset((page - 1) * per_page).limit(per_page).all()
+
+    comments_data = []
+    for comment in comments:
+        comment_user = session.query(User).filter_by(id=comment.user_id).first()
+        comments_data.append(
+            {
+                "id": comment.id,
+                "content": comment.content,
+                "created_at": comment.created_at.isoformat(),
+                "user_id": comment.user_id,
+                "author_display_name": comment_user.display_name,
+                "author_profile_picture_url": comment_user.profile_picture_url,
+            }
+        )
+
+    return (
+        jsonify(
+            {
+                "comments": comments_data,
+                "pagination": {
+                    "page": page,
+                    "per_page": per_page,
+                    "total": total_comments,
+                    "pages": (total_comments + per_page - 1) // per_page,
+                },
+            }
+        ),
+        200,
+    )
+
+
+@app.route("/comments/<int:comment_id>", methods=["DELETE"])
+@token_required
+def delete_comment(current_user, comment_id):
+    """Delete a comment (only by comment author)"""
+    comment = session.query(Comment).filter_by(id=comment_id).first()
+    if not comment:
+        return jsonify({"message": "Comment not found"}), 404
+
+    # Only comment author can delete their comment
+    if comment.user_id != current_user.id:
+        return (
+            jsonify(
+                {"message": "Access denied. You can only delete your own comments."}
+            ),
+            403,
+        )
+
+    session.delete(comment)
+    session.commit()
+
+    return jsonify({"message": "Comment deleted successfully"}), 200
 
 
 if __name__ == "__main__":

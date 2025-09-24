@@ -15,7 +15,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-from core.views import api_create_post, api_upload_image, serve_uploaded_image
+from core.views import (api_comments, api_create_post, api_toggle_like,
+                        api_upload_image, serve_uploaded_image)
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
@@ -28,6 +29,8 @@ urlpatterns = [
     # API proxy routes
     path("api/posts/upload-image", api_upload_image, name="api_upload_image"),
     path("api/posts", api_create_post, name="api_create_post"),
+    path("api/posts/<int:post_id>/like", api_toggle_like, name="api_toggle_like"),
+    path("api/posts/<int:post_id>/comments", api_comments, name="api_comments"),
     # Image serving route
     path("uploads/<str:filename>", serve_uploaded_image, name="serve_uploaded_image"),
 ]

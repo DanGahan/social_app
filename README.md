@@ -12,6 +12,7 @@ The frontend of the Social App is built using **Django**, a high-level Python we
     *   User authentication (registration, login)
     *   **Integrated Add Post Interface:** Full-featured post creation with tabbed interface (Library, Camera, URL)
     *   Home page with posts, connections, and requests
+    *   **Social Interactions:** Complete likes and comments system with real-time UI updates
     *   API proxy endpoints for secure backend communication
 *   **`posts_app/` app:** Handles functionalities related to user posts and post listing.
 *   **Templates (`.html` files):** Define the structure and layout of the web pages, using Django's template language to render dynamic content.
@@ -41,6 +42,28 @@ The add post functionality is integrated into the home page with a comprehensive
 *   **HTTPS Support:** Complete SSL/TLS infrastructure for secure camera access
 *   **Token-based Authentication:** All API calls properly authenticated
 *   **File Upload Security:** Secure file handling and validation
+
+## Social Interactions Feature
+The application includes a complete social interaction system allowing users to engage with posts:
+
+### Likes System
+*   **Toggle Functionality:** Click heart icon to like/unlike posts
+*   **Visual Feedback:** Filled (♥) vs outline (♡) heart icons with like counts
+*   **Optimistic Updates:** Immediate UI feedback with server synchronization
+*   **Cross-tab Support:** Works seamlessly on both Posts and My Posts tabs
+
+### Comments System
+*   **Real-time Commenting:** Add comments with immediate display
+*   **Pagination Support:** View all comments with efficient loading
+*   **Content Validation:** 500 character limit with client-side validation
+*   **Author Attribution:** Comments show author profile pictures and display names
+*   **Input Methods:** Submit via Enter key or Post button
+
+### Privacy & Security
+*   **Connection-based Access:** Only connections can like/comment on posts
+*   **Authentication Required:** All interactions require valid JWT tokens
+*   **Data Validation:** Server-side validation for all comment content
+*   **Unique Element IDs:** Resolved duplicate ID issues for reliable tab-specific interactions
 
 # Back End
 The backend of the Social App is built using **Flask**, a lightweight Python web framework, and **SQLAlchemy** for Object Relational Mapping (ORM) to interact with the PostgreSQL database. It provides a RESTful API for all data operations, including user management, post management, and connection management.
@@ -132,12 +155,45 @@ The backend of the Social App is built using **Flask**, a lightweight Python web
     *   **Structure:** Requires a valid JWT token.
     *   **Returns:** A list of posts from connected users, including post details and author information.
 
+### Social Interaction Endpoints
+
+*   **`POST /posts/<int:post_id>/like`**
+    *   **Purpose:** Toggles like status for a post (like if not liked, unlike if already liked).
+    *   **Structure:** Requires a valid JWT token. Connection to post author required.
+    *   **Returns:** Success message, like action ("liked"/"unliked"), current like count, and user's like status.
+
+*   **`GET /posts/<int:post_id>/likes`**
+    *   **Purpose:** Retrieves like information for a specific post.
+    *   **Structure:** Requires a valid JWT token. Connection to post author required.
+    *   **Returns:** Post ID, current like count, and whether current user has liked the post.
+
+*   **`POST /posts/<int:post_id>/comments`**
+    *   **Purpose:** Adds a new comment to a post.
+    *   **Structure:** Requires a valid JWT token. Accepts `content` in request body. Connection to post author required.
+    *   **Returns:** Success message and comment details including ID, content, author info, and timestamp.
+
+*   **`GET /posts/<int:post_id>/comments`**
+    *   **Purpose:** Retrieves comments for a post with pagination.
+    *   **Structure:** Requires a valid JWT token. Optional query parameters: `page` (default 1), `per_page` (default 10, max 50).
+    *   **Returns:** List of comments with author details and pagination metadata (total count, pages, current page).
+
+*   **`DELETE /comments/<int:comment_id>`**
+    *   **Purpose:** Deletes a comment (only by comment author).
+    *   **Structure:** Requires a valid JWT token. User must be the comment author.
+    *   **Returns:** Success message confirming deletion.
+
 ## Frontend API Proxy Endpoints
 The Django frontend provides secure proxy endpoints that handle authentication and forward requests to the Flask backend:
 
+### Post Management
 *   **`POST /api/posts/upload-image`** - Proxies file uploads to backend with session authentication
 *   **`POST /api/posts/create`** - Proxies post creation with JSON data validation
 *   **`GET /uploads/<filename>`** - Serves uploaded images from backend storage
+
+### Social Interactions
+*   **`POST /api/posts/<int:post_id>/like`** - Proxies like toggle requests with session token authentication
+*   **`POST /api/posts/<int:post_id>/comments`** - Proxies comment creation with JSON data validation
+*   **`GET /api/posts/<int:post_id>/comments`** - Proxies comment retrieval with pagination support
 
 ## HTTPS Infrastructure
 The application includes complete HTTPS support for secure camera access:
@@ -153,6 +209,8 @@ The database for the Social App is **PostgreSQL**. It is managed using **SQLAlch
 *   **`posts`**: Stores user posts (caption, image URL, creation timestamp, associated user ID).
 *   **`connections`**: Stores established connections between users.
 *   **`connection_requests`**: Stores pending connection requests between users, with a status (pending, accepted, denied).
+*   **`likes`**: Stores user likes on posts with unique constraint preventing duplicate likes.
+*   **`comments`**: Stores user comments on posts with content, timestamps, and author references.
 
 ## Setup and Running
 
@@ -187,7 +245,12 @@ For full camera functionality on Safari and cross-device testing:
 ### Testing
 *   **Backend tests:** `docker-compose exec backend python -m pytest tests/ -v`
 *   **Frontend tests:** `docker-compose exec frontend python manage.py test`
-*   **Test coverage:** 83 comprehensive tests covering upload, camera, and UI functionality
+*   **Test coverage:** 50+ comprehensive tests covering:
+    *   Upload, camera, and UI functionality
+    *   Likes and comments API endpoints
+    *   Social interaction proxy endpoints
+    *   Authentication and authorization
+    *   Database relationships and constraints
 
 ### Camera Features Requirements
 *   **HTTPS:** Required for camera access on Safari browsers
