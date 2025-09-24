@@ -2,8 +2,8 @@ import os
 import sys
 from unittest.mock import MagicMock, patch
 
-import jwt
 import pytest
+
 from app import app
 from models import Comment, Connection, Like, Post, User
 

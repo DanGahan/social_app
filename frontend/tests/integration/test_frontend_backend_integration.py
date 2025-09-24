@@ -28,6 +28,7 @@ class FrontendBackendIntegrationTest(TestCase):
         session.save()
 
     @patch("httpx.post")
+    @pytest.mark.integration
     def test_api_upload_image_integration(self, mock_post):
         """Test image upload proxy with backend integration."""
         # Mock backend response
@@ -63,6 +64,7 @@ class FrontendBackendIntegrationTest(TestCase):
         assert call_kwargs["headers"]["x-access-token"] == "mock_jwt_token"
 
     @patch("httpx.post")
+    @pytest.mark.integration
     def test_api_create_post_integration(self, mock_post):
         """Test post creation proxy with backend integration."""
         # Mock backend response
@@ -93,6 +95,7 @@ class FrontendBackendIntegrationTest(TestCase):
         assert call_kwargs["json"]["caption"] == "Test post caption"
 
     @patch("httpx.post")
+    @pytest.mark.integration
     def test_api_toggle_like_integration(self, mock_post):
         """Test like toggle proxy with backend integration."""
         # Mock backend response
@@ -122,6 +125,7 @@ class FrontendBackendIntegrationTest(TestCase):
 
     @patch("httpx.post")
     @patch("httpx.get")
+    @pytest.mark.integration
     def test_api_comments_post_integration(self, mock_get, mock_post):
         """Test comment creation proxy with backend integration."""
         # Mock backend response for POST
@@ -151,6 +155,7 @@ class FrontendBackendIntegrationTest(TestCase):
         assert data["comment"]["id"] == 456
 
     @patch("httpx.get")
+    @pytest.mark.integration
     def test_api_comments_get_integration(self, mock_get):
         """Test comment retrieval proxy with backend integration."""
         # Mock backend response for GET
@@ -184,6 +189,7 @@ class FrontendBackendIntegrationTest(TestCase):
         assert data["comments"][0]["content"] == "First comment"
         assert data["pagination"]["total"] == 2
 
+    @pytest.mark.integration
     def test_unauthenticated_request_handling(self):
         """Test handling of unauthenticated requests."""
         # Clear session
@@ -198,6 +204,7 @@ class FrontendBackendIntegrationTest(TestCase):
         assert response.status_code in [302, 401]
 
     @patch("httpx.post")
+    @pytest.mark.integration
     def test_backend_error_handling(self, mock_post):
         """Test handling of backend errors in proxy."""
         # Mock backend error response
@@ -216,6 +223,7 @@ class FrontendBackendIntegrationTest(TestCase):
         assert response.status_code == 500
 
     @patch("httpx.post")
+    @pytest.mark.integration
     def test_backend_timeout_handling(self, mock_post):
         """Test handling of backend timeouts."""
         # Mock timeout
@@ -231,6 +239,7 @@ class FrontendBackendIntegrationTest(TestCase):
         assert response.status_code == 504  # Gateway timeout
 
     @patch("httpx.post")
+    @pytest.mark.integration
     def test_malformed_backend_response_handling(self, mock_post):
         """Test handling of malformed backend responses."""
         # Mock malformed response
@@ -253,6 +262,7 @@ class AuthenticationIntegrationTest(TestCase):
     """Test authentication flow integration between frontend and backend."""
 
     @patch("httpx.post")
+    @pytest.mark.integration
     def test_login_flow_integration(self, mock_post):
         """Test complete login flow from frontend to backend."""
         # Mock successful backend login response
@@ -279,6 +289,7 @@ class AuthenticationIntegrationTest(TestCase):
         assert session["jwt_token"] == "jwt_token_12345"
 
     @patch("httpx.post")
+    @pytest.mark.integration
     def test_registration_flow_integration(self, mock_post):
         """Test complete registration flow from frontend to backend."""
         # Mock successful backend registration response
@@ -303,6 +314,7 @@ class AuthenticationIntegrationTest(TestCase):
         assert response.status_code == 302
         assert "login" in response.url
 
+    @pytest.mark.integration
     def test_session_token_persistence(self):
         """Test JWT token persistence across requests."""
         # Set token in session
@@ -340,6 +352,7 @@ class DataSerializationIntegrationTest(TestCase):
         session.save()
 
     @patch("httpx.post")
+    @pytest.mark.integration
     def test_json_serialization(self, mock_post):
         """Test JSON data serialization in API calls."""
         mock_response = MagicMock()
@@ -363,6 +376,7 @@ class DataSerializationIntegrationTest(TestCase):
         assert call_kwargs["json"]["caption"] == "Test with émojis 🎉 and unicode"
 
     @patch("httpx.get")
+    @pytest.mark.integration
     def test_response_deserialization(self, mock_get):
         """Test response deserialization from backend."""
         # Mock backend response with various data types

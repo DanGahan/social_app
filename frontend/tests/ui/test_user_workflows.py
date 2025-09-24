@@ -5,6 +5,7 @@ End-to-end user workflow testing covering critical business paths.
 Tests user interactions across browsers with BDD-style scenarios.
 """
 
+import re
 import time
 
 import pytest
@@ -41,6 +42,7 @@ class UITestCase(StaticLiveServerTestCase):
 class TestUserRegistrationWorkflow(UITestCase):
     """Test complete user registration workflow."""
 
+    @pytest.mark.ui
     def test_successful_user_registration(self):
         """
         Test complete user registration flow:
@@ -67,6 +69,7 @@ class TestUserRegistrationWorkflow(UITestCase):
         expect(self.page).to_have_url(f"{self.live_server_url}/login/")
         expect(self.page.locator(".success-message")).to_be_visible()
 
+    @pytest.mark.ui
     def test_registration_validation_errors(self):
         """
         Test registration form validation:
@@ -89,6 +92,7 @@ class TestUserRegistrationWorkflow(UITestCase):
 class TestUserLoginWorkflow(UITestCase):
     """Test user login workflow."""
 
+    @pytest.mark.ui
     def test_successful_login(self):
         """
         Test successful login flow:
@@ -110,6 +114,7 @@ class TestUserLoginWorkflow(UITestCase):
         expect(self.page).to_have_url(f"{self.live_server_url}/")
         expect(self.page.locator(".welcome-message")).to_be_visible()
 
+    @pytest.mark.ui
     def test_login_with_invalid_credentials(self):
         """
         Test login with wrong credentials:
@@ -150,6 +155,7 @@ class TestPostCreationWorkflow(UITestCase):
         """
         )
 
+    @pytest.mark.ui
     def test_create_post_via_url_upload(self):
         """
         Test post creation with URL upload:
@@ -178,6 +184,7 @@ class TestPostCreationWorkflow(UITestCase):
             "Post created successfully"
         )
 
+    @pytest.mark.ui
     def test_create_post_via_file_upload(self):
         """
         Test post creation with file upload:
@@ -200,6 +207,7 @@ class TestPostCreationWorkflow(UITestCase):
         # Note: File upload testing would require actual test files
         # This is a placeholder for the workflow
 
+    @pytest.mark.ui
     def test_camera_capture_workflow(self):
         """
         Test camera capture workflow:
@@ -235,6 +243,7 @@ class TestPostInteractionWorkflow(UITestCase):
         # This would create test posts in the database
         pass
 
+    @pytest.mark.ui
     def test_like_post_workflow(self):
         """
         Test liking a post:
@@ -263,6 +272,7 @@ class TestPostInteractionWorkflow(UITestCase):
         # Verify button state changed
         expect(like_button).to_have_class(re.compile(r".*liked.*"))
 
+    @pytest.mark.ui
     def test_comment_on_post_workflow(self):
         """
         Test commenting on a post:
@@ -287,6 +297,7 @@ class TestPostInteractionWorkflow(UITestCase):
         # Verify comment appears
         expect(self.page.locator(".comment-content")).to_contain_text(test_comment)
 
+    @pytest.mark.ui
     def test_view_all_comments_workflow(self):
         """
         Test viewing all comments:
@@ -314,6 +325,7 @@ class TestTabNavigationWorkflow(UITestCase):
         super().setUp()
         self._mock_login()
 
+    @pytest.mark.ui
     def test_switch_between_posts_tabs(self):
         """
         Test switching between Posts and My Posts tabs:
@@ -339,6 +351,7 @@ class TestTabNavigationWorkflow(UITestCase):
             re.compile(r".*active.*")
         )
 
+    @pytest.mark.ui
     def test_switch_between_upload_tabs(self):
         """
         Test switching between upload method tabs:
@@ -367,6 +380,7 @@ class TestTabNavigationWorkflow(UITestCase):
 class TestResponsiveDesignWorkflow(UITestCase):
     """Test responsive design across different screen sizes."""
 
+    @pytest.mark.ui
     def test_mobile_view_workflow(self):
         """
         Test mobile responsive design:
@@ -382,6 +396,7 @@ class TestResponsiveDesignWorkflow(UITestCase):
         # (Would check for hamburger menu, stacked layouts, etc.)
         expect(self.page.locator(".mobile-nav")).to_be_visible()
 
+    @pytest.mark.ui
     def test_tablet_view_workflow(self):
         """Test tablet responsive design."""
         # Set tablet viewport
@@ -399,6 +414,7 @@ class TestErrorHandlingWorkflow(UITestCase):
         super().setUp()
         self._mock_login()
 
+    @pytest.mark.ui
     def test_network_error_handling(self):
         """
         Test handling of network errors:
@@ -418,6 +434,7 @@ class TestErrorHandlingWorkflow(UITestCase):
         expect(self.page.locator(".error-toast")).to_be_visible()
         expect(self.page.locator(".error-toast")).to_contain_text("Network error")
 
+    @pytest.mark.ui
     def test_session_expiry_handling(self):
         """
         Test handling of expired session:

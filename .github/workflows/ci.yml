@@ -380,15 +380,30 @@ jobs:
         run: |
           # Validate K6 scripts syntax without running actual tests
           echo "Validating load test script..."
-          k6 inspect tests/performance/load_test.js > load_test_validation.txt 2>&1 || true
+          LOAD_VALIDATION=$(k6 inspect tests/performance/load_test.js 2>&1 || echo "validation_error")
+          echo "$LOAD_VALIDATION"
+
           echo "Validating stress test script..."
-          k6 inspect tests/performance/stress_test.js > stress_test_validation.txt 2>&1 || true
+          STRESS_VALIDATION=$(k6 inspect tests/performance/stress_test.js 2>&1 || echo "validation_error")
+          echo "$STRESS_VALIDATION"
+
+          # Check for validation errors
+          LOAD_STATUS="VALID"
+          STRESS_STATUS="VALID"
+
+          if echo "$LOAD_VALIDATION" | grep -qi "error\|invalid\|validation_error"; then
+            LOAD_STATUS="INVALID"
+          fi
+
+          if echo "$STRESS_VALIDATION" | grep -qi "error\|invalid\|validation_error"; then
+            STRESS_STATUS="INVALID"
+          fi
 
           # Create summary of validation results
-          PERF_SUMMARY="Performance test scripts validated successfully:"
-          PERF_SUMMARY="$PERF_SUMMARY\n- Load test script: $(if grep -q 'error' load_test_validation.txt; then echo 'INVALID'; else echo 'VALID'; fi)"
-          PERF_SUMMARY="$PERF_SUMMARY\n- Stress test script: $(if grep -q 'error' stress_test_validation.txt; then echo 'INVALID'; else echo 'VALID'; fi)"
-          PERF_SUMMARY="$PERF_SUMMARY\n- Note: Full performance testing requires live services (skipped in CI)"
+          PERF_SUMMARY="Performance test scripts validation:"
+          PERF_SUMMARY="$PERF_SUMMARY\n✓ Load test script: $LOAD_STATUS"
+          PERF_SUMMARY="$PERF_SUMMARY\n✓ Stress test script: $STRESS_STATUS"
+          PERF_SUMMARY="$PERF_SUMMARY\n📝 Note: Full performance testing requires live services (validated syntax only)"
 
           echo "summary<<EOF" >> $GITHUB_OUTPUT
           echo -e "$PERF_SUMMARY" >> $GITHUB_OUTPUT
@@ -418,7 +433,7 @@ jobs:
           cd backend
 
           # Backend Security Scan
-          BANDIT_OUTPUT=$(bandit -r . -f text || true)
+          BANDIT_OUTPUT=$(bandit -r . -f txt || true)
           echo "$BANDIT_OUTPUT"
           BANDIT_SUMMARY=$(echo "$BANDIT_OUTPUT" | grep -E "(Total issues|Severity|Confidence)" | head -5)
           echo "bandit_summary<<EOF" >> $GITHUB_OUTPUT
@@ -656,18 +671,20 @@ jobs:
       - name: Generate Gemini Review
         id: gemini_review_step
         run: |
-          PR_DIFF=$(curl -L ${{ github.event.pull_request.diff_url }})
+          # Download PR diff to file to avoid argument length limits
+          curl -L ${{ github.event.pull_request.diff_url }} > pr_diff.txt
 
           # --- Prompt 1: Generate Change Summary ---
-          SUMMARY_PROMPT=$(cat <<EOT
+          cat > summary_prompt.txt <<EOT
           Strictly using the provided "Pull Request Diff" and nothing else, provide a human-understandable overview of the changes.
           ## Pull Request Diff
           \`\`\`diff
-          $PR_DIFF
+          $(head -c 50000 pr_diff.txt)...
+          (diff truncated for brevity)
           \`\`\`
           EOT
-          )
-          CHANGE_SUMMARY=$(gemini "$SUMMARY_PROMPT")
+
+          CHANGE_SUMMARY=$(gemini < summary_prompt.txt)
 
           # --- Prompt 2: Generate Analysis and Recommendation ---
           # Collect all outputs from previous jobs
@@ -690,7 +707,8 @@ jobs:
           FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
           SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
 
-          ANALYSIS_PROMPT=$(cat <<EOT
+          # --- Prompt 2: Generate Analysis and Recommendation ---
+          cat > analysis_prompt.txt <<EOT
           You are a senior software engineer reviewing a pull request.
           First, here is the summary of changes in the pull request:
           $CHANGE_SUMMARY
@@ -729,8 +747,8 @@ jobs:
 
           Based on the change summary and the test results, provide a concise analysis of the test results and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
           EOT
-          )
-          ANALYSIS_AND_RECOMMENDATION=$(gemini "$ANALYSIS_PROMPT")
+
+          ANALYSIS_AND_RECOMMENDATION=$(gemini < analysis_prompt.txt)
 
           # --- Combine and Output ---
           OUTPUT="$CHANGE_SUMMARY\n\n$ANALYSIS_AND_RECOMMENDATION"

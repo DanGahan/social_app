@@ -5,8 +5,6 @@ Consumer-driven contract tests to ensure API compatibility
 between frontend (consumer) and backend (provider).
 """
 
-import json
-
 import pytest
 import requests
 from pact import Consumer, EachLike, Format, Like, Provider, Term
@@ -26,6 +24,7 @@ class TestAPIContract:
         yield pact
         pact.stop()
 
+    @pytest.mark.contract
     def test_user_registration_contract(self, pact):
         """Test user registration API contract."""
         # Define expected interaction
@@ -63,6 +62,7 @@ class TestAPIContract:
             assert "user_id" in data
             assert data["message"] == "User registered successfully"
 
+    @pytest.mark.contract
     def test_user_login_contract(self, pact):
         """Test user login API contract."""
         expected_response = {
@@ -99,6 +99,7 @@ class TestAPIContract:
             assert "token" in data
             assert "user_id" in data
 
+    @pytest.mark.contract
     def test_post_creation_contract(self, pact):
         """Test post creation API contract."""
         expected_response = {
@@ -142,6 +143,7 @@ class TestAPIContract:
             data = response.json()
             assert "post_id" in data
 
+    @pytest.mark.contract
     def test_get_posts_contract(self, pact):
         """Test get user posts API contract."""
         expected_response = EachLike(
@@ -206,6 +208,7 @@ class TestAPIContract:
                 assert "like_count" in post
                 assert "recent_comments" in post
 
+    @pytest.mark.contract
     def test_like_toggle_contract(self, pact):
         """Test like toggle API contract."""
         expected_response = {
@@ -242,6 +245,7 @@ class TestAPIContract:
             assert "like_count" in data
             assert "user_has_liked" in data
 
+    @pytest.mark.contract
     def test_add_comment_contract(self, pact):
         """Test add comment API contract."""
         expected_response = {
@@ -291,6 +295,7 @@ class TestAPIContract:
             assert "comment" in data
             assert data["comment"]["content"] == "This is a test comment"
 
+    @pytest.mark.contract
     def test_get_comments_contract(self, pact):
         """Test get comments API contract."""
         expected_response = {
@@ -343,6 +348,7 @@ class TestAPIContract:
             assert "pagination" in data
             assert isinstance(data["comments"], list)
 
+    @pytest.mark.contract
     def test_error_response_contract(self, pact):
         """Test API error response contract."""
         expected_error = {"error": Like("Post not found"), "status_code": Like(404)}
@@ -374,6 +380,7 @@ class TestAPIContract:
 class TestContractVerification:
     """Verify that the provider (backend) meets the contract expectations."""
 
+    @pytest.mark.contract
     def test_verify_provider_against_pacts(self):
         """Verify backend implementation against generated pact files."""
         verifier = Verifier(

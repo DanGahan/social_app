@@ -10,12 +10,21 @@ from pathlib import Path
 
 import jsonschema
 import pytest
-import requests
-from jsonschema import validate
+from jsonschema import Draft7Validator, validate
+from jsonschema.validators import RefResolver
 
 
 class TestAPIDocumentation:
     """Test API documentation synchronization with implementation."""
+
+    def _validate_with_refs(self, instance, schema, api_spec):
+        """Validate instance against schema with proper reference resolution."""
+        resolver = RefResolver(base_uri="", referrer=api_spec)
+        validator = Draft7Validator(schema, resolver=resolver)
+        try:
+            validator.validate(instance)
+        except jsonschema.ValidationError as e:
+            pytest.fail(f"Schema validation failed: {e}")
 
     @pytest.fixture(scope="session")
     def api_spec(self):
@@ -400,6 +409,7 @@ class TestAPIDocumentation:
             },
         }
 
+    @pytest.mark.contract
     def test_auth_register_endpoint_matches_spec(self, api_spec):
         """Test registration endpoint response matches OpenAPI spec."""
         endpoint_spec = api_spec["paths"]["/auth/register"]["post"]
@@ -416,6 +426,7 @@ class TestAPIDocumentation:
         except jsonschema.ValidationError as e:
             pytest.fail(f"Registration response doesn't match spec: {e}")
 
+    @pytest.mark.contract
     def test_auth_login_endpoint_matches_spec(self, api_spec):
         """Test login endpoint response matches OpenAPI spec."""
         endpoint_spec = api_spec["paths"]["/auth/login"]["post"]
@@ -434,6 +445,7 @@ class TestAPIDocumentation:
         except jsonschema.ValidationError as e:
             pytest.fail(f"Login response doesn't match spec: {e}")
 
+    @pytest.mark.contract
     def test_get_posts_endpoint_matches_spec(self, api_spec):
         """Test get posts endpoint response matches OpenAPI spec."""
         endpoint_spec = api_spec["paths"]["/users/{user_id}/posts"]["get"]
@@ -465,11 +477,9 @@ class TestAPIDocumentation:
             }
         ]
 
-        try:
-            validate(instance=mock_response, schema=success_schema)
-        except jsonschema.ValidationError as e:
-            pytest.fail(f"Get posts response doesn't match spec: {e}")
+        self._validate_with_refs(mock_response, success_schema, api_spec)
 
+    @pytest.mark.contract
     def test_like_toggle_endpoint_matches_spec(self, api_spec):
         """Test like toggle endpoint response matches OpenAPI spec."""
         endpoint_spec = api_spec["paths"]["/posts/{post_id}/like"]["post"]
@@ -489,6 +499,7 @@ class TestAPIDocumentation:
         except jsonschema.ValidationError as e:
             pytest.fail(f"Like toggle response doesn't match spec: {e}")
 
+    @pytest.mark.contract
     def test_add_comment_endpoint_matches_spec(self, api_spec):
         """Test add comment endpoint response matches OpenAPI spec."""
         endpoint_spec = api_spec["paths"]["/posts/{post_id}/comments"]["post"]
@@ -507,11 +518,9 @@ class TestAPIDocumentation:
             },
         }
 
-        try:
-            validate(instance=mock_response, schema=success_schema)
-        except jsonschema.ValidationError as e:
-            pytest.fail(f"Add comment response doesn't match spec: {e}")
+        self._validate_with_refs(mock_response, success_schema, api_spec)
 
+    @pytest.mark.contract
     def test_get_comments_endpoint_matches_spec(self, api_spec):
         """Test get comments endpoint response matches OpenAPI spec."""
         endpoint_spec = api_spec["paths"]["/posts/{post_id}/comments"]["get"]
@@ -539,11 +548,9 @@ class TestAPIDocumentation:
             "pagination": {"page": 1, "per_page": 10, "total": 2, "pages": 1},
         }
 
-        try:
-            validate(instance=mock_response, schema=success_schema)
-        except jsonschema.ValidationError as e:
-            pytest.fail(f"Get comments response doesn't match spec: {e}")
+        self._validate_with_refs(mock_response, success_schema, api_spec)
 
+    @pytest.mark.contract
     def test_request_schema_validation(self, api_spec):
         """Test that request schemas match expected input formats."""
         # Test registration request schema
@@ -567,6 +574,7 @@ class TestAPIDocumentation:
         with pytest.raises(jsonschema.ValidationError):
             validate(instance=invalid_request, schema=request_schema)
 
+    @pytest.mark.contract
     def test_schema_completeness(self, api_spec):
         """Test that all documented endpoints have complete schemas."""
         required_fields = ["summary", "responses"]
@@ -589,6 +597,7 @@ class TestAPIDocumentation:
                             "schema" in json_spec
                         ), f"{method.upper()} {path} {status_code} missing schema"
 
+    @pytest.mark.contract
     def test_examples_are_valid(self, api_spec):
         """Test that examples in the spec are valid according to their schemas."""
         # This would test any examples provided in the OpenAPI spec

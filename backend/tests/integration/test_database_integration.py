@@ -5,15 +5,13 @@ Tests real database operations with actual PostgreSQL container.
 Covers CRUD operations, transactions, and connection handling.
 """
 
-import os
-
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from testcontainers.postgres import PostgresContainer
 
 from app import app
-from models import Base, Comment, Connection, ConnectionRequest, Like, Post, User
+from models import Base, Comment, Connection, Like, Post, User
 
 
 @pytest.fixture(scope="module")
@@ -77,6 +75,7 @@ def app_with_test_db(test_engine):
 class TestUserCRUD:
     """Test User model CRUD operations with real database."""
 
+    @pytest.mark.integration
     def test_create_user(self, test_session):
         """Test creating a user with real database persistence."""
         user = User(
@@ -96,6 +95,7 @@ class TestUserCRUD:
         assert retrieved_user.display_name == "Test User"
         assert retrieved_user.id is not None
 
+    @pytest.mark.integration
     def test_user_unique_email_constraint(self, test_session):
         """Test unique email constraint enforcement."""
         user1 = User(email="duplicate@example.com", password_hash="hash1")
@@ -108,6 +108,7 @@ class TestUserCRUD:
         with pytest.raises(Exception):  # Should raise integrity error
             test_session.commit()
 
+    @pytest.mark.integration
     def test_update_user(self, test_session):
         """Test updating user information."""
         user = User(
@@ -124,6 +125,7 @@ class TestUserCRUD:
         )
         assert retrieved_user.display_name == "Updated"
 
+    @pytest.mark.integration
     def test_delete_user_cascade(self, test_session):
         """Test user deletion cascades to related entities."""
         user = User(email="delete@example.com", password_hash="hash")
@@ -153,6 +155,7 @@ class TestUserCRUD:
 class TestConnectionCRUD:
     """Test Connection model operations with real database."""
 
+    @pytest.mark.integration
     def test_create_connection(self, test_session):
         """Test creating a connection between users."""
         user1 = User(email="user1@example.com", password_hash="hash1")
@@ -172,6 +175,7 @@ class TestConnectionCRUD:
         )
         assert retrieved is not None
 
+    @pytest.mark.integration
     def test_connection_unique_constraint(self, test_session):
         """Test unique constraint on user connections."""
         user1 = User(email="con1@example.com", password_hash="hash1")
@@ -193,6 +197,7 @@ class TestConnectionCRUD:
 class TestPostCRUD:
     """Test Post model operations with real database."""
 
+    @pytest.mark.integration
     def test_create_post_with_likes_and_comments(self, test_session):
         """Test creating posts with associated likes and comments."""
         user = User(email="poster@example.com", password_hash="hash")
@@ -220,6 +225,7 @@ class TestPostCRUD:
 class TestTransactionHandling:
     """Test database transaction scenarios."""
 
+    @pytest.mark.integration
     def test_transaction_rollback(self, test_session):
         """Test transaction rollback on error."""
         user = User(email="rollback@example.com", password_hash="hash")
@@ -240,6 +246,7 @@ class TestTransactionHandling:
             is None
         )
 
+    @pytest.mark.integration
     def test_connection_pool_handling(self, test_engine):
         """Test connection pool behavior under concurrent access."""
         # Create multiple sessions to test connection pooling
@@ -273,6 +280,7 @@ class TestTransactionHandling:
 class TestAPIIntegrationWithDatabase:
     """Test API endpoints with real database operations."""
 
+    @pytest.mark.integration
     def test_register_user_api_integration(self, app_with_test_db):
         """Test user registration API with real database."""
         response = app_with_test_db.post(
@@ -285,6 +293,7 @@ class TestAPIIntegrationWithDatabase:
         assert "user_id" in data
         assert data["message"] == "User registered successfully"
 
+    @pytest.mark.integration
     def test_login_api_integration(self, app_with_test_db, test_session):
         """Test login API with real database."""
         from werkzeug.security import generate_password_hash

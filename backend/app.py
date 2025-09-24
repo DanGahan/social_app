@@ -5,15 +5,15 @@ import sys
 from functools import wraps
 
 import jwt
-from config import Config
 from flask import Flask, jsonify, request, send_from_directory
-from models import (Base, Comment, Connection, ConnectionRequest, Like, Post,
-                    User)
 from sqlalchemy import create_engine, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+
+from config import Config
+from models import Base, Comment, Connection, ConnectionRequest, Like, Post, User
 
 app = Flask(__name__)
 app.config.from_object(Config)
