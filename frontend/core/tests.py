@@ -318,3 +318,225 @@ class ApiProxyTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+
+class LikesCommentsApiProxyTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        # Set up authenticated session
+        session = self.client.session
+        session["jwt_token"] = "fake_jwt_token"
+        session["user_id"] = 1
+        session.save()
+
+    @patch("core.views.requests.post")
+    def test_api_toggle_like_success(self, mock_post):
+        """Test successful like toggle through proxy"""
+        mock_post.return_value.ok = True
+        mock_post.return_value.json.return_value = {
+            "message": "Post liked successfully",
+            "action": "liked",
+            "like_count": 5,
+            "user_has_liked": True,
+        }
+
+        response = self.client.post(reverse("api_toggle_like", args=[1]))
+
+        self.assertEqual(response.status_code, 200)
+        response_data = response.json()
+        self.assertEqual(response_data["action"], "liked")
+        self.assertEqual(response_data["like_count"], 5)
+        self.assertTrue(response_data["user_has_liked"])
+
+    @patch("core.views.requests.post")
+    def test_api_toggle_like_unlike_success(self, mock_post):
+        """Test successful unlike through proxy"""
+        mock_post.return_value.ok = True
+        mock_post.return_value.json.return_value = {
+            "message": "Post unliked successfully",
+            "action": "unliked",
+            "like_count": 4,
+            "user_has_liked": False,
+        }
+
+        response = self.client.post(reverse("api_toggle_like", args=[1]))
+
+        self.assertEqual(response.status_code, 200)
+        response_data = response.json()
+        self.assertEqual(response_data["action"], "unliked")
+        self.assertEqual(response_data["like_count"], 4)
+        self.assertFalse(response_data["user_has_liked"])
+
+    def test_api_toggle_like_unauthorized(self):
+        """Test like toggle without authentication"""
+        # Clear session
+        self.client.session.flush()
+
+        response = self.client.post(reverse("api_toggle_like", args=[1]))
+
+        self.assertEqual(response.status_code, 401)
+        response_data = response.json()
+        self.assertEqual(response_data["error"], "Unauthorized")
+
+    @patch("core.views.requests.post")
+    def test_api_toggle_like_backend_error(self, mock_post):
+        """Test like toggle with backend error"""
+        mock_post.return_value.ok = False
+        mock_post.return_value.status_code = 403
+        mock_post.return_value.json.return_value = {
+            "message": "Access denied. You can only like posts from connections."
+        }
+
+        response = self.client.post(reverse("api_toggle_like", args=[1]))
+
+        self.assertEqual(response.status_code, 403)
+
+    @patch("core.views.requests.post")
+    def test_api_add_comment_success(self, mock_post):
+        """Test successful comment creation through proxy"""
+        mock_post.return_value.ok = True
+        mock_post.return_value.json.return_value = {
+            "message": "Comment added successfully",
+            "comment": {
+                "id": 1,
+                "content": "Great post!",
+                "created_at": "2023-01-01T00:00:00",
+                "user_id": 1,
+                "author_display_name": "Test User",
+                "author_profile_picture_url": "test.jpg",
+            },
+        }
+
+        import json
+
+        response = self.client.post(
+            reverse("api_comments", args=[1]),
+            data=json.dumps({"content": "Great post!"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        response_data = response.json()
+        self.assertEqual(response_data["message"], "Comment added successfully")
+        self.assertEqual(response_data["comment"]["content"], "Great post!")
+
+    @patch("core.views.requests.post")
+    def test_api_add_comment_empty_content(self, mock_post):
+        """Test comment creation with empty content"""
+        mock_post.return_value.ok = False
+        mock_post.return_value.status_code = 400
+        mock_post.return_value.json.return_value = {
+            "message": "Comment content is required"
+        }
+
+        import json
+
+        response = self.client.post(
+            reverse("api_comments", args=[1]),
+            data=json.dumps({"content": ""}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    @patch("core.views.requests.post")
+    def test_api_add_comment_too_long(self, mock_post):
+        """Test comment creation with content too long"""
+        mock_post.return_value.ok = False
+        mock_post.return_value.status_code = 400
+        mock_post.return_value.json.return_value = {
+            "message": "Comment must be 500 characters or less"
+        }
+
+        import json
+
+        response = self.client.post(
+            reverse("api_comments", args=[1]),
+            data=json.dumps({"content": "A" * 501}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_api_add_comment_unauthorized(self):
+        """Test comment creation without authentication"""
+        # Clear session
+        self.client.session.flush()
+
+        import json
+
+        response = self.client.post(
+            reverse("api_comments", args=[1]),
+            data=json.dumps({"content": "Great post!"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 401)
+        response_data = response.json()
+        self.assertEqual(response_data["error"], "Unauthorized")
+
+    @patch("core.views.requests.get")
+    def test_api_get_comments_success(self, mock_get):
+        """Test successful comment retrieval through proxy"""
+        mock_get.return_value.ok = True
+        mock_get.return_value.json.return_value = {
+            "comments": [
+                {
+                    "id": 1,
+                    "content": "Great post!",
+                    "created_at": "2023-01-01T00:00:00",
+                    "user_id": 2,
+                    "author_display_name": "Commenter",
+                    "author_profile_picture_url": "commenter.jpg",
+                }
+            ],
+            "pagination": {"page": 1, "per_page": 10, "total": 1, "pages": 1},
+        }
+
+        response = self.client.get(reverse("api_comments", args=[1]))
+
+        self.assertEqual(response.status_code, 200)
+        response_data = response.json()
+        self.assertEqual(len(response_data["comments"]), 1)
+        self.assertEqual(response_data["comments"][0]["content"], "Great post!")
+        self.assertEqual(response_data["pagination"]["total"], 1)
+
+    @patch("core.views.requests.get")
+    def test_api_get_comments_with_pagination(self, mock_get):
+        """Test comment retrieval with pagination parameters"""
+        mock_get.return_value.ok = True
+        mock_get.return_value.json.return_value = {
+            "comments": [],
+            "pagination": {"page": 2, "per_page": 5, "total": 10, "pages": 2},
+        }
+
+        response = self.client.get(
+            reverse("api_comments", args=[1]) + "?page=2&per_page=5"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        response_data = response.json()
+        self.assertEqual(response_data["pagination"]["page"], 2)
+        self.assertEqual(response_data["pagination"]["per_page"], 5)
+
+    def test_api_get_comments_unauthorized(self):
+        """Test comment retrieval without authentication"""
+        # Clear session
+        self.client.session.flush()
+
+        response = self.client.get(reverse("api_comments", args=[1]))
+
+        self.assertEqual(response.status_code, 401)
+        response_data = response.json()
+        self.assertEqual(response_data["error"], "Unauthorized")
+
+    @patch("core.views.requests.get")
+    def test_api_get_comments_post_not_found(self, mock_get):
+        """Test comment retrieval for non-existent post"""
+        mock_get.return_value.ok = False
+        mock_get.return_value.status_code = 404
+        mock_get.return_value.json.return_value = {"message": "Post not found"}
+
+        response = self.client.get(reverse("api_comments", args=[999]))
+
+        self.assertEqual(response.status_code, 404)

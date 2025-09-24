@@ -33,6 +33,44 @@
                         <img src="{{ post.image_url }}" alt="Post Image" class="post-image" onclick="openLightbox('{{ post.image_url }}')">
                         <p>{{ post.caption }}</p>
                         <small>Posted at: {{ post.created_at|date:"d/m/y H:i" }}</small>
+
+                        <!-- Like Section -->
+                        <div class="post-interactions">
+                            <div class="like-section">
+                                <button class="like-btn" onclick="toggleLike({{ post.post_id }})" data-post-id="{{ post.post_id }}" data-liked="{{ post.user_has_liked|yesno:'true,false' }}">
+                                    <span class="heart-icon">{{ post.user_has_liked|yesno:'♥,♡' }}</span>
+                                    <span class="like-count">{{ post.like_count|default:0 }}</span>
+                                </button>
+                            </div>
+
+                            <!-- Comments Section -->
+                            <div class="comments-section" id="comments-connections-{{ post.post_id }}">
+                                {% if post.recent_comments %}
+                                    <div class="recent-comments">
+                                        {% for comment in post.recent_comments %}
+                                            <div class="comment">
+                                                <img src="{{ comment.author_profile_picture_url|default:'/static/default_profile_pic.png' }}" alt="Profile" class="comment-author-pic">
+                                                <div class="comment-content">
+                                                    <strong>{{ comment.author_display_name }}</strong>
+                                                    <span>{{ comment.content }}</span>
+                                                    <small>{{ comment.created_at|date:"d/m/y H:i" }}</small>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                        {% if post.comment_count > 3 %}
+                                            <button class="view-all-comments" onclick="showAllComments({{ post.post_id }})">
+                                                View all {{ post.comment_count }} comments
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+
+                                <div class="add-comment">
+                                    <input type="text" class="comment-input" placeholder="Add a comment..." maxlength="500" onkeypress="handleCommentKeyPress(event, {{ post.post_id }})">
+                                    <button class="comment-submit" onclick="addComment({{ post.post_id }})">Post</button>
+                                </div>
+                            </div>
+                        </div>
                     </li>
                 {% endfor %}
             </ul>
@@ -56,6 +94,44 @@
                         <img src="{{ post.image_url }}" alt="Post Image" class="post-image" onclick="openLightbox('{{ post.image_url }}')">
                         <p>{{ post.caption }}</p>
                         <small>Posted at: {{ post.created_at|date:"d/m/y H:i" }}</small>
+
+                        <!-- Like Section -->
+                        <div class="post-interactions">
+                            <div class="like-section">
+                                <button class="like-btn" onclick="toggleLike({{ post.post_id }})" data-post-id="{{ post.post_id }}" data-liked="{{ post.user_has_liked|yesno:'true,false' }}">
+                                    <span class="heart-icon">{{ post.user_has_liked|yesno:'♥,♡' }}</span>
+                                    <span class="like-count">{{ post.like_count|default:0 }}</span>
+                                </button>
+                            </div>
+
+                            <!-- Comments Section -->
+                            <div class="comments-section" id="comments-myposts-{{ post.post_id }}">
+                                {% if post.recent_comments %}
+                                    <div class="recent-comments">
+                                        {% for comment in post.recent_comments %}
+                                            <div class="comment">
+                                                <img src="{{ comment.author_profile_picture_url|default:'/static/default_profile_pic.png' }}" alt="Profile" class="comment-author-pic">
+                                                <div class="comment-content">
+                                                    <strong>{{ comment.author_display_name }}</strong>
+                                                    <span>{{ comment.content }}</span>
+                                                    <small>{{ comment.created_at|date:"d/m/y H:i" }}</small>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                        {% if post.comment_count > 3 %}
+                                            <button class="view-all-comments" onclick="showAllComments({{ post.post_id }})">
+                                                View all {{ post.comment_count }} comments
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+
+                                <div class="add-comment">
+                                    <input type="text" class="comment-input" placeholder="Add a comment..." maxlength="500" onkeypress="handleCommentKeyPress(event, {{ post.post_id }})">
+                                    <button class="comment-submit" onclick="addComment({{ post.post_id }})">Post</button>
+                                </div>
+                            </div>
+                        </div>
                     </li>
                 {% endfor %}
             </ul>
@@ -1024,6 +1100,274 @@
                 }
             }
             return cookieValue;
+        }
+
+        // Like functionality
+        async function toggleLike(postId) {
+            // Auto-detect tab context to find the correct like button
+            const activeTab = document.querySelector('.tabcontent[style*="block"]')?.id;
+            const tabContext = activeTab === 'MyPosts' ? 'myposts' : 'connections';
+
+            // Find the like button within the correct tab context
+            const commentsSection = document.getElementById(`comments-${tabContext}-${postId}`);
+            const likeBtn = commentsSection?.closest('.post-interactions')?.querySelector(`[data-post-id="${postId}"]`);
+
+            if (!likeBtn) {
+                alert('Like button not found. Please try again.');
+                return;
+            }
+
+            const heartIcon = likeBtn.querySelector('.heart-icon');
+            const likeCount = likeBtn.querySelector('.like-count');
+            const isLiked = likeBtn.dataset.liked === 'true';
+
+            // Optimistic UI update
+            const newLikeCount = isLiked ? parseInt(likeCount.textContent) - 1 : parseInt(likeCount.textContent) + 1;
+            heartIcon.textContent = isLiked ? '♡' : '♥';
+            likeCount.textContent = newLikeCount;
+            likeBtn.dataset.liked = isLiked ? 'false' : 'true';
+
+            try {
+                const response = await fetch(`/api/posts/${postId}/like`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-access-token': '{{ request.session.jwt_token }}'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // Update with actual values from server
+                    heartIcon.textContent = data.user_has_liked ? '♥' : '♡';
+                    likeCount.textContent = data.like_count;
+                    likeBtn.dataset.liked = data.user_has_liked.toString();
+                } else {
+                    // Revert optimistic update on error
+                    heartIcon.textContent = isLiked ? '♥' : '♡';
+                    likeCount.textContent = isLiked ? parseInt(likeCount.textContent) + 1 : parseInt(likeCount.textContent) - 1;
+                    likeBtn.dataset.liked = isLiked ? 'true' : 'false';
+
+                    const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                    console.error('Like error:', errorData.message);
+                    alert('Failed to ' + (isLiked ? 'unlike' : 'like') + ' post: ' + errorData.message);
+                }
+            } catch (error) {
+                // Revert optimistic update on network error
+                heartIcon.textContent = isLiked ? '♥' : '♡';
+                likeCount.textContent = isLiked ? parseInt(likeCount.textContent) + 1 : parseInt(likeCount.textContent) - 1;
+                likeBtn.dataset.liked = isLiked ? 'true' : 'false';
+
+                console.error('Network error:', error);
+                alert('Network error. Please try again.');
+            }
+        }
+
+        // Comment functionality
+        async function addComment(postId, tabContext = null) {
+            // Auto-detect tab context if not provided
+            if (!tabContext) {
+                const activeTab = document.querySelector('.tabcontent[style*="block"]')?.id;
+                tabContext = activeTab === 'MyPosts' ? 'myposts' : 'connections';
+            }
+
+
+            // Prevent double submission
+            const submissionKey = `${tabContext}-${postId}`;
+            if (window.submittingComment === submissionKey) {
+                console.log('Double submission prevented for:', submissionKey);
+                return;
+            }
+            window.submittingComment = submissionKey;
+
+            try {
+                // Find the correct comment section based on tab context
+                const commentsSection = document.getElementById(`comments-${tabContext}-${postId}`);
+                console.log('Comments section found:', !!commentsSection);
+                console.log('Comments section element:', commentsSection);
+
+                if (!commentsSection) {
+                    alert('Comment section not found. Please try again.');
+                    window.submittingComment = null;
+                    return;
+                }
+
+                const commentInput = commentsSection.querySelector('.comment-input');
+                console.log('Comment input found:', !!commentInput);
+                console.log('Comment input element:', commentInput);
+                console.log('Comment input parent:', commentInput?.parentElement);
+                console.log('Comment input visibility:', commentInput ? window.getComputedStyle(commentInput).display : 'N/A');
+                console.log('Comments section visibility:', window.getComputedStyle(commentsSection).display);
+                console.log('Comments section parent visibility:', window.getComputedStyle(commentsSection.parentElement).display);
+
+                if (!commentInput) {
+                    alert('Comment input not found. Please try again.');
+                    window.submittingComment = null;
+                    return;
+                }
+
+                // Force focus on the input to ensure it's accessible
+                commentInput.focus();
+
+                const rawValue = commentInput.value;
+                const content = rawValue.trim();
+                console.log('Raw input value:', JSON.stringify(rawValue));
+                console.log('Trimmed content:', JSON.stringify(content));
+                console.log('Content length:', content.length);
+                console.log('Is content empty:', !content);
+
+                // Double-check by getting the value again after focus
+                const rawValue2 = commentInput.value;
+                const content2 = rawValue2.trim();
+                console.log('After focus - Raw input value:', JSON.stringify(rawValue2));
+                console.log('After focus - Trimmed content:', JSON.stringify(content2));
+
+                if (!content && !content2) {
+                    alert(`Please enter a comment (DEBUG: raw="${rawValue}", trimmed="${content}", after focus: raw="${rawValue2}", trimmed="${content2}")`);
+                    window.submittingComment = null;
+                    return;
+                }
+
+                // Use the content that's not empty
+                const finalContent = content || content2;
+
+                if (finalContent.length > 500) {
+                    alert('Comment must be 500 characters or less');
+                    window.submittingComment = null;
+                    return;
+                }
+
+                console.log('Final content to send:', JSON.stringify(finalContent));
+
+            try {
+                const response = await fetch(`/api/posts/${postId}/comments`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-access-token': '{{ request.session.jwt_token }}'
+                    },
+                    body: JSON.stringify({ content: content })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Clear input
+                    commentInput.value = '';
+
+                    // Add new comment to the UI
+                    addCommentToUI(postId, data.comment, tabContext);
+                } else {
+                    const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                    alert('Failed to add comment: ' + errorData.message);
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+                alert('Network error. Please try again.');
+            }
+            } finally {
+                // Clear submission flag
+                window.submittingComment = null;
+            }
+        }
+
+        function addCommentToUI(postId, comment, tabContext = null) {
+            // Auto-detect tab context if not provided
+            if (!tabContext) {
+                const activeTab = document.querySelector('.tabcontent[style*="block"]')?.id;
+                tabContext = activeTab === 'MyPosts' ? 'myposts' : 'connections';
+            }
+
+            const commentsSection = document.getElementById(`comments-${tabContext}-${postId}`);
+            let recentComments = commentsSection.querySelector('.recent-comments');
+
+            if (!recentComments) {
+                recentComments = document.createElement('div');
+                recentComments.className = 'recent-comments';
+                commentsSection.insertBefore(recentComments, commentsSection.querySelector('.add-comment'));
+            }
+
+            const commentElement = document.createElement('div');
+            commentElement.className = 'comment';
+            commentElement.innerHTML = `
+                <img src="${comment.author_profile_picture_url || '/static/default_profile_pic.png'}" alt="Profile" class="comment-author-pic">
+                <div class="comment-content">
+                    <strong>${comment.author_display_name}</strong>
+                    <span>${comment.content}</span>
+                    <small>${new Date(comment.created_at).toLocaleString()}</small>
+                </div>
+            `;
+
+            recentComments.appendChild(commentElement);
+        }
+
+        function handleCommentKeyPress(event, postId) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addComment(postId);
+            }
+        }
+
+        async function showAllComments(postId, tabContext = null) {
+            // Auto-detect tab context if not provided
+            if (!tabContext) {
+                const activeTab = document.querySelector('.tabcontent[style*="block"]')?.id;
+                tabContext = activeTab === 'MyPosts' ? 'myposts' : 'connections';
+            }
+
+            try {
+                const response = await fetch(`/api/posts/${postId}/comments`, {
+                    headers: {
+                        'x-access-token': '{{ request.session.jwt_token }}'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayAllComments(postId, data.comments, tabContext);
+                } else {
+                    const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                    alert('Failed to load comments: ' + errorData.message);
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+                alert('Network error. Please try again.');
+            }
+        }
+
+        function displayAllComments(postId, comments, tabContext = null) {
+            // Auto-detect tab context if not provided
+            if (!tabContext) {
+                const activeTab = document.querySelector('.tabcontent[style*="block"]')?.id;
+                tabContext = activeTab === 'MyPosts' ? 'myposts' : 'connections';
+            }
+
+            const commentsSection = document.getElementById(`comments-${tabContext}-${postId}`);
+            const recentComments = commentsSection.querySelector('.recent-comments');
+
+            if (recentComments) {
+                recentComments.innerHTML = '';
+
+                comments.forEach(comment => {
+                    const commentElement = document.createElement('div');
+                    commentElement.className = 'comment';
+                    commentElement.innerHTML = `
+                        <img src="${comment.author_profile_picture_url || '/static/default_profile_pic.png'}" alt="Profile" class="comment-author-pic">
+                        <div class="comment-content">
+                            <strong>${comment.author_display_name}</strong>
+                            <span>${comment.content}</span>
+                            <small>${new Date(comment.created_at).toLocaleString()}</small>
+                        </div>
+                    `;
+                    recentComments.appendChild(commentElement);
+                });
+
+                // Remove "View all comments" button
+                const viewAllBtn = commentsSection.querySelector('.view-all-comments');
+                if (viewAllBtn) {
+                    viewAllBtn.remove();
+                }
+            }
         }
     </script>
 

@@ -1,13 +1,5 @@
-from sqlalchemy import (
-    TIMESTAMP,
-    Column,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-    UniqueConstraint,
-    func,
-)
+from sqlalchemy import (TIMESTAMP, Boolean, Column, ForeignKey, Integer,
+                        String, Text, UniqueConstraint, func)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -48,6 +40,8 @@ class User(Base):
         foreign_keys="[ConnectionRequest.to_user_id]",
         back_populates="to_user",
     )
+    likes = relationship("Like", cascade="all, delete-orphan")
+    comments = relationship("Comment", cascade="all, delete-orphan")
 
 
 class Post(Base):
@@ -60,6 +54,10 @@ class Post(Base):
     created_at = Column(TIMESTAMP, default=func.now())
 
     user = relationship("User", back_populates="posts")
+    likes = relationship("Like", back_populates="post", cascade="all, delete-orphan")
+    comments = relationship(
+        "Comment", back_populates="post", cascade="all, delete-orphan"
+    )
 
 
 class Connection(Base):
@@ -73,9 +71,7 @@ class Connection(Base):
     user1 = relationship("User", foreign_keys="[Connection.user_id1]")
     user2 = relationship("User", foreign_keys="[Connection.user_id2]")
 
-    __table_args__ = (
-        UniqueConstraint("user_id1", "user_id2", name="_user1_user2_uc"),
-    )
+    __table_args__ = (UniqueConstraint("user_id1", "user_id2", name="_user1_user2_uc"),)
 
 
 class ConnectionRequest(Base):
@@ -89,15 +85,38 @@ class ConnectionRequest(Base):
     )  # e.g., 'pending', 'accepted', 'rejected'
     created_at = Column(TIMESTAMP, default=func.now())
 
-    from_user = relationship(
-        "User", foreign_keys="[ConnectionRequest.from_user_id]"
-    )
-    to_user = relationship(
-        "User", foreign_keys="[ConnectionRequest.to_user_id]"
-    )
+    from_user = relationship("User", foreign_keys="[ConnectionRequest.from_user_id]")
+    to_user = relationship("User", foreign_keys="[ConnectionRequest.to_user_id]")
 
     __table_args__ = (
-        UniqueConstraint(
-            "from_user_id", "to_user_id", name="_from_to_user_uc"
-        ),
+        UniqueConstraint("from_user_id", "to_user_id", name="_from_to_user_uc"),
     )
+
+
+class Like(Base):
+    __tablename__ = "likes"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    post_id = Column(Integer, ForeignKey("posts.id"), nullable=False)
+    created_at = Column(TIMESTAMP, default=func.now())
+
+    user = relationship("User", overlaps="likes")
+    post = relationship("Post", back_populates="likes")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "post_id", name="_user_post_like_uc"),
+    )
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    post_id = Column(Integer, ForeignKey("posts.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(TIMESTAMP, default=func.now())
+
+    user = relationship("User", overlaps="comments")
+    post = relationship("Post", back_populates="comments")
