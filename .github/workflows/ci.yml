@@ -234,8 +234,172 @@ jobs:
           echo "$SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+  integration_tests:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      backend_integration_summary: ${{ steps.backend_integration.outputs.summary }}
+      frontend_integration_summary: ${{ steps.frontend_integration.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bring up Docker Compose
+        run: docker compose up -d
+      - name: Wait for services
+        run: |
+          timeout 60s bash -c 'until curl -f http://localhost:5000/ > /dev/null 2>&1; do sleep 2; done'
+          timeout 60s bash -c 'until curl -f http://localhost:8000/ > /dev/null 2>&1; do sleep 2; done'
+
+      - name: Run Backend Integration Tests
+        id: backend_integration
+        run: |
+          INTEGRATION_OUTPUT=$(docker compose exec -T backend python -m pytest tests/integration/ -v -m integration --tb=short || true)
+          echo "$INTEGRATION_OUTPUT"
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$INTEGRATION_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Run Frontend Integration Tests
+        id: frontend_integration
+        run: |
+          INTEGRATION_OUTPUT=$(docker compose exec -T frontend python -m pytest tests/integration/ -v -m integration --tb=short || true)
+          echo "$INTEGRATION_OUTPUT"
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$INTEGRATION_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  contract_tests:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      contract_summary: ${{ steps.contract_tests.outputs.summary }}
+      api_docs_summary: ${{ steps.api_docs.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bring up Docker Compose
+        run: docker compose up -d
+      - name: Wait for services
+        run: |
+          timeout 60s bash -c 'until curl -f http://localhost:5000/ > /dev/null 2>&1; do sleep 2; done'
+
+      - name: Run Contract Tests
+        id: contract_tests
+        run: |
+          CONTRACT_OUTPUT=$(docker compose exec -T backend python -m pytest tests/contract/test_api_contract.py -v -m contract --tb=short || true)
+          echo "$CONTRACT_OUTPUT"
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$CONTRACT_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Run API Documentation Tests
+        id: api_docs
+        run: |
+          API_DOCS_OUTPUT=$(docker compose exec -T backend python -m pytest tests/contract/test_api_documentation.py -v --tb=short || true)
+          echo "$API_DOCS_OUTPUT"
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$API_DOCS_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  ui_tests:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      ui_summary: ${{ steps.ui_tests.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bring up Docker Compose
+        run: docker compose up -d
+      - name: Wait for services
+        run: |
+          timeout 60s bash -c 'until curl -f http://localhost:8000/ > /dev/null 2>&1; do sleep 2; done'
+
+      - name: Install Playwright
+        run: |
+          docker compose exec -T frontend pip install playwright pytest-playwright
+          docker compose exec -T frontend playwright install chromium --with-deps
+
+      - name: Run UI Tests
+        id: ui_tests
+        run: |
+          UI_OUTPUT=$(docker compose exec -T frontend python -m pytest tests/ui/ -v -m ui --tb=short || true)
+          echo "$UI_OUTPUT"
+          # Extract meaningful summary
+          UI_SUMMARY=$(echo "$UI_OUTPUT" | grep -E "(PASSED|FAILED|ERROR|\d+ passed|\d+ failed)" | tail -10)
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$UI_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  performance_tests:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      performance_summary: ${{ steps.performance.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bring up Docker Compose
+        run: docker compose up -d
+      - name: Wait for services
+        run: |
+          timeout 60s bash -c 'until curl -f http://localhost:5000/ > /dev/null 2>&1; do sleep 2; done'
+
+      - name: Install K6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Run Performance Tests
+        id: performance
+        run: |
+          # Run lightweight load test (reduced duration for CI)
+          PERFORMANCE_OUTPUT=$(API_BASE_URL=http://localhost:5000 k6 run --duration 30s --vus 10 tests/performance/load_test.js || true)
+          echo "$PERFORMANCE_OUTPUT"
+          # Extract key metrics
+          PERF_SUMMARY=$(echo "$PERFORMANCE_OUTPUT" | grep -E "(http_req_duration|http_req_failed|checks)" | head -5)
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$PERF_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  enhanced_security_analysis:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      bandit_summary: ${{ steps.security_scan.outputs.bandit_summary }}
+      safety_summary: ${{ steps.security_scan.outputs.safety_summary }}
+      pylint_summary: ${{ steps.security_scan.outputs.pylint_summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bring up Docker Compose
+        run: docker compose up -d
+
+      - name: Run Enhanced Security Analysis
+        id: security_scan
+        run: |
+          # Backend Security Scan
+          BANDIT_OUTPUT=$(docker compose exec -T backend bandit -r . -f text || true)
+          echo "$BANDIT_OUTPUT"
+          BANDIT_SUMMARY=$(echo "$BANDIT_OUTPUT" | grep -E "(Total issues|Severity|Confidence)" | head -5)
+          echo "bandit_summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$BANDIT_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Dependency Security Check
+          SAFETY_OUTPUT=$(docker compose exec -T backend safety check --short-report || true)
+          echo "$SAFETY_OUTPUT"
+          echo "safety_summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Code Quality Analysis
+          PYLINT_OUTPUT=$(docker compose exec -T backend pylint app.py models.py --score=y || true)
+          PYLINT_SUMMARY=$(echo "$PYLINT_OUTPUT" | grep -E "(rated|Your code)" | tail -2)
+          echo "pylint_summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$PYLINT_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
   report_pr_comment:
-    needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests, gemini_review]
+    needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests, integration_tests, contract_tests, ui_tests, performance_tests, enhanced_security_analysis, gemini_review]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

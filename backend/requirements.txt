@@ -10,3 +10,19 @@ isort
 black
 flake8
 setuptools==80.9.0
+
+# Integration Testing
+testcontainers
+httpx
+
+# Contract Testing
+pact-python
+jsonschema
+
+# Security & Code Quality
+bandit
+safety
+pylint
+
+# Performance Testing (K6 integration)
+requests
