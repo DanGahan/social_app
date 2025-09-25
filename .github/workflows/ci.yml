@@ -82,8 +82,7 @@ jobs:
       - name: Run Frontend Dependency Scan and Capture Results
         id: frontend_safety
         run: |
-          SAFETY_OUTPUT=$(safety scan -r frontend/requirements.txt --output json 2>&1 \
-            | grep -v -E "(DEPRECATED|this command|We highly encourage)" \
+          SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt --output json 2>/dev/null \
             | sed -n '/^{/,/^}$/p' \
             | jq -c '(.vulnerabilities // []) as $vulns
                       | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
@@ -94,8 +93,7 @@ jobs:
       - name: Run Backend Dependency Scan and Capture Results
         id: backend_safety
         run: |
-          SAFETY_OUTPUT=$(safety scan -r backend/requirements.txt --output json 2>&1 \
-            | grep -v -E "(DEPRECATED|this command|We highly encourage)" \
+          SAFETY_OUTPUT=$(safety check -r backend/requirements.txt --output json 2>/dev/null \
             | sed -n '/^{/,/^}$/p' \
             | jq -c '(.vulnerabilities // []) as $vulns
                       | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
@@ -243,7 +241,7 @@ jobs:
       postgres:
         image: postgres:13
         env:
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || 'test_password_ci_only' }}
           POSTGRES_DB: test_social_app
         options: >-
           --health-cmd pg_isready
@@ -269,7 +267,7 @@ jobs:
       - name: Run Backend Integration Tests
         id: backend_integration
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_social_app
+          DATABASE_URL: postgresql://postgres:${{ secrets.POSTGRES_PASSWORD || 'test_password_ci_only' }}@localhost:5432/test_social_app
         run: |
           cd backend
           INTEGRATION_OUTPUT=$(python -m pytest tests/integration/ -v -m integration --tb=short || true)
@@ -284,6 +282,8 @@ jobs:
 
       - name: Run Frontend Integration Tests
         id: frontend_integration
+        env:
+          DJANGO_SETTINGS_MODULE: social.settings
         run: |
           cd frontend
           INTEGRATION_OUTPUT=$(python -m pytest tests/integration/ -v -m integration --tb=short || true)
@@ -352,6 +352,8 @@ jobs:
 
       - name: Run UI Tests
         id: ui_tests
+        env:
+          DJANGO_SETTINGS_MODULE: social.settings
         run: |
           cd frontend
           UI_OUTPUT=$(python -m pytest tests/ui/ -v -m ui --tb=short || true)
@@ -443,7 +445,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
           # Dependency Security Check
-          SAFETY_OUTPUT=$(safety scan --short-report 2>&1 | grep -v -E "(DEPRECATED|this command|We highly encourage)" || true)
+          SAFETY_OUTPUT=$(safety check --short-report 2>/dev/null || true)
           echo "$SAFETY_OUTPUT"
           echo "safety_summary<<EOF" >> $GITHUB_OUTPUT
           echo "$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
