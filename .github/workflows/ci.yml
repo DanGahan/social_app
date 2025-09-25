@@ -82,7 +82,8 @@ jobs:
       - name: Run Frontend Dependency Scan and Capture Results
         id: frontend_safety
         run: |
-          SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt --output json 2>/dev/null \
+          SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt --output json 2>&1 \
+            | grep -v -E "(DEPRECATED|this command|We highly encourage)" \
             | sed -n '/^{/,/^}$/p' \
             | jq -c '(.vulnerabilities // []) as $vulns
                       | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
@@ -93,7 +94,8 @@ jobs:
       - name: Run Backend Dependency Scan and Capture Results
         id: backend_safety
         run: |
-          SAFETY_OUTPUT=$(safety check -r backend/requirements.txt --output json 2>/dev/null \
+          SAFETY_OUTPUT=$(safety check -r backend/requirements.txt --output json 2>&1 \
+            | grep -v -E "(DEPRECATED|this command|We highly encourage)" \
             | sed -n '/^{/,/^}$/p' \
             | jq -c '(.vulnerabilities // []) as $vulns
                       | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
@@ -445,7 +447,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
           # Dependency Security Check
-          SAFETY_OUTPUT=$(safety check --short-report 2>/dev/null || true)
+          SAFETY_OUTPUT=$(safety check --short-report 2>&1 | grep -v -E "(DEPRECATED|this command|We highly encourage)" || true)
           echo "$SAFETY_OUTPUT"
           echo "safety_summary<<EOF" >> $GITHUB_OUTPUT
           echo "$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
