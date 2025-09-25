@@ -82,25 +82,32 @@ jobs:
       - name: Run Frontend Dependency Scan and Capture Results
         id: frontend_safety
         run: |
-          SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt --output json 2>&1 \
-            | grep -v -E "(DEPRECATED|this command|We highly encourage)" \
-            | sed -n '/^{/,/^}$/p' \
-            | jq -c '(.vulnerabilities // []) as $vulns
-                      | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
+          SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt 2>&1 | grep -v -E "(DEPRECATED|this command|We highly encourage)" || true)
+          echo "$SAFETY_OUTPUT"
 
-          echo $SAFETY_OUTPUT
-          echo "frontend_safety_summary=${SAFETY_OUTPUT}" >> $GITHUB_OUTPUT
+          # Count vulnerabilities by severity
+          CRITICAL=$(echo "$SAFETY_OUTPUT" | grep -i "CRITICAL" | wc -l || echo "0")
+          HIGH=$(echo "$SAFETY_OUTPUT" | grep -i "HIGH" | wc -l || echo "0")
+          MEDIUM=$(echo "$SAFETY_OUTPUT" | grep -i "MEDIUM" | wc -l || echo "0")
+          LOW=$(echo "$SAFETY_OUTPUT" | grep -i "LOW" | wc -l || echo "0")
+
+          SUMMARY="Critical: ${CRITICAL}, High: ${HIGH}, Medium: ${MEDIUM}, Low: ${LOW}"
+          echo "frontend_safety_summary=${SUMMARY}" >> $GITHUB_OUTPUT
 
       - name: Run Backend Dependency Scan and Capture Results
         id: backend_safety
         run: |
-          SAFETY_OUTPUT=$(safety check -r backend/requirements.txt --output json 2>&1 \
-            | grep -v -E "(DEPRECATED|this command|We highly encourage)" \
-            | sed -n '/^{/,/^}$/p' \
-            | jq -c '(.vulnerabilities // []) as $vulns
-                      | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
-            echo $SAFETY_OUTPUT
-            echo "backend_safety_summary=${SAFETY_OUTPUT}" >> $GITHUB_OUTPUT
+          SAFETY_OUTPUT=$(safety check -r backend/requirements.txt 2>&1 | grep -v -E "(DEPRECATED|this command|We highly encourage)" || true)
+          echo "$SAFETY_OUTPUT"
+
+          # Count vulnerabilities by severity
+          CRITICAL=$(echo "$SAFETY_OUTPUT" | grep -i "CRITICAL" | wc -l || echo "0")
+          HIGH=$(echo "$SAFETY_OUTPUT" | grep -i "HIGH" | wc -l || echo "0")
+          MEDIUM=$(echo "$SAFETY_OUTPUT" | grep -i "MEDIUM" | wc -l || echo "0")
+          LOW=$(echo "$SAFETY_OUTPUT" | grep -i "LOW" | wc -l || echo "0")
+
+          SUMMARY="Critical: ${CRITICAL}, High: ${HIGH}, Medium: ${MEDIUM}, Low: ${LOW}"
+          echo "backend_safety_summary=${SUMMARY}" >> $GITHUB_OUTPUT
 
   container_scan:
     needs: build
@@ -285,7 +292,7 @@ jobs:
       - name: Run Frontend Integration Tests
         id: frontend_integration
         env:
-          DJANGO_SETTINGS_MODULE: social.settings
+          DJANGO_SETTINGS_MODULE: social_frontend.settings
         run: |
           cd frontend
           INTEGRATION_OUTPUT=$(python -m pytest tests/integration/ -v -m integration --tb=short || true)
@@ -355,7 +362,7 @@ jobs:
       - name: Run UI Tests
         id: ui_tests
         env:
-          DJANGO_SETTINGS_MODULE: social.settings
+          DJANGO_SETTINGS_MODULE: social_frontend.settings
         run: |
           cd frontend
           UI_OUTPUT=$(python -m pytest tests/ui/ -v -m ui --tb=short || true)
@@ -572,7 +579,17 @@ jobs:
             echo '```'
             echo "${BANDIT_SUMMARY}"
             echo '```'
-            echo "**Dependency Safety Check:**"
+            echo "**Dependency Scan (Safety):**"
+            echo "- Frontend: ${FRONTEND_SAFETY_SUMMARY}"
+            echo "- Backend: ${BACKEND_SAFETY_SUMMARY}"
+            echo ""
+            echo "**Container Scan (Trivy):**"
+            echo "| Image    | Critical | High | Medium |"
+            echo "|----------|----------|------|--------|"
+            echo "| Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |"
+            echo "| Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |"
+            echo ""
+            echo "**Enhanced Security Analysis:**"
             echo '```'
             echo "${ENHANCED_SAFETY_SUMMARY}"
             echo '```'
@@ -584,17 +601,6 @@ jobs:
             echo "#### 📈 Static Analysis (Flake8)"
             echo "* Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}"
             echo "* Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}"
-            echo ""
-            echo "#### 🔍 Legacy Security Scans"
-            echo "**Dependency Scan (Safety):**"
-            echo "Front End: ${FRONTEND_SAFETY_SUMMARY}"
-            echo "Backend: ${BACKEND_SAFETY_SUMMARY}"
-            echo ""
-            echo "**Container Scan (Trivy):**"
-            echo "| Image    | Critical | High | Medium |"
-            echo "|----------|----------|------|--------|"
-            echo "| Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |"
-            echo "| Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |"
             echo ""
             echo "#### 🧪 Shakedown Test"
             echo '```'
