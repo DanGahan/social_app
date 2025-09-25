@@ -1,6 +1,6 @@
-I, [2025-09-24T17:57:13.798483 #280]  INFO -- : Cleared interactions
-I, [2025-09-24T17:57:13.800110 #280]  INFO -- : Registered expected interaction POST /auth/register
-D, [2025-09-24T17:57:13.800302 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.886132 #521]  INFO -- : Cleared interactions
+I, [2025-09-25T09:34:07.892096 #521]  INFO -- : Registered expected interaction POST /auth/register
+D, [2025-09-25T09:34:07.892516 #521] DEBUG -- : {
   "description": "a request to register a new user",
   "providerState": "User registration endpoint is available",
   "request": {
@@ -42,8 +42,8 @@ D, [2025-09-24T17:57:13.800302 #280] DEBUG -- : {
   },
   "metadata": null
 }
-I, [2025-09-24T17:57:13.801833 #280]  INFO -- : Received request POST /auth/register
-D, [2025-09-24T17:57:13.801904 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.895646 #521]  INFO -- : Received request POST /auth/register
+D, [2025-09-25T09:34:07.895851 #521] DEBUG -- : {
   "path": "/auth/register",
   "query": "",
   "method": "post",
@@ -62,8 +62,8 @@ D, [2025-09-24T17:57:13.801904 #280] DEBUG -- : {
     "Version": "HTTP/1.1"
   }
 }
-I, [2025-09-24T17:57:13.802111 #280]  INFO -- : Found matching response for POST /auth/register
-D, [2025-09-24T17:57:13.802187 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.896858 #521]  INFO -- : Found matching response for POST /auth/register
+D, [2025-09-25T09:34:07.897084 #521] DEBUG -- : {
   "status": 201,
   "headers": {
     "Content-Type": "application/json"
@@ -76,11 +76,11 @@ D, [2025-09-24T17:57:13.802187 #280] DEBUG -- : {
     "message": "User registered successfully"
   }
 }
-I, [2025-09-24T17:57:13.803104 #280]  INFO -- : Verifying - interactions matched
-I, [2025-09-24T17:57:13.804233 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
-I, [2025-09-24T17:57:13.814436 #280]  INFO -- : Cleared interactions
-I, [2025-09-24T17:57:13.815584 #280]  INFO -- : Registered expected interaction POST /auth/login
-D, [2025-09-24T17:57:13.815645 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.899689 #521]  INFO -- : Verifying - interactions matched
+I, [2025-09-25T09:34:07.901918 #521]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-25T09:34:07.913255 #521]  INFO -- : Cleared interactions
+I, [2025-09-25T09:34:07.915494 #521]  INFO -- : Registered expected interaction POST /auth/login
+D, [2025-09-25T09:34:07.915671 #521] DEBUG -- : {
   "description": "a request to login",
   "providerState": "User exists with valid credentials",
   "request": {
@@ -126,8 +126,8 @@ D, [2025-09-24T17:57:13.815645 #280] DEBUG -- : {
   },
   "metadata": null
 }
-I, [2025-09-24T17:57:13.816643 #280]  INFO -- : Received request POST /auth/login
-D, [2025-09-24T17:57:13.816685 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.917634 #521]  INFO -- : Received request POST /auth/login
+D, [2025-09-25T09:34:07.917722 #521] DEBUG -- : {
   "path": "/auth/login",
   "query": "",
   "method": "post",
@@ -146,8 +146,8 @@ D, [2025-09-24T17:57:13.816685 #280] DEBUG -- : {
     "Version": "HTTP/1.1"
   }
 }
-I, [2025-09-24T17:57:13.816801 #280]  INFO -- : Found matching response for POST /auth/login
-D, [2025-09-24T17:57:13.817147 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.917914 #521]  INFO -- : Found matching response for POST /auth/login
+D, [2025-09-25T09:34:07.918179 #521] DEBUG -- : {
   "status": 200,
   "headers": {
     "Content-Type": "application/json"
@@ -164,11 +164,11 @@ D, [2025-09-24T17:57:13.817147 #280] DEBUG -- : {
     "message": "Login successful"
   }
 }
-I, [2025-09-24T17:57:13.818051 #280]  INFO -- : Verifying - interactions matched
-I, [2025-09-24T17:57:13.819241 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
-I, [2025-09-24T17:57:13.827887 #280]  INFO -- : Cleared interactions
-I, [2025-09-24T17:57:13.828794 #280]  INFO -- : Registered expected interaction POST /posts
-D, [2025-09-24T17:57:13.828846 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.919713 #521]  INFO -- : Verifying - interactions matched
+I, [2025-09-25T09:34:07.921112 #521]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-25T09:34:07.926790 #521]  INFO -- : Cleared interactions
+I, [2025-09-25T09:34:07.928182 #521]  INFO -- : Registered expected interaction POST /posts
+D, [2025-09-25T09:34:07.928318 #521] DEBUG -- : {
   "description": "a request to create a post",
   "providerState": "User is authenticated",
   "request": {
@@ -207,8 +207,8 @@ D, [2025-09-24T17:57:13.828846 #280] DEBUG -- : {
   },
   "metadata": null
 }
-I, [2025-09-24T17:57:13.829873 #280]  INFO -- : Received request POST /posts
-D, [2025-09-24T17:57:13.829942 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.929856 #521]  INFO -- : Received request POST /posts
+D, [2025-09-25T09:34:07.929943 #521] DEBUG -- : {
   "path": "/posts",
   "query": "",
   "method": "post",
@@ -228,8 +228,8 @@ D, [2025-09-24T17:57:13.829942 #280] DEBUG -- : {
     "Version": "HTTP/1.1"
   }
 }
-I, [2025-09-24T17:57:13.830190 #280]  INFO -- : Found matching response for POST /posts
-D, [2025-09-24T17:57:13.830268 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.930357 #521]  INFO -- : Found matching response for POST /posts
+D, [2025-09-25T09:34:07.930473 #521] DEBUG -- : {
   "status": 201,
   "headers": {
     "Content-Type": "application/json"
@@ -242,11 +242,11 @@ D, [2025-09-24T17:57:13.830268 #280] DEBUG -- : {
     }
   }
 }
-I, [2025-09-24T17:57:13.831100 #280]  INFO -- : Verifying - interactions matched
-I, [2025-09-24T17:57:13.831926 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
-I, [2025-09-24T17:57:13.838154 #280]  INFO -- : Cleared interactions
-I, [2025-09-24T17:57:13.839333 #280]  INFO -- : Registered expected interaction GET /users/123/posts
-D, [2025-09-24T17:57:13.839451 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.931840 #521]  INFO -- : Verifying - interactions matched
+I, [2025-09-25T09:34:07.933245 #521]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-25T09:34:07.938215 #521]  INFO -- : Cleared interactions
+I, [2025-09-25T09:34:07.939664 #521]  INFO -- : Registered expected interaction GET /users/123/posts
+D, [2025-09-25T09:34:07.939787 #521] DEBUG -- : {
   "description": "a request to get user posts",
   "providerState": "User has posts",
   "request": {
@@ -363,8 +363,8 @@ D, [2025-09-24T17:57:13.839451 #280] DEBUG -- : {
   },
   "metadata": null
 }
-I, [2025-09-24T17:57:13.840525 #280]  INFO -- : Received request GET /users/123/posts
-D, [2025-09-24T17:57:13.840615 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.941093 #521]  INFO -- : Received request GET /users/123/posts
+D, [2025-09-25T09:34:07.941194 #521] DEBUG -- : {
   "path": "/users/123/posts",
   "query": "",
   "method": "get",
@@ -378,8 +378,8 @@ D, [2025-09-24T17:57:13.840615 #280] DEBUG -- : {
     "Version": "HTTP/1.1"
   }
 }
-I, [2025-09-24T17:57:13.840782 #280]  INFO -- : Found matching response for GET /users/123/posts
-D, [2025-09-24T17:57:13.840976 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.941395 #521]  INFO -- : Found matching response for GET /users/123/posts
+D, [2025-09-25T09:34:07.941586 #521] DEBUG -- : {
   "status": 200,
   "headers": {
     "Content-Type": "application/json"
@@ -471,11 +471,11 @@ D, [2025-09-24T17:57:13.840976 #280] DEBUG -- : {
     "min": 1
   }
 }
-I, [2025-09-24T17:57:13.841908 #280]  INFO -- : Verifying - interactions matched
-I, [2025-09-24T17:57:13.842714 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
-I, [2025-09-24T17:57:13.852870 #280]  INFO -- : Cleared interactions
-I, [2025-09-24T17:57:13.853999 #280]  INFO -- : Registered expected interaction POST /posts/123/like
-D, [2025-09-24T17:57:13.854092 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.942702 #521]  INFO -- : Verifying - interactions matched
+I, [2025-09-25T09:34:07.943640 #521]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-25T09:34:07.948938 #521]  INFO -- : Cleared interactions
+I, [2025-09-25T09:34:07.950186 #521]  INFO -- : Registered expected interaction POST /posts/123/like
+D, [2025-09-25T09:34:07.950303 #521] DEBUG -- : {
   "description": "a request to toggle like on a post",
   "providerState": "Post exists and user is connected to post author",
   "request": {
@@ -531,8 +531,8 @@ D, [2025-09-24T17:57:13.854092 #280] DEBUG -- : {
   },
   "metadata": null
 }
-I, [2025-09-24T17:57:13.855159 #280]  INFO -- : Received request POST /posts/123/like
-D, [2025-09-24T17:57:13.855204 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.951692 #521]  INFO -- : Received request POST /posts/123/like
+D, [2025-09-25T09:34:07.951796 #521] DEBUG -- : {
   "path": "/posts/123/like",
   "query": "",
   "method": "post",
@@ -546,8 +546,8 @@ D, [2025-09-24T17:57:13.855204 #280] DEBUG -- : {
     "Version": "HTTP/1.1"
   }
 }
-I, [2025-09-24T17:57:13.855299 #280]  INFO -- : Found matching response for POST /posts/123/like
-D, [2025-09-24T17:57:13.855374 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.951936 #521]  INFO -- : Found matching response for POST /posts/123/like
+D, [2025-09-25T09:34:07.952075 #521] DEBUG -- : {
   "status": 200,
   "headers": {
     "Content-Type": "application/json"
@@ -578,11 +578,11 @@ D, [2025-09-24T17:57:13.855374 #280] DEBUG -- : {
     }
   }
 }
-I, [2025-09-24T17:57:13.856408 #280]  INFO -- : Verifying - interactions matched
-I, [2025-09-24T17:57:13.857234 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
-I, [2025-09-24T17:57:13.861365 #280]  INFO -- : Cleared interactions
-I, [2025-09-24T17:57:13.862657 #280]  INFO -- : Registered expected interaction POST /posts/123/comments
-D, [2025-09-24T17:57:13.862776 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.953039 #521]  INFO -- : Verifying - interactions matched
+I, [2025-09-25T09:34:07.953989 #521]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-25T09:34:07.958703 #521]  INFO -- : Cleared interactions
+I, [2025-09-25T09:34:07.959662 #521]  INFO -- : Registered expected interaction POST /posts/123/comments
+D, [2025-09-25T09:34:07.959774 #521] DEBUG -- : {
   "description": "a request to add a comment",
   "providerState": "Post exists and user is connected to post author",
   "request": {
@@ -652,8 +652,8 @@ D, [2025-09-24T17:57:13.862776 #280] DEBUG -- : {
   },
   "metadata": null
 }
-I, [2025-09-24T17:57:13.863906 #280]  INFO -- : Received request POST /posts/123/comments
-D, [2025-09-24T17:57:13.864006 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.960776 #521]  INFO -- : Received request POST /posts/123/comments
+D, [2025-09-25T09:34:07.960878 #521] DEBUG -- : {
   "path": "/posts/123/comments",
   "query": "",
   "method": "post",
@@ -672,8 +672,8 @@ D, [2025-09-24T17:57:13.864006 #280] DEBUG -- : {
     "Version": "HTTP/1.1"
   }
 }
-I, [2025-09-24T17:57:13.864153 #280]  INFO -- : Found matching response for POST /posts/123/comments
-D, [2025-09-24T17:57:13.864261 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.961020 #521]  INFO -- : Found matching response for POST /posts/123/comments
+D, [2025-09-25T09:34:07.961133 #521] DEBUG -- : {
   "status": 201,
   "headers": {
     "Content-Type": "application/json"
@@ -711,11 +711,11 @@ D, [2025-09-24T17:57:13.864261 #280] DEBUG -- : {
     }
   }
 }
-I, [2025-09-24T17:57:13.865220 #280]  INFO -- : Verifying - interactions matched
-I, [2025-09-24T17:57:13.866086 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
-I, [2025-09-24T17:57:13.874902 #280]  INFO -- : Cleared interactions
-I, [2025-09-24T17:57:13.876047 #280]  INFO -- : Registered expected interaction POST /posts/99999/like
-D, [2025-09-24T17:57:13.876217 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.961978 #521]  INFO -- : Verifying - interactions matched
+I, [2025-09-25T09:34:07.962841 #521]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-25T09:34:07.967889 #521]  INFO -- : Cleared interactions
+I, [2025-09-25T09:34:07.968928 #521]  INFO -- : Registered expected interaction POST /posts/99999/like
+D, [2025-09-25T09:34:07.969080 #521] DEBUG -- : {
   "description": "a request to like a non-existent post",
   "providerState": "Post does not exist",
   "request": {
@@ -746,8 +746,8 @@ D, [2025-09-24T17:57:13.876217 #280] DEBUG -- : {
   },
   "metadata": null
 }
-I, [2025-09-24T17:57:13.877163 #280]  INFO -- : Received request POST /posts/99999/like
-D, [2025-09-24T17:57:13.877205 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.970103 #521]  INFO -- : Received request POST /posts/99999/like
+D, [2025-09-25T09:34:07.970154 #521] DEBUG -- : {
   "path": "/posts/99999/like",
   "query": "",
   "method": "post",
@@ -761,8 +761,8 @@ D, [2025-09-24T17:57:13.877205 #280] DEBUG -- : {
     "Version": "HTTP/1.1"
   }
 }
-I, [2025-09-24T17:57:13.877311 #280]  INFO -- : Found matching response for POST /posts/99999/like
-D, [2025-09-24T17:57:13.877404 #280] DEBUG -- : {
+I, [2025-09-25T09:34:07.970257 #521]  INFO -- : Found matching response for POST /posts/99999/like
+D, [2025-09-25T09:34:07.970348 #521] DEBUG -- : {
   "status": 404,
   "headers": {
     "Content-Type": "application/json"
@@ -778,5 +778,5 @@ D, [2025-09-24T17:57:13.877404 #280] DEBUG -- : {
     }
   }
 }
-I, [2025-09-24T17:57:13.878313 #280]  INFO -- : Verifying - interactions matched
-I, [2025-09-24T17:57:13.879137 #280]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json
+I, [2025-09-25T09:34:07.971252 #521]  INFO -- : Verifying - interactions matched
+I, [2025-09-25T09:34:07.972080 #521]  INFO -- : Writing pact for SocialApp-Backend to /app/socialapp-frontend-socialapp-backend.json

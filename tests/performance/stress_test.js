@@ -60,7 +60,7 @@ export default function () {
 
 function stressTestLogin() {
   const payload = JSON.stringify({
-    email: `user${Math.floor(Math.random() * 1000)}@example.com`,
+    email: 'user' + Math.floor(Math.random() * 1000) + '@example.com',
     password: 'testpassword',
   });
 
@@ -69,7 +69,7 @@ function stressTestLogin() {
     timeout: '10s', // Longer timeout for stress conditions
   };
 
-  const response = http.post(`${baseUrl}/auth/login`, payload, params);
+  const response = http.post(baseUrl + '/auth/login', payload, params);
 
   const success = check(response, {
     'login completed': (r) => r.status !== 0, // Any response (even error) is better than timeout
@@ -98,7 +98,7 @@ function stressTestLikeToggle() {
     timeout: '5s',
   };
 
-  const response = http.post(`${baseUrl}/posts/${postId}/like`, null, params);
+  const response = http.post(baseUrl + '/posts/' + postId + '/like', null, params);
 
   const success = check(response, {
     'like toggle completed': (r) => r.status !== 0,
@@ -120,7 +120,7 @@ function stressTestCommentCreation() {
 
   const postId = Math.floor(Math.random() * 10) + 1;
   const payload = JSON.stringify({
-    content: `Stress test comment ${Date.now()} ${Math.random()}`,
+    content: 'Stress test comment ' + Date.now() + ' ' + Math.random(),
   });
 
   const params = {
@@ -132,7 +132,7 @@ function stressTestCommentCreation() {
   };
 
   const response = http.post(
-    `${baseUrl}/posts/${postId}/comments`,
+    baseUrl + '/posts/' + postId + '/comments',
     payload,
     params
   );
@@ -162,7 +162,7 @@ function stressTestPostRetrieval() {
     timeout: '10s',
   };
 
-  const response = http.get(`${baseUrl}/users/${userId}/posts`, params);
+  const response = http.get(baseUrl + '/users/' + userId + '/posts', params);
 
   const success = check(response, {
     'post retrieval completed': (r) => r.status !== 0,
@@ -183,8 +183,8 @@ function stressTestPostCreation() {
   if (!auth || !auth.token) return;
 
   const payload = JSON.stringify({
-    image_url: `/uploads/stress_test_${Date.now()}_${Math.random()}.jpg`,
-    caption: `Stress test post created at ${new Date().toISOString()} by user ${Math.random()}`,
+    image_url: '/uploads/stress_test_' + Date.now() + '_' + Math.random() + '.jpg',
+    caption: 'Stress test post created at ' + new Date().toISOString() + ' by user ' + Math.random(),
   });
 
   const params = {
@@ -195,7 +195,7 @@ function stressTestPostCreation() {
     timeout: '15s', // Longer timeout for creation operations
   };
 
-  const response = http.post(`${baseUrl}/posts`, payload, params);
+  const response = http.post(baseUrl + '/posts', payload, params);
 
   const success = check(response, {
     'post creation completed': (r) => r.status !== 0,
@@ -213,13 +213,13 @@ function stressTestPostCreation() {
 
 export function setup() {
   console.log('🔥 Starting stress test...');
-  console.log(`Target API: ${baseUrl}`);
+  console.log('Target API: ' + baseUrl);
   console.log('This test will gradually increase load to find breaking points');
 
   // Verify API accessibility
-  const healthCheck = http.get(`${baseUrl}/`, { timeout: '30s' });
+  const healthCheck = http.get(baseUrl + '/', { timeout: '30s' });
   if (healthCheck.status !== 200 && healthCheck.status !== 404) {
-    throw new Error(`API not accessible at ${baseUrl}. Status: ${healthCheck.status}`);
+    throw new Error('API not accessible at ' + baseUrl + '. Status: ' + healthCheck.status);
   }
 
   return { startTime: Date.now() };
@@ -227,7 +227,7 @@ export function setup() {
 
 export function teardown(data) {
   const duration = (Date.now() - data.startTime) / 1000;
-  console.log(`\n🏁 Stress test completed in ${duration}s`);
+  console.log('\n🏁 Stress test completed in ' + duration + 's');
   console.log('📊 Check the metrics above for breaking point analysis');
   console.log('🔍 Look for:');
   console.log('  - When error rate started increasing significantly');
