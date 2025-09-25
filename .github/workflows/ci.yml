@@ -426,9 +426,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     outputs:
-      bandit_summary: ${{ steps.security_scan.outputs.bandit_summary }}
-      safety_summary: ${{ steps.security_scan.outputs.safety_summary }}
-      pylint_summary: ${{ steps.security_scan.outputs.pylint_summary }}
+      backend_bandit_summary: ${{ steps.security_scan.outputs.backend_bandit_summary }}
+      frontend_bandit_summary: ${{ steps.security_scan.outputs.frontend_bandit_summary }}
+      backend_pylint_summary: ${{ steps.security_scan.outputs.backend_pylint_summary }}
+      frontend_pylint_summary: ${{ steps.security_scan.outputs.frontend_pylint_summary }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -439,32 +440,85 @@ jobs:
       - name: Install Backend Dependencies
         run: |
           pip install -r backend/requirements.txt
+          pip install bandit pylint
+
+      - name: Install Frontend Dependencies
+        run: |
+          pip install -r frontend/requirements.txt
 
       - name: Run Enhanced Security Analysis
         id: security_scan
         run: |
+          # Backend Security Scan with Bandit
+          echo "Running Backend Security Scan..."
           cd backend
+          BACKEND_BANDIT_OUTPUT=$(bandit -r . -f txt || true)
+          echo "$BACKEND_BANDIT_OUTPUT"
 
-          # Backend Security Scan
-          BANDIT_OUTPUT=$(bandit -r . -f txt || true)
-          echo "$BANDIT_OUTPUT"
-          BANDIT_SUMMARY=$(echo "$BANDIT_OUTPUT" | grep -E "(Total issues|Severity|Confidence)" | head -5)
-          echo "bandit_summary<<EOF" >> $GITHUB_OUTPUT
-          echo "$BANDIT_SUMMARY" >> $GITHUB_OUTPUT
+          # Parse backend bandit results for severity breakdown
+          BACKEND_UNDEFINED=$(echo "$BACKEND_BANDIT_OUTPUT" | grep -c "Severity: Undefined" || echo "0")
+          BACKEND_LOW=$(echo "$BACKEND_BANDIT_OUTPUT" | grep -c "Severity: Low" || echo "0")
+          BACKEND_MEDIUM=$(echo "$BACKEND_BANDIT_OUTPUT" | grep -c "Severity: Medium" || echo "0")
+          BACKEND_HIGH=$(echo "$BACKEND_BANDIT_OUTPUT" | grep -c "Severity: High" || echo "0")
+
+          BACKEND_BANDIT_SUMMARY="Total issues (by severity):"
+          BACKEND_BANDIT_SUMMARY="$BACKEND_BANDIT_SUMMARY\n    Undefined: $BACKEND_UNDEFINED"
+          BACKEND_BANDIT_SUMMARY="$BACKEND_BANDIT_SUMMARY\n    Low: $BACKEND_LOW"
+          BACKEND_BANDIT_SUMMARY="$BACKEND_BANDIT_SUMMARY\n    Medium: $BACKEND_MEDIUM"
+          BACKEND_BANDIT_SUMMARY="$BACKEND_BANDIT_SUMMARY\n    High: $BACKEND_HIGH"
+
+          echo "backend_bandit_summary<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$BACKEND_BANDIT_SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-          # Dependency Security Check
-          SAFETY_OUTPUT=$(safety check --short-report 2>&1 | grep -v -E "(DEPRECATED|this command|We highly encourage)" || true)
-          echo "$SAFETY_OUTPUT"
-          echo "safety_summary<<EOF" >> $GITHUB_OUTPUT
-          echo "$SAFETY_OUTPUT" >> $GITHUB_OUTPUT
+          # Frontend Security Scan with Bandit
+          echo "Running Frontend Security Scan..."
+          cd ../frontend
+          FRONTEND_BANDIT_OUTPUT=$(bandit -r . -f txt || true)
+          echo "$FRONTEND_BANDIT_OUTPUT"
+
+          # Parse frontend bandit results for severity breakdown
+          FRONTEND_UNDEFINED=$(echo "$FRONTEND_BANDIT_OUTPUT" | grep -c "Severity: Undefined" || echo "0")
+          FRONTEND_LOW=$(echo "$FRONTEND_BANDIT_OUTPUT" | grep -c "Severity: Low" || echo "0")
+          FRONTEND_MEDIUM=$(echo "$FRONTEND_BANDIT_OUTPUT" | grep -c "Severity: Medium" || echo "0")
+          FRONTEND_HIGH=$(echo "$FRONTEND_BANDIT_OUTPUT" | grep -c "Severity: High" || echo "0")
+
+          FRONTEND_BANDIT_SUMMARY="Total issues (by severity):"
+          FRONTEND_BANDIT_SUMMARY="$FRONTEND_BANDIT_SUMMARY\n    Undefined: $FRONTEND_UNDEFINED"
+          FRONTEND_BANDIT_SUMMARY="$FRONTEND_BANDIT_SUMMARY\n    Low: $FRONTEND_LOW"
+          FRONTEND_BANDIT_SUMMARY="$FRONTEND_BANDIT_SUMMARY\n    Medium: $FRONTEND_MEDIUM"
+          FRONTEND_BANDIT_SUMMARY="$FRONTEND_BANDIT_SUMMARY\n    High: $FRONTEND_HIGH"
+
+          echo "frontend_bandit_summary<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$FRONTEND_BANDIT_SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-          # Code Quality Analysis
-          PYLINT_OUTPUT=$(pylint app.py models.py --score=y || true)
-          PYLINT_SUMMARY=$(echo "$PYLINT_OUTPUT" | grep -E "(rated|Your code)" | tail -2)
-          echo "pylint_summary<<EOF" >> $GITHUB_OUTPUT
-          echo "$PYLINT_SUMMARY" >> $GITHUB_OUTPUT
+          # Backend Code Quality Analysis
+          echo "Running Backend Code Quality Analysis..."
+          cd ../backend
+          BACKEND_PYLINT_OUTPUT=$(pylint app.py models.py --score=y 2>/dev/null || true)
+          BACKEND_PYLINT_SUMMARY=$(echo "$BACKEND_PYLINT_OUTPUT" | grep -E "(rated|Your code)" | tail -1)
+          if [ -z "$BACKEND_PYLINT_SUMMARY" ]; then
+            BACKEND_PYLINT_SUMMARY="Backend: Pylint analysis completed"
+          else
+            BACKEND_PYLINT_SUMMARY="Backend: $BACKEND_PYLINT_SUMMARY"
+          fi
+          echo "backend_pylint_summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$BACKEND_PYLINT_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Frontend Code Quality Analysis
+          echo "Running Frontend Code Quality Analysis..."
+          cd ../frontend
+          FRONTEND_PYLINT_OUTPUT=$(pylint core/ --score=y 2>/dev/null || true)
+          FRONTEND_PYLINT_SUMMARY=$(echo "$FRONTEND_PYLINT_OUTPUT" | grep -E "(rated|Your code)" | tail -1)
+          if [ -z "$FRONTEND_PYLINT_SUMMARY" ]; then
+            FRONTEND_PYLINT_SUMMARY="Frontend: Pylint analysis completed"
+          else
+            FRONTEND_PYLINT_SUMMARY="Frontend: $FRONTEND_PYLINT_SUMMARY"
+          fi
+          echo "frontend_pylint_summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$FRONTEND_PYLINT_SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
   report_pr_comment:
@@ -521,9 +575,10 @@ jobs:
           PERFORMANCE_SUMMARY="${{ needs.performance_tests.outputs.performance_summary }}"
 
           # --- Enhanced Security ---
-          BANDIT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.bandit_summary }}"
-          ENHANCED_SAFETY_SUMMARY="${{ needs.enhanced_security_analysis.outputs.safety_summary }}"
-          PYLINT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.pylint_summary }}"
+          BACKEND_BANDIT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.backend_bandit_summary }}"
+          FRONTEND_BANDIT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.frontend_bandit_summary }}"
+          BACKEND_PYLINT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.backend_pylint_summary }}"
+          FRONTEND_PYLINT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.frontend_pylint_summary }}"
 
           # --- Gemini Review ---
           GEMINI_REVIEW_SUMMARY="${{ needs.gemini_review.outputs.summary }}"
@@ -576,8 +631,14 @@ jobs:
             echo ""
             echo "#### 🛡️ Enhanced Security Analysis (Layer 6)"
             echo "**Bandit Security Scan:**"
+            echo ""
+            echo "Backend"
             echo '```'
-            echo "${BANDIT_SUMMARY}"
+            echo "${BACKEND_BANDIT_SUMMARY}"
+            echo '```'
+            echo "Frontend"
+            echo '```'
+            echo "${FRONTEND_BANDIT_SUMMARY}"
             echo '```'
             echo "**Dependency Scan (Safety):**"
             echo "- Frontend: ${FRONTEND_SAFETY_SUMMARY}"
@@ -589,14 +650,9 @@ jobs:
             echo "| Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |"
             echo "| Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |"
             echo ""
-            echo "**Enhanced Security Analysis:**"
-            echo '```'
-            echo "${ENHANCED_SAFETY_SUMMARY}"
-            echo '```'
             echo "**Pylint Code Quality:**"
-            echo '```'
-            echo "${PYLINT_SUMMARY}"
-            echo '```'
+            echo "- ${BACKEND_PYLINT_SUMMARY}"
+            echo "- ${FRONTEND_PYLINT_SUMMARY}"
             echo ""
             echo "#### 📈 Static Analysis (Flake8)"
             echo "* Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}"
