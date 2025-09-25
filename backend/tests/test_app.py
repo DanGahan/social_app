@@ -721,7 +721,7 @@ def test_get_connections_posts_post_user_none(mock_query, client, mock_jwt_decod
 
 
 @patch("flask.app.Flask.run")
-@patch.dict("os.environ", {}, clear=False)
+@patch.dict("os.environ", {"FLASK_HOST": "0.0.0.0"}, clear=False)
 def test_main(mock_run):
     runpy.run_module("app", run_name="__main__")
-    mock_run.assert_called_with(host="127.0.0.1", port=5000)
+    mock_run.assert_called_with(host="0.0.0.0", port=5000)
