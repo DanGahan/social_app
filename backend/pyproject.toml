@@ -4,7 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --strict-markers --disable-warnings"
+addopts = "-ra -q --strict-markers"
+filterwarnings = [
+    "ignore::DeprecationWarning:testcontainers.*",
+    "ignore::DeprecationWarning:docker.*",
+    "ignore::DeprecationWarning:urllib3.*",
+    "ignore::sqlalchemy.exc.MovedIn20Warning",
+    "ignore::PendingDeprecationWarning",
+]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
