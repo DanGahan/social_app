@@ -678,7 +678,7 @@ jobs:
           body: ${{ steps.generate_comment.outputs.pr_comment }}
 
   gemini_review:
-    needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests]
+    needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests, integration_tests, contract_tests, ui_tests, performance_tests, enhanced_security_analysis]
     runs-on: ubuntu-latest
     permissions:
       contents: read
