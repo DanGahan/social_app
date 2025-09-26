@@ -729,7 +729,11 @@
 
                         // Show preview of selected image
                         const img = document.createElement('img');
-                        img.src = URL.createObjectURL(file);
+                        const objectUrl = URL.createObjectURL(file);
+                        // Safely set the src by validating it's a blob URL
+                        if (objectUrl.startsWith('blob:')) {
+                            img.src = objectUrl;
+                        }
                         img.style.maxWidth = '320px';
                         img.style.maxHeight = '240px';
                         img.style.border = '2px solid green';
@@ -838,9 +842,12 @@
 
                         // More flexible extension checking - check if URL contains image indicators
                         const hasImageExtension = allowedExtensions.some(ext => imageUrl.toLowerCase().includes('.' + ext));
-                        const isImageService = imageUrl.includes('imgur.com') || imageUrl.includes('i.redd.it') ||
-                                             imageUrl.includes('github.com') || imageUrl.includes('githubusercontent.com') ||
-                                             imageUrl.includes('unsplash.com') || imageUrl.includes('pexels.com');
+                        // Properly validate image service domains
+                        const urlObj = new URL(imageUrl);
+                        const allowedDomains = ['imgur.com', 'i.redd.it', 'github.com', 'githubusercontent.com', 'unsplash.com', 'pexels.com'];
+                        const isImageService = allowedDomains.some(domain =>
+                            urlObj.hostname === domain || urlObj.hostname.endsWith('.' + domain)
+                        );
 
                         if (!hasImageExtension && !isImageService) {
                             console.log("URL might not be an image, but allowing it");

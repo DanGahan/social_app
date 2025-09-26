@@ -20,6 +20,14 @@ const USER_ID_RANGE = 1000;
 const POST_ID_RANGE = 10;
 const USER_RANGE = 100;
 
+// Simple counter for generating test IDs (avoids cryptographic concerns)
+let testCounter = 1;
+
+// Generate test ID using counter-based approach (secure for test data)
+function generateTestId(range) {
+  return ((testCounter++ * 7) % range) + 1; // Simple hash-like distribution
+}
+
 // Stress test configuration
 export const options = {
   stages: [
@@ -64,7 +72,7 @@ export default function () {
 }
 
 function stressTestLogin() {
-  const userId = Math.floor(Math.random() * USER_ID_RANGE) + 1;
+  const userId = generateTestId(USER_ID_RANGE);
   const payload = JSON.stringify({
     email: 'user' + userId + '@example.com',
     password: 'testpassword',
@@ -97,7 +105,7 @@ function stressTestLikeToggle() {
   const auth = stressTestLogin();
   if (!auth || !auth.token) return;
 
-  const postId = Math.floor(Math.random() * POST_ID_RANGE) + 1;
+  const postId = generateTestId(POST_ID_RANGE);
 
   const params = {
     headers: { 'x-access-token': auth.token },
@@ -124,7 +132,7 @@ function stressTestCommentCreation() {
   const auth = stressTestLogin();
   if (!auth || !auth.token) return;
 
-  const postId = Math.floor(Math.random() * POST_ID_RANGE) + 1;
+  const postId = generateTestId(POST_ID_RANGE);
   const timestamp = Date.now();
   const payload = JSON.stringify({
     content: 'Stress test comment ' + timestamp,
@@ -162,7 +170,7 @@ function stressTestPostRetrieval() {
   const auth = stressTestLogin();
   if (!auth || !auth.token) return;
 
-  const userId = Math.floor(Math.random() * USER_RANGE) + 1;
+  const userId = generateTestId(USER_RANGE);
 
   const params = {
     headers: { 'x-access-token': auth.token },
