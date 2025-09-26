@@ -367,8 +367,8 @@ jobs:
           cd frontend
           UI_OUTPUT=$(python -m pytest tests/ui/ -v -m ui --tb=short || true)
           echo "$UI_OUTPUT"
-          # Extract meaningful summary
-          UI_SUMMARY=$(echo "$UI_OUTPUT" | grep -E "(PASSED|FAILED|ERROR|\d+ passed|\d+ failed)" | tail -10)
+          # Extract complete test summary including passes, skips, and failures
+          UI_SUMMARY=$(echo "$UI_OUTPUT" | grep -E "(PASSED|FAILED|ERROR|SKIPPED|\d+ passed|\d+ failed|\d+ skipped|===)" | tail -15)
           echo "summary<<EOF" >> $GITHUB_OUTPUT
           echo "$UI_SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
