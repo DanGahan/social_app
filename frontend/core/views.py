@@ -258,6 +258,7 @@ def home_view(request):
             pending_response = requests.get(
                 f"{FLASK_BACKEND_URL}/users/{user_id}/pending_requests",
                 headers=headers,
+                timeout=REQUEST_TIMEOUT,
             )
             pending_response.raise_for_status()
             pending_requests_raw = pending_response.json()
@@ -281,6 +282,7 @@ def home_view(request):
             sent_response = requests.get(
                 f"{FLASK_BACKEND_URL}/users/{user_id}/sent_requests",
                 headers=headers,
+                timeout=REQUEST_TIMEOUT,
             )
             sent_response.raise_for_status()
             sent_requests_raw = sent_response.json()
@@ -304,6 +306,7 @@ def home_view(request):
             connections_posts_response = requests.get(
                 f"{FLASK_BACKEND_URL}/users/{user_id}/connections/posts",
                 headers=headers,
+                timeout=REQUEST_TIMEOUT,
             )
             connections_posts_response.raise_for_status()
             connections_posts = connections_posts_response.json()
@@ -351,6 +354,7 @@ def send_connection_request_view(request):
                     f"{FLASK_BACKEND_URL}/connections/request",
                     json={"to_user_id": int(to_user_id)},
                     headers=headers,
+                    timeout=REQUEST_TIMEOUT,
                 )
                 response.raise_for_status()
                 messages.success(request, "Connection request sent!")
@@ -379,6 +383,7 @@ def accept_connection_request_view(request):
                     f"{FLASK_BACKEND_URL}/connections/accept",
                     json={"request_id": int(request_id)},
                     headers=headers,
+                    timeout=REQUEST_TIMEOUT,
                 )
                 response.raise_for_status()
                 messages.success(request, "Connection request accepted!")
@@ -406,6 +411,7 @@ def deny_connection_request_view(request):
                     f"{FLASK_BACKEND_URL}/connections/deny",
                     json={"request_id": int(request_id)},
                     headers=headers,
+                    timeout=REQUEST_TIMEOUT,
                 )
                 response.raise_for_status()
                 messages.success(request, "Connection request denied!")
@@ -458,7 +464,9 @@ def get_user_profile_and_posts(request, user_id):
             )
 
         # Fetch user posts
-        posts_response = requests.get(f"{FLASK_BACKEND_URL}/users/{user_id}/posts", headers=headers)
+        posts_response = requests.get(
+            f"{FLASK_BACKEND_URL}/users/{user_id}/posts", headers=headers, timeout=REQUEST_TIMEOUT
+        )
         posts_response.raise_for_status()  # This will raise an exception for 4xx/5xx responses
         try:
             user_posts = posts_response.json()
@@ -502,6 +510,7 @@ def api_request_connection(request):
                     f"{FLASK_BACKEND_URL}/connections/request",
                     json={"to_user_id": int(to_user_id)},
                     headers=headers,
+                    timeout=REQUEST_TIMEOUT,
                 )
                 response.raise_for_status()
                 return JsonResponse(response.json(), status=response.status_code)
@@ -619,7 +628,7 @@ def api_create_post(request):
 def serve_uploaded_image(request, filename):
     """Proxy to serve uploaded images from Flask backend"""
     try:
-        response = requests.get(f"{FLASK_BACKEND_URL}/uploads/{filename}")
+        response = requests.get(f"{FLASK_BACKEND_URL}/uploads/{filename}", timeout=REQUEST_TIMEOUT)
 
         if response.ok:
             from django.http import HttpResponse
@@ -654,6 +663,7 @@ def api_toggle_like(request, post_id):
             response = requests.post(
                 f"{FLASK_BACKEND_URL}/posts/{post_id}/like",
                 headers=headers,
+                timeout=REQUEST_TIMEOUT,
             )
 
             # Return the backend response
@@ -735,6 +745,7 @@ def api_get_comments(request, post_id):
             response = requests.get(
                 f"{FLASK_BACKEND_URL}/posts/{post_id}/comments?page={page}&per_page={per_page}",
                 headers=headers,
+                timeout=REQUEST_TIMEOUT,
             )
 
             # Return the backend response
@@ -806,6 +817,7 @@ def api_comments(request, post_id):
             response = requests.get(
                 f"{FLASK_BACKEND_URL}/posts/{post_id}/comments?page={page}&per_page={per_page}",
                 headers=headers,
+                timeout=REQUEST_TIMEOUT,
             )
 
             # Return the backend response

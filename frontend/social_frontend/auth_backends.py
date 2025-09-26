@@ -11,7 +11,9 @@ class FlaskUserBackend(ModelBackend):
             # Call your Flask backend to manage the user
             flask_api_url = "http://social_backend:5000/users/manage"
             try:
-                response = requests.post(flask_api_url, json={"apple_id": apple_id, "email": email})
+                response = requests.post(
+                    flask_api_url, json={"apple_id": apple_id, "email": email}, timeout=30
+                )
                 response.raise_for_status()  # Raise an exception for HTTP errors
                 user_data = response.json()
                 flask_user_id = user_data.get("user_id")
