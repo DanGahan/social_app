@@ -15,6 +15,11 @@ const responseTime = new Trend('response_time');
 const activeUsers = new Gauge('active_users');
 const failedRequests = new Counter('failed_requests');
 
+// Test configuration constants
+const USER_ID_RANGE = 1000;
+const POST_ID_RANGE = 10;
+const USER_RANGE = 100;
+
 // Stress test configuration
 export const options = {
   stages: [
@@ -59,8 +64,9 @@ export default function () {
 }
 
 function stressTestLogin() {
+  const userId = Math.floor(Math.random() * USER_ID_RANGE) + 1;
   const payload = JSON.stringify({
-    email: 'user' + Math.floor(Math.random() * 1000) + '@example.com',
+    email: 'user' + userId + '@example.com',
     password: 'testpassword',
   });
 
@@ -91,7 +97,7 @@ function stressTestLikeToggle() {
   const auth = stressTestLogin();
   if (!auth || !auth.token) return;
 
-  const postId = Math.floor(Math.random() * 10) + 1; // Random post ID 1-10
+  const postId = Math.floor(Math.random() * POST_ID_RANGE) + 1;
 
   const params = {
     headers: { 'x-access-token': auth.token },
@@ -118,9 +124,10 @@ function stressTestCommentCreation() {
   const auth = stressTestLogin();
   if (!auth || !auth.token) return;
 
-  const postId = Math.floor(Math.random() * 10) + 1;
+  const postId = Math.floor(Math.random() * POST_ID_RANGE) + 1;
+  const timestamp = Date.now();
   const payload = JSON.stringify({
-    content: 'Stress test comment ' + Date.now() + ' ' + Math.random(),
+    content: 'Stress test comment ' + timestamp,
   });
 
   const params = {
@@ -155,7 +162,7 @@ function stressTestPostRetrieval() {
   const auth = stressTestLogin();
   if (!auth || !auth.token) return;
 
-  const userId = Math.floor(Math.random() * 100) + 1; // Random user ID
+  const userId = Math.floor(Math.random() * USER_RANGE) + 1;
 
   const params = {
     headers: { 'x-access-token': auth.token },
@@ -182,9 +189,10 @@ function stressTestPostCreation() {
   const auth = stressTestLogin();
   if (!auth || !auth.token) return;
 
+  const timestamp = Date.now();
   const payload = JSON.stringify({
-    image_url: '/uploads/stress_test_' + Date.now() + '_' + Math.random() + '.jpg',
-    caption: 'Stress test post created at ' + new Date().toISOString() + ' by user ' + Math.random(),
+    image_url: '/uploads/stress_test_' + timestamp + '.jpg',
+    caption: 'Stress test post created at ' + new Date().toISOString(),
   });
 
   const params = {
@@ -212,7 +220,7 @@ function stressTestPostCreation() {
 }
 
 export function setup() {
-  console.log('🔥 Starting stress test...');
+  console.log('Starting stress test...');
   console.log('Target API: ' + baseUrl);
   console.log('This test will gradually increase load to find breaking points');
 
@@ -227,9 +235,9 @@ export function setup() {
 
 export function teardown(data) {
   const duration = (Date.now() - data.startTime) / 1000;
-  console.log('\n🏁 Stress test completed in ' + duration + 's');
-  console.log('📊 Check the metrics above for breaking point analysis');
-  console.log('🔍 Look for:');
+  console.log('\nStress test completed in ' + duration + 's');
+  console.log('Check the metrics above for breaking point analysis');
+  console.log('Look for:');
   console.log('  - When error rate started increasing significantly');
   console.log('  - Response time degradation patterns');
   console.log('  - System recovery behavior after load reduction');
