@@ -1,10 +1,12 @@
+"""Views for posts_app Django application."""
+
 import requests
-from django.conf import settings
-from django.contrib import messages  # Import messages
+from django.contrib import messages
 from django.shortcuts import redirect, render
 
 
 def post_list(request, user_id):
+    """Display a list of posts for a specific user."""
     # In a real application, you'd get the user_id from the authenticated user
     # For now, we'll use a hardcoded user_id or one passed in the URL
 
@@ -22,6 +24,7 @@ def post_list(request, user_id):
 
 
 def add_post(request):
+    """Handle post creation form submission."""
     if request.method == "POST":
         image_url = request.POST.get("image_url")
         caption = request.POST.get("caption")

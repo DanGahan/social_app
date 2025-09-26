@@ -1,3 +1,5 @@
+"""Custom authentication backend for Django integration with Flask backend."""
+
 import requests
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
@@ -6,6 +8,8 @@ User = get_user_model()
 
 
 class FlaskUserBackend(ModelBackend):
+    """Custom authentication backend that integrates Django with Flask backend."""
+
     def authenticate(self, request, apple_id=None, email=None, **kwargs):
         if apple_id and email:
             # Call your Flask backend to manage the user
