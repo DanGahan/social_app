@@ -774,6 +774,16 @@ jobs:
           FRONTEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_frontend_trivy_high }}"
           FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
           SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
+          INTEGRATION_BACKEND_SUMMARY="${{ needs.integration_tests.outputs.backend_integration_summary }}"
+          INTEGRATION_FRONTEND_SUMMARY="${{ needs.integration_tests.outputs.frontend_integration_summary }}"
+          CONTRACT_SUMMARY="${{ needs.contract_tests.outputs.contract_summary }}"
+          API_DOCS_SUMMARY="${{ needs.contract_tests.outputs.api_docs_summary }}"
+          UI_SUMMARY="${{ needs.ui_tests.outputs.ui_summary }}"
+          PERFORMANCE_SUMMARY="${{ needs.performance_tests.outputs.performance_summary }}"
+          BACKEND_BANDIT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.backend_bandit_summary }}"
+          FRONTEND_BANDIT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.frontend_bandit_summary }}"
+          BACKEND_PYLINT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.backend_pylint_summary }}"
+          FRONTEND_PYLINT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.frontend_pylint_summary }}"
 
           # --- Prompt 2: Generate Analysis and Recommendation ---
           cat > analysis_prompt.txt <<EOT
@@ -812,6 +822,30 @@ jobs:
           \`\`\`
           $SHAKEDOWN_SUMMARY
           \`\`\`
+
+          ### Integration Tests
+          Backend Integration: $INTEGRATION_BACKEND_SUMMARY
+          Frontend Integration: $INTEGRATION_FRONTEND_SUMMARY
+
+          ### Contract Tests
+          Contract Tests: $CONTRACT_SUMMARY
+          API Documentation: $API_DOCS_SUMMARY
+
+          ### UI Tests
+          \`\`\`
+          $UI_SUMMARY
+          \`\`\`
+
+          ### Performance Tests
+          \`\`\`
+          $PERFORMANCE_SUMMARY
+          \`\`\`
+
+          ### Enhanced Security Analysis
+          Backend Bandit: $BACKEND_BANDIT_SUMMARY
+          Frontend Bandit: $FRONTEND_BANDIT_SUMMARY
+          Backend Pylint: $BACKEND_PYLINT_SUMMARY
+          Frontend Pylint: $FRONTEND_PYLINT_SUMMARY
 
           Based on the change summary and the test results, provide a concise analysis of the test results and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
           EOT
