@@ -82,23 +82,32 @@ jobs:
       - name: Run Frontend Dependency Scan and Capture Results
         id: frontend_safety
         run: |
-          SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt --output json 2>/dev/null \
-            | sed -n '/^{/,/^}$/p' \
-            | jq -c '(.vulnerabilities // []) as $vulns
-                      | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
+          SAFETY_OUTPUT=$(safety check -r frontend/requirements.txt 2>&1 | grep -v -E "(DEPRECATED|this command|We highly encourage)" || true)
+          echo "$SAFETY_OUTPUT"
 
-          echo $SAFETY_OUTPUT
-          echo "frontend_safety_summary=${SAFETY_OUTPUT}" >> $GITHUB_OUTPUT
+          # Count vulnerabilities by severity
+          CRITICAL=$(echo "$SAFETY_OUTPUT" | grep -i "CRITICAL" | wc -l || echo "0")
+          HIGH=$(echo "$SAFETY_OUTPUT" | grep -i "HIGH" | wc -l || echo "0")
+          MEDIUM=$(echo "$SAFETY_OUTPUT" | grep -i "MEDIUM" | wc -l || echo "0")
+          LOW=$(echo "$SAFETY_OUTPUT" | grep -i "LOW" | wc -l || echo "0")
+
+          SUMMARY="Critical: ${CRITICAL}, High: ${HIGH}, Medium: ${MEDIUM}, Low: ${LOW}"
+          echo "frontend_safety_summary=${SUMMARY}" >> $GITHUB_OUTPUT
 
       - name: Run Backend Dependency Scan and Capture Results
         id: backend_safety
         run: |
-          SAFETY_OUTPUT=$(safety check -r backend/requirements.txt --output json 2>/dev/null \
-            | sed -n '/^{/,/^}$/p' \
-            | jq -c '(.vulnerabilities // []) as $vulns
-                      | reduce ["CRITICAL","HIGH","MEDIUM"][] as $sev ({}; . + { ($sev): ( [$vulns[] | select(.severity == $sev)] | length ) })'|tr -d '{}"')
-            echo $SAFETY_OUTPUT
-            echo "backend_safety_summary=${SAFETY_OUTPUT}" >> $GITHUB_OUTPUT
+          SAFETY_OUTPUT=$(safety check -r backend/requirements.txt 2>&1 | grep -v -E "(DEPRECATED|this command|We highly encourage)" || true)
+          echo "$SAFETY_OUTPUT"
+
+          # Count vulnerabilities by severity
+          CRITICAL=$(echo "$SAFETY_OUTPUT" | grep -i "CRITICAL" | wc -l || echo "0")
+          HIGH=$(echo "$SAFETY_OUTPUT" | grep -i "HIGH" | wc -l || echo "0")
+          MEDIUM=$(echo "$SAFETY_OUTPUT" | grep -i "MEDIUM" | wc -l || echo "0")
+          LOW=$(echo "$SAFETY_OUTPUT" | grep -i "LOW" | wc -l || echo "0")
+
+          SUMMARY="Critical: ${CRITICAL}, High: ${HIGH}, Medium: ${MEDIUM}, Low: ${LOW}"
+          echo "backend_safety_summary=${SUMMARY}" >> $GITHUB_OUTPUT
 
   container_scan:
     needs: build
@@ -224,18 +233,296 @@ jobs:
         id: tests
         run: |
           # Run Django tests inside frontend container and save output
-          FULL_OUTPUT=$(docker compose exec -T frontend python manage.py test)
+          FULL_OUTPUT=$(docker compose exec -T frontend python manage.py test 2>&1)
           echo "$FULL_OUTPUT"
 
-          # Extract only relevant test information, excluding migration and database messages
-          SUMMARY=$(echo "$FULL_OUTPUT" | grep -v -E "(Creating test database|Destroying test database|Uploading file:)" | grep -E "(Found [0-9]+ test|System check identified no issues|Ran [0-9]+ tests|OK$|FAILED|ERROR)")
+          # Extract only relevant test information, excluding database creation/destruction messages
+          SUMMARY=$(echo "$FULL_OUTPUT" | grep -v -E "(Creating test database|Destroying test database|Uploading file:|Operations to perform|Applying|Unapplying)" | grep -E "(Found [0-9]+ test|System check identified|^[\.EF]+$|Ran [0-9]+ tests in|^OK$|^FAILED|ERROR:|FAIL:)")
 
           echo "summary<<EOF" >> $GITHUB_OUTPUT
           echo "$SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+  integration_tests:
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || 'test_password_ci_only' }}
+          POSTGRES_DB: test_social_app
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    outputs:
+      backend_integration_summary: ${{ steps.backend_integration.outputs.summary }}
+      frontend_integration_summary: ${{ steps.frontend_integration.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install Backend Dependencies
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: Run Backend Integration Tests
+        id: backend_integration
+        env:
+          DATABASE_URL: postgresql://postgres:${{ secrets.POSTGRES_PASSWORD || 'test_password_ci_only' }}@localhost:5432/test_social_app
+        run: |
+          cd backend
+          INTEGRATION_OUTPUT=$(python -m pytest tests/integration/ -v -m integration --tb=short || true)
+          echo "$INTEGRATION_OUTPUT"
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$INTEGRATION_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Install Frontend Dependencies
+        run: |
+          pip install -r frontend/requirements.txt
+
+      - name: Run Frontend Integration Tests
+        id: frontend_integration
+        env:
+          DJANGO_SETTINGS_MODULE: social_frontend.settings
+        run: |
+          cd frontend
+          INTEGRATION_OUTPUT=$(python -m pytest tests/integration/ -v -m integration --tb=short || true)
+          echo "$INTEGRATION_OUTPUT"
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$INTEGRATION_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  contract_tests:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      contract_summary: ${{ steps.contract_tests.outputs.summary }}
+      api_docs_summary: ${{ steps.api_docs.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install Backend Dependencies
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: Run Contract Tests
+        id: contract_tests
+        run: |
+          cd backend
+          CONTRACT_OUTPUT=$(python -m pytest tests/contract/test_api_contract.py -v -m contract --tb=short || true)
+          echo "$CONTRACT_OUTPUT"
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$CONTRACT_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Run API Documentation Tests
+        id: api_docs
+        run: |
+          cd backend
+          API_DOCS_OUTPUT=$(python -m pytest tests/contract/test_api_documentation.py -v --tb=short || true)
+          echo "$API_DOCS_OUTPUT"
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$API_DOCS_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  ui_tests:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      ui_summary: ${{ steps.ui_tests.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install Frontend Dependencies
+        run: |
+          pip install -r frontend/requirements.txt
+
+      - name: Install Playwright
+        run: |
+          pip install playwright pytest-playwright
+          playwright install chromium --with-deps
+
+      - name: Run UI Tests
+        id: ui_tests
+        env:
+          DJANGO_SETTINGS_MODULE: social_frontend.settings
+        run: |
+          cd frontend
+          UI_OUTPUT=$(python -m pytest tests/ui/ -v -m ui --tb=short || true)
+          echo "$UI_OUTPUT"
+          # Extract meaningful summary
+          UI_SUMMARY=$(echo "$UI_OUTPUT" | grep -E "(PASSED|FAILED|ERROR|\d+ passed|\d+ failed)" | tail -10)
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$UI_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  performance_tests:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      performance_summary: ${{ steps.performance.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install K6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Validate Performance Test Scripts
+        id: performance
+        run: |
+          # Validate K6 scripts syntax without running actual tests
+          echo "Validating load test script..."
+          LOAD_VALIDATION=$(k6 inspect tests/performance/load_test.js 2>&1 || echo "validation_error")
+          echo "$LOAD_VALIDATION"
+
+          echo "Validating stress test script..."
+          STRESS_VALIDATION=$(k6 inspect tests/performance/stress_test.js 2>&1 || echo "validation_error")
+          echo "$STRESS_VALIDATION"
+
+          # Check for validation errors
+          LOAD_STATUS="VALID"
+          STRESS_STATUS="VALID"
+
+          if echo "$LOAD_VALIDATION" | grep -qi "error\|invalid\|validation_error"; then
+            LOAD_STATUS="INVALID"
+          fi
+
+          if echo "$STRESS_VALIDATION" | grep -qi "error\|invalid\|validation_error"; then
+            STRESS_STATUS="INVALID"
+          fi
+
+          # Create summary of validation results
+          PERF_SUMMARY="Performance test scripts validation:"
+          PERF_SUMMARY="$PERF_SUMMARY\n✓ Load test script: $LOAD_STATUS"
+          PERF_SUMMARY="$PERF_SUMMARY\n✓ Stress test script: $STRESS_STATUS"
+          PERF_SUMMARY="$PERF_SUMMARY\n📝 Note: Full performance testing requires live services (validated syntax only)"
+
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$PERF_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  enhanced_security_analysis:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      backend_bandit_summary: ${{ steps.security_scan.outputs.backend_bandit_summary }}
+      frontend_bandit_summary: ${{ steps.security_scan.outputs.frontend_bandit_summary }}
+      backend_pylint_summary: ${{ steps.security_scan.outputs.backend_pylint_summary }}
+      frontend_pylint_summary: ${{ steps.security_scan.outputs.frontend_pylint_summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install Backend Dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install bandit pylint
+
+      - name: Install Frontend Dependencies
+        run: |
+          pip install -r frontend/requirements.txt
+
+      - name: Run Enhanced Security Analysis
+        id: security_scan
+        run: |
+          # Backend Security Scan with Bandit
+          echo "Running Backend Security Scan..."
+          cd backend
+          BACKEND_BANDIT_OUTPUT=$(bandit -r . -f txt || true)
+          echo "$BACKEND_BANDIT_OUTPUT"
+
+          # Parse backend bandit results for severity breakdown
+          BACKEND_UNDEFINED=$(echo "$BACKEND_BANDIT_OUTPUT" | grep -c "Severity: Undefined" || echo "0")
+          BACKEND_LOW=$(echo "$BACKEND_BANDIT_OUTPUT" | grep -c "Severity: Low" || echo "0")
+          BACKEND_MEDIUM=$(echo "$BACKEND_BANDIT_OUTPUT" | grep -c "Severity: Medium" || echo "0")
+          BACKEND_HIGH=$(echo "$BACKEND_BANDIT_OUTPUT" | grep -c "Severity: High" || echo "0")
+
+          BACKEND_BANDIT_SUMMARY="Total issues (by severity):"
+          BACKEND_BANDIT_SUMMARY="$BACKEND_BANDIT_SUMMARY\n    Undefined: $BACKEND_UNDEFINED"
+          BACKEND_BANDIT_SUMMARY="$BACKEND_BANDIT_SUMMARY\n    Low: $BACKEND_LOW"
+          BACKEND_BANDIT_SUMMARY="$BACKEND_BANDIT_SUMMARY\n    Medium: $BACKEND_MEDIUM"
+          BACKEND_BANDIT_SUMMARY="$BACKEND_BANDIT_SUMMARY\n    High: $BACKEND_HIGH"
+
+          echo "backend_bandit_summary<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$BACKEND_BANDIT_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Frontend Security Scan with Bandit
+          echo "Running Frontend Security Scan..."
+          cd ../frontend
+          FRONTEND_BANDIT_OUTPUT=$(bandit -r . -f txt || true)
+          echo "$FRONTEND_BANDIT_OUTPUT"
+
+          # Parse frontend bandit results for severity breakdown
+          FRONTEND_UNDEFINED=$(echo "$FRONTEND_BANDIT_OUTPUT" | grep -c "Severity: Undefined" || echo "0")
+          FRONTEND_LOW=$(echo "$FRONTEND_BANDIT_OUTPUT" | grep -c "Severity: Low" || echo "0")
+          FRONTEND_MEDIUM=$(echo "$FRONTEND_BANDIT_OUTPUT" | grep -c "Severity: Medium" || echo "0")
+          FRONTEND_HIGH=$(echo "$FRONTEND_BANDIT_OUTPUT" | grep -c "Severity: High" || echo "0")
+
+          FRONTEND_BANDIT_SUMMARY="Total issues (by severity):"
+          FRONTEND_BANDIT_SUMMARY="$FRONTEND_BANDIT_SUMMARY\n    Undefined: $FRONTEND_UNDEFINED"
+          FRONTEND_BANDIT_SUMMARY="$FRONTEND_BANDIT_SUMMARY\n    Low: $FRONTEND_LOW"
+          FRONTEND_BANDIT_SUMMARY="$FRONTEND_BANDIT_SUMMARY\n    Medium: $FRONTEND_MEDIUM"
+          FRONTEND_BANDIT_SUMMARY="$FRONTEND_BANDIT_SUMMARY\n    High: $FRONTEND_HIGH"
+
+          echo "frontend_bandit_summary<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$FRONTEND_BANDIT_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Backend Code Quality Analysis
+          echo "Running Backend Code Quality Analysis..."
+          cd ../backend
+          BACKEND_PYLINT_OUTPUT=$(pylint app.py models.py --score=y 2>/dev/null || true)
+          BACKEND_PYLINT_SUMMARY=$(echo "$BACKEND_PYLINT_OUTPUT" | grep -E "(rated|Your code)" | tail -1)
+          if [ -z "$BACKEND_PYLINT_SUMMARY" ]; then
+            BACKEND_PYLINT_SUMMARY="Backend: Pylint analysis completed"
+          else
+            BACKEND_PYLINT_SUMMARY="Backend: $BACKEND_PYLINT_SUMMARY"
+          fi
+          echo "backend_pylint_summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$BACKEND_PYLINT_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Frontend Code Quality Analysis
+          echo "Running Frontend Code Quality Analysis..."
+          cd ../frontend
+          FRONTEND_PYLINT_OUTPUT=$(pylint core/ --score=y 2>/dev/null || true)
+          FRONTEND_PYLINT_SUMMARY=$(echo "$FRONTEND_PYLINT_OUTPUT" | grep -E "(rated|Your code)" | tail -1)
+          if [ -z "$FRONTEND_PYLINT_SUMMARY" ]; then
+            FRONTEND_PYLINT_SUMMARY="Frontend: Pylint analysis completed"
+          else
+            FRONTEND_PYLINT_SUMMARY="Frontend: $FRONTEND_PYLINT_SUMMARY"
+          fi
+          echo "frontend_pylint_summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$FRONTEND_PYLINT_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
   report_pr_comment:
-    needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests, gemini_review]
+    needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests, integration_tests, contract_tests, ui_tests, performance_tests, enhanced_security_analysis, gemini_review]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -273,48 +560,110 @@ jobs:
           # --- Shakedown Test ---
           SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
 
+          # --- Integration Tests ---
+          BACKEND_INTEGRATION_SUMMARY="${{ needs.integration_tests.outputs.backend_integration_summary }}"
+          FRONTEND_INTEGRATION_SUMMARY="${{ needs.integration_tests.outputs.frontend_integration_summary }}"
+
+          # --- Contract Tests ---
+          CONTRACT_SUMMARY="${{ needs.contract_tests.outputs.contract_summary }}"
+          API_DOCS_SUMMARY="${{ needs.contract_tests.outputs.api_docs_summary }}"
+
+          # --- UI Tests ---
+          UI_SUMMARY="${{ needs.ui_tests.outputs.ui_summary }}"
+
+          # --- Performance Tests ---
+          PERFORMANCE_SUMMARY="${{ needs.performance_tests.outputs.performance_summary }}"
+
+          # --- Enhanced Security ---
+          BACKEND_BANDIT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.backend_bandit_summary }}"
+          FRONTEND_BANDIT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.frontend_bandit_summary }}"
+          BACKEND_PYLINT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.backend_pylint_summary }}"
+          FRONTEND_PYLINT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.frontend_pylint_summary }}"
+
           # --- Gemini Review ---
           GEMINI_REVIEW_SUMMARY="${{ needs.gemini_review.outputs.summary }}"
 
           # write multi-line output safely using a literal block
           {
             echo "pr_comment<<PR_COMMENT_DELIMITER"
-            echo "### CI/CD Pipeline Results"
+            echo "### 🚀 Agile Test Pyramid CI/CD Results"
             echo ""
-            echo "#### Backend Unit Tests"
+            echo "#### 📊 Backend Unit Tests (Base Layer)"
             echo "* Coverage: ${BACKEND_TESTS_COVERAGE}"
             echo "* Passed: ${BACKEND_TESTS_PASSED}"
             echo "* Failed: ${BACKEND_TESTS_FAILED}"
             echo "* Warnings: ${BACKEND_TESTS_WARNING}"
             echo ""
-            echo "#### Frontend Unit Tests"
+            echo "#### 📱 Frontend Unit Tests (Base Layer)"
             echo '```'
             echo "${FRONTEND_SUMMARY}"
             echo '```'
             echo ""
-            echo "#### Static Analysis (Flake8)"
-            echo "* Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}"
-            echo "* Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}"
+            echo "#### 🔧 Integration Tests (Layer 2)"
+            echo "**Backend Integration:**"
+            echo '```'
+            echo "${BACKEND_INTEGRATION_SUMMARY}"
+            echo '```'
+            echo "**Frontend Integration:**"
+            echo '```'
+            echo "${FRONTEND_INTEGRATION_SUMMARY}"
+            echo '```'
             echo ""
-            echo "#### Dependency Scan (Safety)"
-            echo "Front End Safety"
-            echo "${FRONTEND_SAFETY_SUMMARY}"
+            echo "#### 🤝 Contract Tests (Layer 3)"
+            echo "**API Contracts:**"
+            echo '```'
+            echo "${CONTRACT_SUMMARY}"
+            echo '```'
+            echo "**API Documentation:**"
+            echo '```'
+            echo "${API_DOCS_SUMMARY}"
+            echo '```'
             echo ""
-            echo "Backend Safety"
-            echo "${BACKEND_SAFETY_SUMMARY}"
+            echo "#### 🎭 UI Functional Tests (Layer 4)"
+            echo '```'
+            echo "${UI_SUMMARY}"
+            echo '```'
             echo ""
-            echo "#### Container Scan (Trivy)"
+            echo "#### ⚡ Performance Tests (Layer 5)"
+            echo '```'
+            echo "${PERFORMANCE_SUMMARY}"
+            echo '```'
+            echo ""
+            echo "#### 🛡️ Enhanced Security Analysis (Layer 6)"
+            echo "**Bandit Security Scan:**"
+            echo ""
+            echo "Backend"
+            echo '```'
+            echo "${BACKEND_BANDIT_SUMMARY}"
+            echo '```'
+            echo "Frontend"
+            echo '```'
+            echo "${FRONTEND_BANDIT_SUMMARY}"
+            echo '```'
+            echo "**Dependency Scan (Safety):**"
+            echo "- Frontend: ${FRONTEND_SAFETY_SUMMARY}"
+            echo "- Backend: ${BACKEND_SAFETY_SUMMARY}"
+            echo ""
+            echo "**Container Scan (Trivy):**"
             echo "| Image    | Critical | High | Medium |"
             echo "|----------|----------|------|--------|"
             echo "| Backend  | ${BACKEND_TRIVY_CRITICAL} | ${BACKEND_TRIVY_HIGH} | ${BACKEND_TRIVY_MEDIUM} |"
             echo "| Frontend | ${FRONTEND_TRIVY_CRITICAL} | ${FRONTEND_TRIVY_HIGH} | ${FRONTEND_TRIVY_MEDIUM} |"
             echo ""
-            echo "#### Shakedown Test"
+            echo "**Pylint Code Quality:**"
+            echo "- ${BACKEND_PYLINT_SUMMARY}"
+            echo "- ${FRONTEND_PYLINT_SUMMARY}"
+            echo ""
+            echo "#### 📈 Static Analysis (Flake8)"
+            echo "* Backend: Errors: ${BACKEND_FLAKE8_ERRORS}, Warnings: ${BACKEND_FLAKE8_WARNINGS}"
+            echo "* Frontend: Errors: ${FRONTEND_FLAKE8_ERRORS}, Warnings: ${FRONTEND_FLAKE8_WARNINGS}"
+            echo ""
+            echo "#### 🧪 Shakedown Test"
             echo '```'
             echo "${SHAKEDOWN_SUMMARY}"
             echo '```'
             echo ""
-            echo "#### Gemini Review"
+            echo "#### 🤖 AI Review"
             echo '```'
             echo "${GEMINI_REVIEW_SUMMARY}" | base64 --decode
             echo '```'
@@ -390,18 +739,20 @@ jobs:
       - name: Generate Gemini Review
         id: gemini_review_step
         run: |
-          PR_DIFF=$(curl -L ${{ github.event.pull_request.diff_url }})
+          # Download PR diff to file to avoid argument length limits
+          curl -L ${{ github.event.pull_request.diff_url }} > pr_diff.txt
 
           # --- Prompt 1: Generate Change Summary ---
-          SUMMARY_PROMPT=$(cat <<EOT
+          cat > summary_prompt.txt <<EOT
           Strictly using the provided "Pull Request Diff" and nothing else, provide a human-understandable overview of the changes.
           ## Pull Request Diff
           \`\`\`diff
-          $PR_DIFF
+          $(head -c 50000 pr_diff.txt)...
+          (diff truncated for brevity)
           \`\`\`
           EOT
-          )
-          CHANGE_SUMMARY=$(gemini "$SUMMARY_PROMPT")
+
+          CHANGE_SUMMARY=$(gemini < summary_prompt.txt)
 
           # --- Prompt 2: Generate Analysis and Recommendation ---
           # Collect all outputs from previous jobs
@@ -424,7 +775,8 @@ jobs:
           FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
           SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
 
-          ANALYSIS_PROMPT=$(cat <<EOT
+          # --- Prompt 2: Generate Analysis and Recommendation ---
+          cat > analysis_prompt.txt <<EOT
           You are a senior software engineer reviewing a pull request.
           First, here is the summary of changes in the pull request:
           $CHANGE_SUMMARY
@@ -463,8 +815,8 @@ jobs:
 
           Based on the change summary and the test results, provide a concise analysis of the test results and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
           EOT
-          )
-          ANALYSIS_AND_RECOMMENDATION=$(gemini "$ANALYSIS_PROMPT")
+
+          ANALYSIS_AND_RECOMMENDATION=$(gemini < analysis_prompt.txt)
 
           # --- Combine and Output ---
           OUTPUT="$CHANGE_SUMMARY\n\n$ANALYSIS_AND_RECOMMENDATION"

@@ -7,3 +7,14 @@ flake8
 isort
 black
 setuptools==80.9.0
+
+# UI Testing
+pytest
+playwright
+pytest-bdd
+pytest-django
+pytest-playwright
+
+# Security & Code Quality
+bandit
+safety

@@ -5,15 +5,15 @@ import sys
 from functools import wraps
 
 import jwt
-from config import Config
 from flask import Flask, jsonify, request, send_from_directory
-from models import (Base, Comment, Connection, ConnectionRequest, Like, Post,
-                    User)
 from sqlalchemy import create_engine, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+
+from config import Config
+from models import Base, Comment, Connection, ConnectionRequest, Like, Post, User
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -956,4 +956,9 @@ def delete_comment(current_user, comment_id):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    # Use environment variable for host, default to localhost for security
+    import os
+
+    host = os.environ.get("FLASK_HOST", "127.0.0.1")
+    port = int(os.environ.get("FLASK_PORT", "5000"))
+    app.run(host=host, port=port)

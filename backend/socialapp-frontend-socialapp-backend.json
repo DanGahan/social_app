@@ -1,0 +1,391 @@
+{
+  "consumer": {
+    "name": "SocialApp-Frontend"
+  },
+  "provider": {
+    "name": "SocialApp-Backend"
+  },
+  "interactions": [
+    {
+      "description": "a request to register a new user",
+      "providerState": "User registration endpoint is available",
+      "request": {
+        "method": "post",
+        "path": "/auth/register",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "email": "test@example.com",
+          "password": "securepassword"
+        },
+        "matchingRules": {
+          "$.body.email": {
+            "match": "regex",
+            "regex": ".+@.+\\..+"
+          },
+          "$.body.password": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "user_id": 123,
+          "message": "User registered successfully"
+        },
+        "matchingRules": {
+          "$.body.user_id": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to login",
+      "providerState": "User exists with valid credentials",
+      "request": {
+        "method": "post",
+        "path": "/auth/login",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "email": "existing@example.com",
+          "password": "password"
+        },
+        "matchingRules": {
+          "$.body.email": {
+            "match": "regex",
+            "regex": ".+@.+\\..+"
+          },
+          "$.body.password": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "token": "jwt.token.here",
+          "user_id": 123,
+          "message": "Login successful"
+        },
+        "matchingRules": {
+          "$.body.token": {
+            "match": "type"
+          },
+          "$.body.user_id": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to create a post",
+      "providerState": "User is authenticated",
+      "request": {
+        "method": "post",
+        "path": "/posts",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-access-token": "valid.jwt.token"
+        },
+        "body": {
+          "image_url": "/uploads/image.jpg",
+          "caption": "This is a test post"
+        },
+        "matchingRules": {
+          "$.headers.x-access-token": {
+            "match": "type"
+          },
+          "$.body.image_url": {
+            "match": "type"
+          },
+          "$.body.caption": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "message": "Post created successfully",
+          "post_id": 456
+        },
+        "matchingRules": {
+          "$.body.post_id": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to get user posts",
+      "providerState": "User has posts",
+      "request": {
+        "method": "get",
+        "path": "/users/123/posts",
+        "headers": {
+          "x-access-token": "valid.jwt.token"
+        },
+        "matchingRules": {
+          "$.path": {
+            "match": "regex",
+            "regex": "\\/users\\/\\d+\\/posts"
+          },
+          "$.headers.x-access-token": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": [
+          {
+            "post_id": 123,
+            "user_id": 456,
+            "image_url": "/uploads/post1.jpg",
+            "caption": "Post caption",
+            "created_at": "2024-01-01T12:00:00",
+            "author_display_name": "John Doe",
+            "author_profile_picture_url": "/uploads/profile1.jpg",
+            "like_count": 5,
+            "user_has_liked": false,
+            "comment_count": 3,
+            "recent_comments": [
+              {
+                "id": 789,
+                "content": "Great post!",
+                "author_display_name": "Jane Smith",
+                "author_profile_picture_url": "/uploads/profile2.jpg",
+                "created_at": "2024-01-01T12:30:00"
+              }
+            ]
+          }
+        ],
+        "matchingRules": {
+          "$.body": {
+            "min": 1
+          },
+          "$.body[*].*": {
+            "match": "type"
+          },
+          "$.body[*].post_id": {
+            "match": "type"
+          },
+          "$.body[*].user_id": {
+            "match": "type"
+          },
+          "$.body[*].image_url": {
+            "match": "type"
+          },
+          "$.body[*].caption": {
+            "match": "type"
+          },
+          "$.body[*].created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          },
+          "$.body[*].author_display_name": {
+            "match": "type"
+          },
+          "$.body[*].author_profile_picture_url": {
+            "match": "type"
+          },
+          "$.body[*].like_count": {
+            "match": "type"
+          },
+          "$.body[*].user_has_liked": {
+            "match": "type"
+          },
+          "$.body[*].comment_count": {
+            "match": "type"
+          },
+          "$.body[*].recent_comments": {
+            "min": 1
+          },
+          "$.body[*].recent_comments[*].*": {
+            "match": "type"
+          },
+          "$.body[*].recent_comments[*].id": {
+            "match": "type"
+          },
+          "$.body[*].recent_comments[*].content": {
+            "match": "type"
+          },
+          "$.body[*].recent_comments[*].author_display_name": {
+            "match": "type"
+          },
+          "$.body[*].recent_comments[*].author_profile_picture_url": {
+            "match": "type"
+          },
+          "$.body[*].recent_comments[*].created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to toggle like on a post",
+      "providerState": "Post exists and user is connected to post author",
+      "request": {
+        "method": "post",
+        "path": "/posts/123/like",
+        "headers": {
+          "x-access-token": "valid.jwt.token"
+        },
+        "matchingRules": {
+          "$.path": {
+            "match": "regex",
+            "regex": "\\/posts\\/\\d+\\/like"
+          },
+          "$.headers.x-access-token": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "message": "Post liked successfully",
+          "action": "liked",
+          "like_count": 6,
+          "user_has_liked": true
+        },
+        "matchingRules": {
+          "$.body.message": {
+            "match": "type"
+          },
+          "$.body.action": {
+            "match": "regex",
+            "regex": "(liked|unliked)"
+          },
+          "$.body.like_count": {
+            "match": "type"
+          },
+          "$.body.user_has_liked": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to add a comment",
+      "providerState": "Post exists and user is connected to post author",
+      "request": {
+        "method": "post",
+        "path": "/posts/123/comments",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-access-token": "valid.jwt.token"
+        },
+        "body": {
+          "content": "This is a test comment"
+        },
+        "matchingRules": {
+          "$.path": {
+            "match": "regex",
+            "regex": "\\/posts\\/\\d+\\/comments"
+          },
+          "$.headers.x-access-token": {
+            "match": "type"
+          },
+          "$.body.content": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "message": "Comment added successfully",
+          "comment": {
+            "id": 987,
+            "content": "This is a test comment",
+            "author_display_name": "Test User",
+            "author_profile_picture_url": "/uploads/profile.jpg",
+            "created_at": "2024-01-01T13:00:00"
+          }
+        },
+        "matchingRules": {
+          "$.body.comment.id": {
+            "match": "type"
+          },
+          "$.body.comment.content": {
+            "match": "type"
+          },
+          "$.body.comment.author_display_name": {
+            "match": "type"
+          },
+          "$.body.comment.author_profile_picture_url": {
+            "match": "type"
+          },
+          "$.body.comment.created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to like a non-existent post",
+      "providerState": "Post does not exist",
+      "request": {
+        "method": "post",
+        "path": "/posts/99999/like",
+        "headers": {
+          "x-access-token": "valid.jwt.token"
+        },
+        "matchingRules": {
+          "$.headers.x-access-token": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "error": "Post not found",
+          "status_code": 404
+        },
+        "matchingRules": {
+          "$.body.error": {
+            "match": "type"
+          },
+          "$.body.status_code": {
+            "match": "type"
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "2.0.0"
+    }
+  }
+}

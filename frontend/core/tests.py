@@ -31,9 +31,7 @@ class CoreViewsTest(TestCase):
         # Check messages using Django's message storage
         messages_list = list(get_messages(response.wsgi_request))
         self.assertEqual(len(messages_list), 1)
-        self.assertEqual(
-            str(messages_list[0]), "Registration successful! Please log in."
-        )
+        self.assertEqual(str(messages_list[0]), "Registration successful! Please log in.")
 
     @patch("core.views.requests.post")
     def test_register_view_invalid_form(self, mock_post):
@@ -89,9 +87,7 @@ class CoreViewsTest(TestCase):
 
     @patch("core.views.requests.post")
     def test_login_view_invalid_form(self, mock_post):
-        response = self.client.post(
-            self.login_url, {"email": "invalid-email", "password": ""}
-        )
+        response = self.client.post(self.login_url, {"email": "invalid-email", "password": ""})
 
         self.assertEqual(response.status_code, 200)  # Renders form again
         messages_list = list(get_messages(response.wsgi_request))
@@ -203,6 +199,7 @@ class ApiProxyTests(TestCase):
     def test_api_upload_image_success(self, mock_post):
         """Test successful image upload through proxy"""
         mock_post.return_value.ok = True
+        mock_post.return_value.status_code = 200
         mock_post.return_value.json.return_value = {
             "message": "File uploaded successfully",
             "filename": "/uploads/test.png",
@@ -211,9 +208,7 @@ class ApiProxyTests(TestCase):
         # Create a test file
         from django.core.files.uploadedfile import SimpleUploadedFile
 
-        test_file = SimpleUploadedFile(
-            "test.png", b"file_content", content_type="image/png"
-        )
+        test_file = SimpleUploadedFile("test.png", b"file_content", content_type="image/png")
 
         response = self.client.post(reverse("api_upload_image"), {"file": test_file})
 
@@ -237,9 +232,7 @@ class ApiProxyTests(TestCase):
 
         from django.core.files.uploadedfile import SimpleUploadedFile
 
-        test_file = SimpleUploadedFile(
-            "test.png", b"file_content", content_type="image/png"
-        )
+        test_file = SimpleUploadedFile("test.png", b"file_content", content_type="image/png")
 
         response = self.client.post(reverse("api_upload_image"), {"file": test_file})
 
@@ -251,6 +244,7 @@ class ApiProxyTests(TestCase):
     def test_api_create_post_success(self, mock_post):
         """Test successful post creation through proxy"""
         mock_post.return_value.ok = True
+        mock_post.return_value.status_code = 201
         mock_post.return_value.json.return_value = {
             "message": "Post created successfully",
             "post_id": 1,
@@ -269,7 +263,7 @@ class ApiProxyTests(TestCase):
             content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
         response_data = response.json()
         self.assertEqual(response_data["message"], "Post created successfully")
 
@@ -313,9 +307,7 @@ class ApiProxyTests(TestCase):
         """Test serving non-existent image"""
         mock_get.return_value.ok = False
 
-        response = self.client.get(
-            reverse("serve_uploaded_image", args=["nonexistent.png"])
-        )
+        response = self.client.get(reverse("serve_uploaded_image", args=["nonexistent.png"]))
 
         self.assertEqual(response.status_code, 404)
 
@@ -333,6 +325,7 @@ class LikesCommentsApiProxyTests(TestCase):
     def test_api_toggle_like_success(self, mock_post):
         """Test successful like toggle through proxy"""
         mock_post.return_value.ok = True
+        mock_post.return_value.status_code = 200
         mock_post.return_value.json.return_value = {
             "message": "Post liked successfully",
             "action": "liked",
@@ -352,6 +345,7 @@ class LikesCommentsApiProxyTests(TestCase):
     def test_api_toggle_like_unlike_success(self, mock_post):
         """Test successful unlike through proxy"""
         mock_post.return_value.ok = True
+        mock_post.return_value.status_code = 200
         mock_post.return_value.json.return_value = {
             "message": "Post unliked successfully",
             "action": "unliked",
@@ -395,6 +389,7 @@ class LikesCommentsApiProxyTests(TestCase):
     def test_api_add_comment_success(self, mock_post):
         """Test successful comment creation through proxy"""
         mock_post.return_value.ok = True
+        mock_post.return_value.status_code = 201
         mock_post.return_value.json.return_value = {
             "message": "Comment added successfully",
             "comment": {
@@ -415,7 +410,7 @@ class LikesCommentsApiProxyTests(TestCase):
             content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
         response_data = response.json()
         self.assertEqual(response_data["message"], "Comment added successfully")
         self.assertEqual(response_data["comment"]["content"], "Great post!")
@@ -425,9 +420,7 @@ class LikesCommentsApiProxyTests(TestCase):
         """Test comment creation with empty content"""
         mock_post.return_value.ok = False
         mock_post.return_value.status_code = 400
-        mock_post.return_value.json.return_value = {
-            "message": "Comment content is required"
-        }
+        mock_post.return_value.json.return_value = {"message": "Comment content is required"}
 
         import json
 
@@ -444,9 +437,7 @@ class LikesCommentsApiProxyTests(TestCase):
         """Test comment creation with content too long"""
         mock_post.return_value.ok = False
         mock_post.return_value.status_code = 400
-        mock_post.return_value.json.return_value = {
-            "message": "Comment must be 500 characters or less"
-        }
+        mock_post.return_value.json.return_value = {"message": "Comment must be 500 characters or less"}
 
         import json
 
@@ -479,6 +470,7 @@ class LikesCommentsApiProxyTests(TestCase):
     def test_api_get_comments_success(self, mock_get):
         """Test successful comment retrieval through proxy"""
         mock_get.return_value.ok = True
+        mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
             "comments": [
                 {
@@ -505,14 +497,13 @@ class LikesCommentsApiProxyTests(TestCase):
     def test_api_get_comments_with_pagination(self, mock_get):
         """Test comment retrieval with pagination parameters"""
         mock_get.return_value.ok = True
+        mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
             "comments": [],
             "pagination": {"page": 2, "per_page": 5, "total": 10, "pages": 2},
         }
 
-        response = self.client.get(
-            reverse("api_comments", args=[1]) + "?page=2&per_page=5"
-        )
+        response = self.client.get(reverse("api_comments", args=[1]) + "?page=2&per_page=5")
 
         self.assertEqual(response.status_code, 200)
         response_data = response.json()

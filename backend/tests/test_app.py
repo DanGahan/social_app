@@ -6,14 +6,13 @@ from unittest.mock import MagicMock, patch
 
 import jwt
 import pytest
-from app import app
-from models import Connection, ConnectionRequest, Post, User
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
+from app import app
+from models import Connection, ConnectionRequest, Post, User
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 @pytest.fixture
@@ -39,9 +38,7 @@ def test_token_required_missing_token(client):
 @patch("jwt.decode")
 def test_token_required_invalid_token(mock_decode, client):
     mock_decode.side_effect = jwt.InvalidTokenError
-    response = client.get(
-        "/users/me", headers={"x-access-token": "invalid_token"}
-    )
+    response = client.get("/users/me", headers={"x-access-token": "invalid_token"})
     assert response.status_code == 401
     assert response.json["message"] == "Token is invalid!"
 
@@ -88,9 +85,7 @@ def test_get_user_profile_not_found(mock_query, client, mock_jwt_decode):
         MagicMock(
             first=MagicMock(return_value=mock_current_user)
         ),  # current_user lookup
-        MagicMock(
-            first=MagicMock(return_value=None)
-        ),  # requested user not found
+        MagicMock(first=MagicMock(return_value=None)),  # requested user not found
     ]
 
     response = client.get(
@@ -102,9 +97,7 @@ def test_get_user_profile_not_found(mock_query, client, mock_jwt_decode):
 
 
 def test_register_user_missing_fields(client):
-    response = client.post(
-        "/auth/register", json={"email": "test@example.com"}
-    )
+    response = client.post("/auth/register", json={"email": "test@example.com"})
     assert response.status_code == 400
 
 
@@ -115,9 +108,7 @@ def test_login_user_success(mock_query, client):
         email="test@example.com",
         password_hash=generate_password_hash("password123"),
     )
-    mock_query.return_value.filter_by.return_value.first.return_value = (
-        mock_user
-    )
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_user
 
     response = client.post(
         "/auth/login",
@@ -148,9 +139,7 @@ def test_login_user_wrong_password(mock_query, client):
         email="test@example.com",
         password_hash=generate_password_hash("password123"),
     )
-    mock_query.return_value.filter_by.return_value.first.return_value = (
-        mock_user
-    )
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_user
     response = client.post(
         "/auth/login", json={"email": "test@example.com", "password": "wrong"}
     )
@@ -159,15 +148,9 @@ def test_login_user_wrong_password(mock_query, client):
 
 @patch("app.session.query")
 def test_get_current_user_success(mock_query, client, mock_jwt_decode):
-    mock_user = User(
-        id=1, email="current@example.com", display_name="Current User"
-    )
-    mock_query.return_value.filter_by.return_value.first.return_value = (
-        mock_user
-    )
-    response = client.get(
-        "/users/me", headers={"x-access-token": "valid_token"}
-    )
+    mock_user = User(id=1, email="current@example.com", display_name="Current User")
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_user
+    response = client.get("/users/me", headers={"x-access-token": "valid_token"})
     assert response.status_code == 200
     assert response.json["email"] == "current@example.com"
 
@@ -178,9 +161,7 @@ def test_search_users_no_query(mock_query, client, mock_jwt_decode):
     mock_query.return_value.filter_by.return_value.first.return_value = (
         mock_current_user
     )
-    response = client.get(
-        "/users/search", headers={"x-access-token": "valid_token"}
-    )
+    response = client.get("/users/search", headers={"x-access-token": "valid_token"})
     assert response.status_code == 200
     assert response.json == []
 
@@ -208,9 +189,7 @@ def test_search_users_with_connections_and_pending_requests(
     mock_user2 = User(id=2, display_name="user2")
     mock_user3 = User(id=3, display_name="user3")
     mock_connection = Connection(user_id1=1, user_id2=2)
-    mock_request = ConnectionRequest(
-        from_user_id=3, to_user_id=1, status="pending"
-    )
+    mock_request = ConnectionRequest(from_user_id=3, to_user_id=1, status="pending")
     mock_query.return_value.filter_by.return_value.first.return_value = (
         mock_current_user
     )
@@ -243,9 +222,7 @@ def test_request_connection_to_self(mock_query, client, mock_jwt_decode):
 
 
 @patch("app.session.query")
-def test_request_connection_missing_to_user_id(
-    mock_query, client, mock_jwt_decode
-):
+def test_request_connection_missing_to_user_id(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_query.return_value.filter_by.return_value.first.return_value = (
         mock_current_user
@@ -259,9 +236,7 @@ def test_request_connection_missing_to_user_id(
 
 
 @patch("app.session.query")
-def test_request_connection_already_exists(
-    mock_query, client, mock_jwt_decode
-):
+def test_request_connection_already_exists(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_connection = Connection(user_id1=1, user_id2=2)
     mock_query.return_value.filter_by.side_effect = [
@@ -298,9 +273,7 @@ def test_request_connection_integrity_error(
 
 @patch("app.session.add")
 @patch("app.session.query")
-def test_request_connection_exception(
-    mock_query, mock_add, client, mock_jwt_decode
-):
+def test_request_connection_exception(mock_query, mock_add, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_query.return_value.filter_by.side_effect = [
         MagicMock(first=MagicMock(return_value=mock_current_user)),
@@ -316,9 +289,7 @@ def test_request_connection_exception(
 
 
 @patch("app.session.query")
-def test_accept_connection_missing_request_id(
-    mock_query, client, mock_jwt_decode
-):
+def test_accept_connection_missing_request_id(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     # Configure mock_query to return different mocks for subsequent calls
     mock_query.side_effect = [
@@ -349,15 +320,11 @@ def test_accept_connection_missing_request_id(
 
 
 @patch("app.session.query")
-def test_accept_connection_request_not_found(
-    mock_query, client, mock_jwt_decode
-):
+def test_accept_connection_request_not_found(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     # Create a mock for the ConnectionRequest query that returns None
     mock_connection_request_query = MagicMock()
-    mock_connection_request_query.filter_by.return_value.first.return_value = (
-        None
-    )
+    mock_connection_request_query.filter_by.return_value.first.return_value = None
 
     # Configure mock_query to return the mock_current_user for the first call (User)  # For User query in token_required
     # and the mock_connection_request_query for the second call (ConnectionRequest)  # For ConnectionRequest query in accept_connection
@@ -383,9 +350,7 @@ def test_accept_connection_request_not_found(
 
 
 @patch("app.session.query")
-def test_deny_connection_missing_request_id(
-    mock_query, client, mock_jwt_decode
-):
+def test_deny_connection_missing_request_id(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_query.return_value.filter_by.return_value.first.return_value = (
         mock_current_user
@@ -397,9 +362,7 @@ def test_deny_connection_missing_request_id(
 
 
 @patch("app.session.query")
-def test_deny_connection_request_not_found(
-    mock_query, client, mock_jwt_decode
-):
+def test_deny_connection_request_not_found(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_query.return_value.filter_by.side_effect = [
         MagicMock(first=MagicMock(return_value=mock_current_user)),
@@ -415,9 +378,7 @@ def test_deny_connection_request_not_found(
 
 @patch("app.session.commit")
 @patch("app.session.query")
-def test_deny_connection_exception(
-    mock_query, mock_commit, client, mock_jwt_decode
-):
+def test_deny_connection_exception(mock_query, mock_commit, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_request = ConnectionRequest(
         id=1, from_user_id=2, to_user_id=1, status="pending"
@@ -436,9 +397,7 @@ def test_deny_connection_exception(
 
 
 @patch("app.session.query")
-def test_get_user_connections_unauthorized(
-    mock_query, client, mock_jwt_decode
-):
+def test_get_user_connections_unauthorized(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_query.return_value.filter_by.return_value.first.return_value = (
         mock_current_user
@@ -450,9 +409,7 @@ def test_get_user_connections_unauthorized(
 
 
 @patch("app.session.query")
-def test_get_user_connections_no_connections(
-    mock_query, client, mock_jwt_decode
-):
+def test_get_user_connections_no_connections(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_query.return_value.filter_by.return_value.first.return_value = (
         mock_current_user
@@ -466,18 +423,14 @@ def test_get_user_connections_no_connections(
 
 
 @patch("app.session.query")
-def test_get_user_connections_with_connections(
-    mock_query, client, mock_jwt_decode
-):
+def test_get_user_connections_with_connections(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_user2 = User(id=2, display_name="user2")
     mock_connection = Connection(user_id1=2, user_id2=1)
     mock_query.return_value.filter_by.return_value.first.return_value = (
         mock_current_user
     )
-    mock_query.return_value.filter.return_value.all.return_value = [
-        mock_connection
-    ]
+    mock_query.return_value.filter.return_value.all.return_value = [mock_connection]
     mock_query.return_value.filter_by.return_value.first.side_effect = [
         mock_current_user,
         mock_user2,
@@ -490,9 +443,7 @@ def test_get_user_connections_with_connections(
 
 
 @patch("app.session.query")
-def test_get_pending_requests_unauthorized(
-    mock_query, client, mock_jwt_decode
-):
+def test_get_pending_requests_unauthorized(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_query.return_value.filter_by.return_value.first.return_value = (
         mock_current_user
@@ -518,9 +469,7 @@ def test_get_pending_requests_no_requests(mock_query, client, mock_jwt_decode):
 
 
 @patch("app.session.query")
-def test_get_pending_requests_with_requests(
-    mock_query, client, mock_jwt_decode
-):
+def test_get_pending_requests_with_requests(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_user2 = User(id=2, display_name="user2")
     mock_request = ConnectionRequest(
@@ -533,9 +482,7 @@ def test_get_pending_requests_with_requests(
     mock_query.return_value.filter_by.return_value.first.return_value = (
         mock_current_user
     )
-    mock_query.return_value.filter_by.return_value.all.return_value = [
-        mock_request
-    ]
+    mock_query.return_value.filter_by.return_value.all.return_value = [mock_request]
     mock_query.return_value.filter_by.return_value.first.side_effect = [
         mock_current_user,
         mock_user2,
@@ -587,9 +534,7 @@ def test_get_sent_requests_with_requests(mock_query, client, mock_jwt_decode):
     mock_query.return_value.filter_by.return_value.first.return_value = (
         mock_current_user
     )
-    mock_query.return_value.filter_by.return_value.all.return_value = [
-        mock_request
-    ]
+    mock_query.return_value.filter_by.return_value.all.return_value = [mock_request]
     mock_query.return_value.filter_by.return_value.first.side_effect = [
         mock_current_user,
         mock_user2,
@@ -607,9 +552,7 @@ def test_get_user_posts_unauthorized(mock_query, client, mock_jwt_decode):
     mock_query.return_value.filter_by.return_value.first.return_value = (
         mock_current_user
     )
-    response = client.get(
-        "/users/2/posts", headers={"x-access-token": "valid_token"}
-    )
+    response = client.get("/users/2/posts", headers={"x-access-token": "valid_token"})
     assert response.status_code == 403
 
 
@@ -622,18 +565,14 @@ def test_get_user_posts_no_posts(mock_query, client, mock_jwt_decode):
     mock_query.return_value.filter_by.return_value.order_by.return_value.all.return_value = (
         []
     )
-    response = client.get(
-        "/users/1/posts", headers={"x-access-token": "valid_token"}
-    )
+    response = client.get("/users/1/posts", headers={"x-access-token": "valid_token"})
     assert response.status_code == 200
     assert response.json == []
 
 
 @patch("app.session.query")
 def test_get_user_posts_with_posts(mock_query, client, mock_jwt_decode):
-    mock_current_user = User(
-        id=1, display_name="test", profile_picture_url="test.jpg"
-    )
+    mock_current_user = User(id=1, display_name="test", profile_picture_url="test.jpg")
     mock_post = Post(
         id=1,
         caption="test post",
@@ -644,9 +583,7 @@ def test_get_user_posts_with_posts(mock_query, client, mock_jwt_decode):
 
     # Mock the sequence of queries: User lookup, Posts query, Like queries, Comment queries
     mock_user_query = MagicMock()
-    mock_user_query.filter_by.return_value.first.return_value = (
-        mock_current_user
-    )
+    mock_user_query.filter_by.return_value.first.return_value = mock_current_user
 
     mock_posts_query = MagicMock()
     mock_posts_query.filter_by.return_value.order_by.return_value.all.return_value = [
@@ -677,17 +614,13 @@ def test_get_user_posts_with_posts(mock_query, client, mock_jwt_decode):
         mock_comment_query,
     ]
 
-    response = client.get(
-        "/users/1/posts", headers={"x-access-token": "valid_token"}
-    )
+    response = client.get("/users/1/posts", headers={"x-access-token": "valid_token"})
     assert response.status_code == 200
     assert len(response.json) == 1
 
 
 @patch("app.session.query")
-def test_get_connections_posts_unauthorized(
-    mock_query, client, mock_jwt_decode
-):
+def test_get_connections_posts_unauthorized(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_query.return_value.filter_by.return_value.first.return_value = (
         mock_current_user
@@ -714,25 +647,17 @@ def test_get_connections_posts_no_posts(mock_query, client, mock_jwt_decode):
 
 @patch("app.session.query")
 def test_get_connections_posts_with_posts(mock_query, client, mock_jwt_decode):
-    mock_current_user = User(
-        id=1, display_name="test", profile_picture_url="test.jpg"
-    )
-    mock_user2 = User(
-        id=2, display_name="user2", profile_picture_url="user2.jpg"
-    )
+    mock_current_user = User(id=1, display_name="test", profile_picture_url="test.jpg")
+    mock_user2 = User(id=2, display_name="user2", profile_picture_url="user2.jpg")
     mock_connection = Connection(user_id1=1, user_id2=2)
     mock_post = Post(id=1, user_id=2, created_at=datetime.datetime.utcnow())
 
     # Mock the sequence of queries: User lookup, Connections query, Posts query, Post user lookup, Like queries, Comment queries
     mock_user_query = MagicMock()
-    mock_user_query.filter_by.return_value.first.return_value = (
-        mock_current_user
-    )
+    mock_user_query.filter_by.return_value.first.return_value = mock_current_user
 
     mock_connections_query = MagicMock()
-    mock_connections_query.filter.return_value.all.return_value = [
-        mock_connection
-    ]
+    mock_connections_query.filter.return_value.all.return_value = [mock_connection]
 
     mock_posts_query = MagicMock()
     mock_posts_query.filter.return_value.order_by.return_value.all.return_value = [
@@ -776,9 +701,7 @@ def test_get_connections_posts_with_posts(mock_query, client, mock_jwt_decode):
 
 
 @patch("app.session.query")
-def test_get_connections_posts_post_user_none(
-    mock_query, client, mock_jwt_decode
-):
+def test_get_connections_posts_post_user_none(mock_query, client, mock_jwt_decode):
     mock_current_user = User(id=1)
     mock_connection = Connection(user_id1=1, user_id2=2)
     mock_post = Post(id=1, user_id=2)
@@ -786,9 +709,7 @@ def test_get_connections_posts_post_user_none(
         MagicMock(first=MagicMock(return_value=mock_current_user)),
         MagicMock(first=MagicMock(return_value=None)),
     ]
-    mock_query.return_value.filter.return_value.all.return_value = [
-        mock_connection
-    ]
+    mock_query.return_value.filter.return_value.all.return_value = [mock_connection]
     mock_query.return_value.filter.return_value.order_by.return_value.all.return_value = [
         mock_post
     ]
@@ -800,6 +721,7 @@ def test_get_connections_posts_post_user_none(
 
 
 @patch("flask.app.Flask.run")
+@patch.dict("os.environ", {"FLASK_HOST": "0.0.0.0"}, clear=False)
 def test_main(mock_run):
     runpy.run_module("app", run_name="__main__")
     mock_run.assert_called_with(host="0.0.0.0", port=5000)

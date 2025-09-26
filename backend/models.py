@@ -1,5 +1,13 @@
-from sqlalchemy import (TIMESTAMP, Boolean, Column, ForeignKey, Integer,
-                        String, Text, UniqueConstraint, func)
+from sqlalchemy import (
+    TIMESTAMP,
+    Column,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -17,7 +25,7 @@ class User(Base):
     bio = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP, default=func.now())
 
-    posts = relationship("Post", back_populates="user")
+    posts = relationship("Post", back_populates="user", cascade="all, delete-orphan")
     # Relationships for connections
     connections_as_user1 = relationship(
         "Connection",

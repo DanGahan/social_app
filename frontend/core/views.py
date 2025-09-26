@@ -16,9 +16,7 @@ from django.urls import reverse
 from .forms import CreatePostForm, LoginForm, ProfileEditForm, RegistrationForm
 
 # Define the Flask backend URL
-FLASK_BACKEND_URL = (
-    "http://social_backend:5000"  # Use the service name from docker-compose
-)
+FLASK_BACKEND_URL = "http://social_backend:5000"  # Use the service name from docker-compose
 
 
 def register_view(request):
@@ -67,9 +65,7 @@ def login_view(request):
                     # messages.success(request, 'Login successful!') # Removed this line
                     return redirect(reverse("home"))
                 else:
-                    messages.error(
-                        request, "Login failed: Invalid response from server."
-                    )
+                    messages.error(request, "Login failed: Invalid response from server.")
             except requests.exceptions.RequestException as e:
                 messages.error(request, f"Login failed: {e}")
         else:
@@ -112,9 +108,7 @@ def home_view(request):
         request.session["display_name"] = user_data.get("display_name")
 
         # Fetch profile data for the profile tab
-        profile_response = requests.get(
-            f"{FLASK_BACKEND_URL}/users/{user_id}/profile", headers=headers
-        )
+        profile_response = requests.get(f"{FLASK_BACKEND_URL}/users/{user_id}/profile", headers=headers)
         profile_response.raise_for_status()
         profile_data = profile_response.json()
         profile_form = ProfileEditForm(
@@ -131,9 +125,7 @@ def home_view(request):
 
     # Handle POST requests for profile update and create post
     if request.method == "POST":
-        if (
-            "update_profile" in request.POST
-        ):  # Check if profile update button was clicked
+        if "update_profile" in request.POST:  # Check if profile update button was clicked
             profile_form = ProfileEditForm(request.POST)
             if profile_form.is_valid():
                 display_name = profile_form.cleaned_data["display_name"]
@@ -161,18 +153,12 @@ def home_view(request):
                     response.raise_for_status()
                     messages.success(request, "Profile updated successfully!")
                     # Re-fetch user data to update session with new profile_picture_url and display_name
-                    user_response = requests.get(
-                        f"{FLASK_BACKEND_URL}/users/me", headers=headers
-                    )
+                    user_response = requests.get(f"{FLASK_BACKEND_URL}/users/me", headers=headers)
                     user_response.raise_for_status()
                     user_data = user_response.json()
-                    request.session["profile_picture_url"] = user_data.get(
-                        "profile_picture_url"
-                    )
+                    request.session["profile_picture_url"] = user_data.get("profile_picture_url")
                     request.session["display_name"] = user_data.get("display_name")
-                    return redirect(
-                        reverse("home")
-                    )  # Redirect to home to show updated info
+                    return redirect(reverse("home"))  # Redirect to home to show updated info
                 except requests.exceptions.RequestException as e:
                     messages.error(request, f"Failed to update profile: {e}")
             else:
@@ -199,9 +185,7 @@ def home_view(request):
                     )
                     response.raise_for_status()
                     messages.success(request, "Post created successfully!")
-                    return redirect(
-                        reverse("home")
-                    )  # Redirect to home to show new post
+                    return redirect(reverse("home"))  # Redirect to home to show new post
                 except requests.exceptions.RequestException as e:
                     messages.error(request, f"Failed to create post: {e}")
             else:
@@ -228,9 +212,7 @@ def home_view(request):
     if user_id:
         try:
             headers = {"x-access-token": jwt_token}
-            posts_response = requests.get(
-                f"{FLASK_BACKEND_URL}/users/{user_id}/posts", headers=headers
-            )
+            posts_response = requests.get(f"{FLASK_BACKEND_URL}/users/{user_id}/posts", headers=headers)
             posts_response.raise_for_status()
             my_posts = posts_response.json()
             for post in my_posts:
@@ -268,12 +250,8 @@ def home_view(request):
             for req in pending_requests_raw:
                 processed_req = req.copy()
                 if "from_user" in req and req["from_user"]:
-                    processed_req["from_user_display_name"] = req["from_user"].get(
-                        "display_name", "N/A"
-                    )
-                    processed_req["from_user_profile_picture_url"] = req[
-                        "from_user"
-                    ].get(
+                    processed_req["from_user_display_name"] = req["from_user"].get("display_name", "N/A")
+                    processed_req["from_user_profile_picture_url"] = req["from_user"].get(
                         "profile_picture_url",
                         "/static/default_profile_pic.png",
                     )
@@ -295,9 +273,7 @@ def home_view(request):
             for req in sent_requests_raw:
                 processed_req = req.copy()
                 if "to_user" in req and req["to_user"]:
-                    processed_req["to_user_display_name"] = req["to_user"].get(
-                        "display_name", "N/A"
-                    )
+                    processed_req["to_user_display_name"] = req["to_user"].get("display_name", "N/A")
                     processed_req["to_user_profile_picture_url"] = req["to_user"].get(
                         "profile_picture_url",
                         "/static/default_profile_pic.png",
@@ -435,9 +411,7 @@ def search_users_view(request):
 
     try:
         headers = {"x-access-token": jwt_token}
-        response = requests.get(
-            f"{FLASK_BACKEND_URL}/users/search?query={query}", headers=headers
-        )
+        response = requests.get(f"{FLASK_BACKEND_URL}/users/search?query={query}", headers=headers)
         response.raise_for_status()
         users = response.json()
         return JsonResponse({"users": users})
@@ -453,9 +427,7 @@ def get_user_profile_and_posts(request, user_id):
     try:
         headers = {"x-access-token": jwt_token}
         # Fetch user profile
-        profile_response = requests.get(
-            f"{FLASK_BACKEND_URL}/users/{user_id}/profile", headers=headers
-        )
+        profile_response = requests.get(f"{FLASK_BACKEND_URL}/users/{user_id}/profile", headers=headers)
         profile_response.raise_for_status()  # This will raise an exception for 4xx/5xx responses
         try:
             profile_data = profile_response.json()
@@ -466,9 +438,7 @@ def get_user_profile_and_posts(request, user_id):
             )
 
         # Fetch user posts
-        posts_response = requests.get(
-            f"{FLASK_BACKEND_URL}/users/{user_id}/posts", headers=headers
-        )
+        posts_response = requests.get(f"{FLASK_BACKEND_URL}/users/{user_id}/posts", headers=headers)
         posts_response.raise_for_status()  # This will raise an exception for 4xx/5xx responses
         try:
             user_posts = posts_response.json()
@@ -514,7 +484,7 @@ def api_request_connection(request):
                     headers=headers,
                 )
                 response.raise_for_status()
-                return JsonResponse(response.json())
+                return JsonResponse(response.json(), status=response.status_code)
             except requests.exceptions.RequestException as e:
                 return JsonResponse({"error": "Failed to send request."}, status=500)
         else:
@@ -565,7 +535,7 @@ def api_upload_image(request):
 
             # Return the backend response
             if response.ok:
-                return JsonResponse(response.json())
+                return JsonResponse(response.json(), status=response.status_code)
             else:
                 return JsonResponse(
                     {"error": response.text or "Upload failed"},
@@ -591,7 +561,10 @@ def api_create_post(request):
             headers = {"x-access-token": jwt_token, "Content-Type": "application/json"}
 
             # Forward the JSON data to the backend
-            data = json.loads(request.body)
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({"error": "Invalid JSON data."}, status=400)
 
             response = requests.post(
                 f"{FLASK_BACKEND_URL}/posts",
@@ -601,7 +574,10 @@ def api_create_post(request):
 
             # Return the backend response
             if response.ok:
-                return JsonResponse(response.json())
+                try:
+                    return JsonResponse(response.json(), status=response.status_code)
+                except json.JSONDecodeError:
+                    return JsonResponse({"error": "Malformed response from backend"}, status=502)
             else:
                 try:
                     error_data = response.json()
@@ -612,10 +588,10 @@ def api_create_post(request):
                         status=response.status_code,
                     )
 
+        except requests.exceptions.Timeout as e:
+            return JsonResponse({"error": "Request timed out."}, status=504)
         except requests.exceptions.RequestException as e:
             return JsonResponse({"error": "Failed to create post."}, status=500)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON data."}, status=400)
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
 
@@ -662,7 +638,7 @@ def api_toggle_like(request, post_id):
 
             # Return the backend response
             if response.ok:
-                return JsonResponse(response.json())
+                return JsonResponse(response.json(), status=response.status_code)
             else:
                 try:
                     error_data = response.json()
@@ -702,7 +678,7 @@ def api_add_comment(request, post_id):
 
             # Return the backend response
             if response.ok:
-                return JsonResponse(response.json())
+                return JsonResponse(response.json(), status=response.status_code)
             else:
                 try:
                     error_data = response.json()
@@ -743,7 +719,7 @@ def api_get_comments(request, post_id):
 
             # Return the backend response
             if response.ok:
-                return JsonResponse(response.json())
+                return JsonResponse(response.json(), status=response.status_code)
             else:
                 try:
                     error_data = response.json()
@@ -783,7 +759,7 @@ def api_comments(request, post_id):
 
             # Return the backend response
             if response.ok:
-                return JsonResponse(response.json())
+                return JsonResponse(response.json(), status=response.status_code)
             else:
                 try:
                     error_data = response.json()
@@ -814,7 +790,7 @@ def api_comments(request, post_id):
 
             # Return the backend response
             if response.ok:
-                return JsonResponse(response.json())
+                return JsonResponse(response.json(), status=response.status_code)
             else:
                 try:
                     error_data = response.json()

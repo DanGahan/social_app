@@ -1,12 +1,12 @@
 import os
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import jwt
 import pytest
-from app import allowed_file, app
-from models import Post, User
 from werkzeug.datastructures import FileStorage
+
+from app import allowed_file, app
+from models import User
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -87,24 +87,37 @@ def test_upload_file_invalid_file_type(client, mock_jwt_decode, mock_current_use
     assert response.json["message"] == "File type not allowed"
 
 
+@patch("werkzeug.datastructures.FileStorage.save")
 @patch("app.secure_filename", return_value="test_image.png")
-@patch("os.path.join", return_value="/tmp/test_image.png")
+@patch("os.path.join", return_value="/secure/temp/test_image.png")
 def test_upload_file_success(
     mock_join,
     mock_secure_filename,
+    mock_save,
     client,
     mock_jwt_decode,
     mock_current_user,
 ):
     import io
 
-    data = {"file": (io.BytesIO(b"dummy image data"), "test_image.png")}
+    data = {
+        "file": FileStorage(
+            stream=io.BytesIO(b"dummy image data"),
+            filename="test_image.png",
+            content_type="image/png",
+        )
+    }
+
     response = client.post(
         "/posts/upload",
         data=data,
         content_type="multipart/form-data",
         headers={"x-access-token": "valid_token"},
     )
+
+    # Debug output to see what's happening
+    print(f"Status: {response.status_code}")
+    print(f"Response: {response.get_json()}")
 
     assert response.status_code == 200
     assert response.json["message"] == "File uploaded successfully"
@@ -152,7 +165,7 @@ def test_create_post_success(
 def test_serve_uploaded_file_success(mock_send_from_directory, client):
     mock_send_from_directory.return_value = "file_content"
 
-    response = client.get("/uploads/test_image.png")
+    client.get("/uploads/test_image.png")
 
     mock_send_from_directory.assert_called_once_with(
         app.config["UPLOAD_FOLDER"], "test_image.png"
@@ -161,7 +174,7 @@ def test_serve_uploaded_file_success(mock_send_from_directory, client):
 
 def test_serve_uploaded_file_not_found(client):
     # Test when file doesn't exist - Flask will handle the 404
-    response = client.get("/uploads/nonexistent.png")
+    client.get("/uploads/nonexistent.png")
     # The actual behavior depends on Flask's send_from_directory implementation
     # In a real scenario, this would return a 404, but in testing it might be different
 
@@ -171,12 +184,9 @@ def test_serve_uploaded_file_not_found(client):
 def test_upload_file_save_error(
     mock_secure_filename, mock_open, client, mock_jwt_decode, mock_current_user
 ):
-    import io
-
-    data = {"file": (io.BytesIO(b"dummy image data"), "test_image.png")}
-
     # This test would be more complex in practice as it depends on file system operations
     # For now, we'll focus on the endpoint logic rather than file system errors
+    pass
 
 
 def test_upload_file_missing_token(client):
@@ -213,7 +223,7 @@ def test_upload_file_large_filename(client, mock_jwt_decode, mock_current_user):
 
     with patch("app.secure_filename") as mock_secure:
         mock_secure.return_value = "safe_filename.png"
-        response = client.post(
+        client.post(
             "/posts/upload",
             data=data,
             content_type="multipart/form-data",
