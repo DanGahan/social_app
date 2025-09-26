@@ -728,27 +728,27 @@
                         capturedImageBlob = file;
 
                         // Show preview of selected image - validate file type before creating URL
-                        const img = document.createElement('img');
                         // Additional validation: check MIME type for security
                         if (file.type && file.type.startsWith('image/')) {
+                            const img = document.createElement('img');
                             const objectUrl = URL.createObjectURL(file);
                             // Safely set the src by validating it's a blob URL
                             if (objectUrl.startsWith('blob:')) {
                                 img.src = objectUrl;
+                                img.style.maxWidth = '320px';
+                                img.style.maxHeight = '240px';
+                                img.style.border = '2px solid green';
+                                img.style.display = 'block';
+                                img.style.marginTop = '10px';
+
+                                // Clear previous preview
+                                const existingImg = document.getElementById('camera-fallback').querySelector('img');
+                                if (existingImg) {
+                                    existingImg.remove();
+                                }
+                                document.getElementById('camera-fallback').appendChild(img);
                             }
                         }
-                        img.style.maxWidth = '320px';
-                        img.style.maxHeight = '240px';
-                        img.style.border = '2px solid green';
-                        img.style.display = 'block';
-                        img.style.marginTop = '10px';
-
-                        // Clear previous preview
-                        const existingImg = document.getElementById('camera-fallback').querySelector('img');
-                        if (existingImg) {
-                            existingImg.remove();
-                        }
-                        document.getElementById('camera-fallback').appendChild(img);
 
                         document.getElementById('camera-error').innerText = 'Photo selected successfully!';
                     } else {
