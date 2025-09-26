@@ -116,8 +116,8 @@ print_result "Performance Tests" $PERFORMANCE_RESULT
 print_section "Static Code Analysis & Security"
 
 echo "🔍 Running Backend Security Scan (Bandit)..."
-docker-compose exec backend bandit -r . -f json -o bandit-report.json || SECURITY_RESULT=$?
-docker-compose exec backend bandit -r . || true  # Show results
+docker-compose exec backend bandit -r . --configfile pyproject.toml -f json -o bandit-report.json || SECURITY_RESULT=$?
+docker-compose exec backend bandit -r . --configfile pyproject.toml || true  # Show results
 
 echo "🛡️ Running Dependency Security Check (Safety)..."
 docker-compose exec backend safety check --json || SECURITY_RESULT=$((SECURITY_RESULT + $?))
@@ -126,7 +126,7 @@ echo "📊 Running Code Quality Analysis (Pylint)..."
 docker-compose exec backend pylint app.py models.py --output-format=text || SECURITY_RESULT=$((SECURITY_RESULT + $?))
 
 echo "🎨 Running Frontend Security Scan..."
-docker-compose exec frontend bandit -r . -f json -o bandit-report.json || SECURITY_RESULT=$((SECURITY_RESULT + $?))
+docker-compose exec frontend bandit -r . --configfile pyproject.toml -f json -o bandit-report.json 2>/dev/null || SECURITY_RESULT=$((SECURITY_RESULT + $?))
 docker-compose exec frontend safety check --json || true
 
 print_result "Security & Code Quality" $SECURITY_RESULT
