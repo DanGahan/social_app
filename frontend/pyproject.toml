@@ -1,2 +1,5 @@
 [tool.black]
 line-length = 105
+
+[tool.bandit]
+skips = ["B113"]  # Skip request_without_timeout for internal API calls

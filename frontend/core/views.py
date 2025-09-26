@@ -18,6 +18,9 @@ from .forms import CreatePostForm, LoginForm, ProfileEditForm, RegistrationForm
 # Define the Flask backend URL
 FLASK_BACKEND_URL = "http://social_backend:5000"  # Use the service name from docker-compose
 
+# Request timeout in seconds
+REQUEST_TIMEOUT = 30
+
 
 def register_view(request):
     if request.method == "POST":
@@ -30,6 +33,7 @@ def register_view(request):
                 response = requests.post(
                     f"{FLASK_BACKEND_URL}/auth/register",
                     json={"email": email, "password": password},
+                    timeout=REQUEST_TIMEOUT,
                 )
                 response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
                 messages.success(request, "Registration successful! Please log in.")
@@ -54,6 +58,7 @@ def login_view(request):
                 response = requests.post(
                     f"{FLASK_BACKEND_URL}/auth/login",
                     json={"email": email, "password": password},
+                    timeout=REQUEST_TIMEOUT,
                 )
                 response.raise_for_status()
 
@@ -97,7 +102,9 @@ def home_view(request):
     # Fetch user_id and profile info from backend /users/me endpoint
     try:
         headers = {"x-access-token": jwt_token}
-        user_response = requests.get(f"{FLASK_BACKEND_URL}/users/me", headers=headers)
+        user_response = requests.get(
+            f"{FLASK_BACKEND_URL}/users/me", headers=headers, timeout=REQUEST_TIMEOUT
+        )
         user_response.raise_for_status()
         user_data = user_response.json()
         user_id = user_data.get("user_id")
@@ -108,7 +115,9 @@ def home_view(request):
         request.session["display_name"] = user_data.get("display_name")
 
         # Fetch profile data for the profile tab
-        profile_response = requests.get(f"{FLASK_BACKEND_URL}/users/{user_id}/profile", headers=headers)
+        profile_response = requests.get(
+            f"{FLASK_BACKEND_URL}/users/{user_id}/profile", headers=headers, timeout=REQUEST_TIMEOUT
+        )
         profile_response.raise_for_status()
         profile_data = profile_response.json()
         profile_form = ProfileEditForm(
@@ -149,11 +158,14 @@ def home_view(request):
                         f"{FLASK_BACKEND_URL}/users/{user_id}/profile",
                         json=update_data,
                         headers=headers,
+                        timeout=REQUEST_TIMEOUT,
                     )
                     response.raise_for_status()
                     messages.success(request, "Profile updated successfully!")
                     # Re-fetch user data to update session with new profile_picture_url and display_name
-                    user_response = requests.get(f"{FLASK_BACKEND_URL}/users/me", headers=headers)
+                    user_response = requests.get(
+                        f"{FLASK_BACKEND_URL}/users/me", headers=headers, timeout=REQUEST_TIMEOUT
+                    )
                     user_response.raise_for_status()
                     user_data = user_response.json()
                     request.session["profile_picture_url"] = user_data.get("profile_picture_url")
@@ -182,6 +194,7 @@ def home_view(request):
                         f"{FLASK_BACKEND_URL}/posts",
                         json=post_data,
                         headers=headers,
+                        timeout=REQUEST_TIMEOUT,
                     )
                     response.raise_for_status()
                     messages.success(request, "Post created successfully!")
@@ -212,7 +225,9 @@ def home_view(request):
     if user_id:
         try:
             headers = {"x-access-token": jwt_token}
-            posts_response = requests.get(f"{FLASK_BACKEND_URL}/users/{user_id}/posts", headers=headers)
+            posts_response = requests.get(
+                f"{FLASK_BACKEND_URL}/users/{user_id}/posts", headers=headers, timeout=REQUEST_TIMEOUT
+            )
             posts_response.raise_for_status()
             my_posts = posts_response.json()
             for post in my_posts:
@@ -230,6 +245,7 @@ def home_view(request):
             connections_response = requests.get(
                 f"{FLASK_BACKEND_URL}/users/{user_id}/connections",
                 headers=headers,
+                timeout=REQUEST_TIMEOUT,
             )
             connections_response.raise_for_status()
             connections = connections_response.json()
@@ -411,7 +427,9 @@ def search_users_view(request):
 
     try:
         headers = {"x-access-token": jwt_token}
-        response = requests.get(f"{FLASK_BACKEND_URL}/users/search?query={query}", headers=headers)
+        response = requests.get(
+            f"{FLASK_BACKEND_URL}/users/search?query={query}", headers=headers, timeout=REQUEST_TIMEOUT
+        )
         response.raise_for_status()
         users = response.json()
         return JsonResponse({"users": users})
@@ -427,7 +445,9 @@ def get_user_profile_and_posts(request, user_id):
     try:
         headers = {"x-access-token": jwt_token}
         # Fetch user profile
-        profile_response = requests.get(f"{FLASK_BACKEND_URL}/users/{user_id}/profile", headers=headers)
+        profile_response = requests.get(
+            f"{FLASK_BACKEND_URL}/users/{user_id}/profile", headers=headers, timeout=REQUEST_TIMEOUT
+        )
         profile_response.raise_for_status()  # This will raise an exception for 4xx/5xx responses
         try:
             profile_data = profile_response.json()
