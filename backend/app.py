@@ -1,3 +1,5 @@
+"""Flask backend application for social media platform."""
+
 import datetime
 import logging
 import os
@@ -210,7 +212,7 @@ def request_connection(current_user):
         return (
             jsonify(
                 {
-                    "message": "Connection request already exists or a similar issue occurred."
+                    "message": "Connection request already exists or similar issue occurred."
                 }
             ),
             409,
