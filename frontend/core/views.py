@@ -16,13 +16,16 @@ from django.urls import reverse
 from .forms import CreatePostForm, LoginForm, ProfileEditForm, RegistrationForm
 
 # Define the Flask backend URL
-FLASK_BACKEND_URL = "http://social_backend:5000"  # Use the service name from docker-compose
+FLASK_BACKEND_URL = (
+    "http://social_backend:5000"  # Use the service name from docker-compose
+)
 
 # Request timeout in seconds
 REQUEST_TIMEOUT = 30
 
 
 def register_view(request):
+    """Handle user registration form and processing."""
     if request.method == "POST":
         form = RegistrationForm(request.POST)
         if form.is_valid():
@@ -48,6 +51,7 @@ def register_view(request):
 
 
 def login_view(request):
+    """Handle user login form and authentication."""
     if request.method == "POST":
         form = LoginForm(request.POST)
         if form.is_valid():
@@ -70,7 +74,9 @@ def login_view(request):
                     # messages.success(request, 'Login successful!') # Removed this line
                     return redirect(reverse("home"))
                 else:
-                    messages.error(request, "Login failed: Invalid response from server.")
+                    messages.error(
+                        request, "Login failed: Invalid response from server."
+                    )
             except requests.exceptions.RequestException as e:
                 messages.error(request, f"Login failed: {e}")
         else:
@@ -81,6 +87,7 @@ def login_view(request):
 
 
 def home_view(request):
+    """Display the main home page with user content."""
     jwt_token = request.session.get("jwt_token")
 
     if not jwt_token:
@@ -116,7 +123,9 @@ def home_view(request):
 
         # Fetch profile data for the profile tab
         profile_response = requests.get(
-            f"{FLASK_BACKEND_URL}/users/{user_id}/profile", headers=headers, timeout=REQUEST_TIMEOUT
+            f"{FLASK_BACKEND_URL}/users/{user_id}/profile",
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
         )
         profile_response.raise_for_status()
         profile_data = profile_response.json()
@@ -134,7 +143,9 @@ def home_view(request):
 
     # Handle POST requests for profile update and create post
     if request.method == "POST":
-        if "update_profile" in request.POST:  # Check if profile update button was clicked
+        if (
+            "update_profile" in request.POST
+        ):  # Check if profile update button was clicked
             profile_form = ProfileEditForm(request.POST)
             if profile_form.is_valid():
                 display_name = profile_form.cleaned_data["display_name"]
@@ -164,13 +175,19 @@ def home_view(request):
                     messages.success(request, "Profile updated successfully!")
                     # Re-fetch user data to update session with new profile_picture_url and display_name
                     user_response = requests.get(
-                        f"{FLASK_BACKEND_URL}/users/me", headers=headers, timeout=REQUEST_TIMEOUT
+                        f"{FLASK_BACKEND_URL}/users/me",
+                        headers=headers,
+                        timeout=REQUEST_TIMEOUT,
                     )
                     user_response.raise_for_status()
                     user_data = user_response.json()
-                    request.session["profile_picture_url"] = user_data.get("profile_picture_url")
+                    request.session["profile_picture_url"] = user_data.get(
+                        "profile_picture_url"
+                    )
                     request.session["display_name"] = user_data.get("display_name")
-                    return redirect(reverse("home"))  # Redirect to home to show updated info
+                    return redirect(
+                        reverse("home")
+                    )  # Redirect to home to show updated info
                 except requests.exceptions.RequestException as e:
                     messages.error(request, f"Failed to update profile: {e}")
             else:
@@ -198,7 +215,9 @@ def home_view(request):
                     )
                     response.raise_for_status()
                     messages.success(request, "Post created successfully!")
-                    return redirect(reverse("home"))  # Redirect to home to show new post
+                    return redirect(
+                        reverse("home")
+                    )  # Redirect to home to show new post
                 except requests.exceptions.RequestException as e:
                     messages.error(request, f"Failed to create post: {e}")
             else:
@@ -226,7 +245,9 @@ def home_view(request):
         try:
             headers = {"x-access-token": jwt_token}
             posts_response = requests.get(
-                f"{FLASK_BACKEND_URL}/users/{user_id}/posts", headers=headers, timeout=REQUEST_TIMEOUT
+                f"{FLASK_BACKEND_URL}/users/{user_id}/posts",
+                headers=headers,
+                timeout=REQUEST_TIMEOUT,
             )
             posts_response.raise_for_status()
             my_posts = posts_response.json()
@@ -267,8 +288,12 @@ def home_view(request):
             for req in pending_requests_raw:
                 processed_req = req.copy()
                 if "from_user" in req and req["from_user"]:
-                    processed_req["from_user_display_name"] = req["from_user"].get("display_name", "N/A")
-                    processed_req["from_user_profile_picture_url"] = req["from_user"].get(
+                    processed_req["from_user_display_name"] = req["from_user"].get(
+                        "display_name", "N/A"
+                    )
+                    processed_req["from_user_profile_picture_url"] = req[
+                        "from_user"
+                    ].get(
                         "profile_picture_url",
                         "/static/default_profile_pic.png",
                     )
@@ -291,7 +316,9 @@ def home_view(request):
             for req in sent_requests_raw:
                 processed_req = req.copy()
                 if "to_user" in req and req["to_user"]:
-                    processed_req["to_user_display_name"] = req["to_user"].get("display_name", "N/A")
+                    processed_req["to_user_display_name"] = req["to_user"].get(
+                        "display_name", "N/A"
+                    )
                     processed_req["to_user_profile_picture_url"] = req["to_user"].get(
                         "profile_picture_url",
                         "/static/default_profile_pic.png",
@@ -434,7 +461,9 @@ def search_users_view(request):
     try:
         headers = {"x-access-token": jwt_token}
         response = requests.get(
-            f"{FLASK_BACKEND_URL}/users/search?query={query}", headers=headers, timeout=REQUEST_TIMEOUT
+            f"{FLASK_BACKEND_URL}/users/search?query={query}",
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
         users = response.json()
@@ -452,7 +481,9 @@ def get_user_profile_and_posts(request, user_id):
         headers = {"x-access-token": jwt_token}
         # Fetch user profile
         profile_response = requests.get(
-            f"{FLASK_BACKEND_URL}/users/{user_id}/profile", headers=headers, timeout=REQUEST_TIMEOUT
+            f"{FLASK_BACKEND_URL}/users/{user_id}/profile",
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
         )
         profile_response.raise_for_status()  # This will raise an exception for 4xx/5xx responses
         try:
@@ -465,7 +496,9 @@ def get_user_profile_and_posts(request, user_id):
 
         # Fetch user posts
         posts_response = requests.get(
-            f"{FLASK_BACKEND_URL}/users/{user_id}/posts", headers=headers, timeout=REQUEST_TIMEOUT
+            f"{FLASK_BACKEND_URL}/users/{user_id}/posts",
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
         )
         posts_response.raise_for_status()  # This will raise an exception for 4xx/5xx responses
         try:
@@ -608,7 +641,9 @@ def api_create_post(request):
                 try:
                     return JsonResponse(response.json(), status=response.status_code)
                 except json.JSONDecodeError:
-                    return JsonResponse({"error": "Malformed response from backend"}, status=502)
+                    return JsonResponse(
+                        {"error": "Malformed response from backend"}, status=502
+                    )
             else:
                 try:
                     error_data = response.json()
@@ -630,7 +665,9 @@ def api_create_post(request):
 def serve_uploaded_image(request, filename):
     """Proxy to serve uploaded images from Flask backend"""
     try:
-        response = requests.get(f"{FLASK_BACKEND_URL}/uploads/{filename}", timeout=REQUEST_TIMEOUT)
+        response = requests.get(
+            f"{FLASK_BACKEND_URL}/uploads/{filename}", timeout=REQUEST_TIMEOUT
+        )
 
         if response.ok:
             from django.http import HttpResponse

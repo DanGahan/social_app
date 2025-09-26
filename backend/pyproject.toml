@@ -76,7 +76,7 @@ line_length = 88
 known_first_party = ["app", "models"]
 
 [tool.pylint.messages_control]
-disable = ["C0330", "C0326", "W0613", "W0621"]
+disable = ["W0613", "W0621", "R0903", "E1102"]
 
 [tool.pylint.format]
 max-line-length = "88"
