@@ -560,6 +560,7 @@ def api_upload_image(request):
                 f"{FLASK_BACKEND_URL}/posts/upload",
                 headers=headers,
                 files=files,
+                timeout=REQUEST_TIMEOUT,
             )
 
             # Return the backend response
@@ -599,6 +600,7 @@ def api_create_post(request):
                 f"{FLASK_BACKEND_URL}/posts",
                 headers=headers,
                 json=data,
+                timeout=REQUEST_TIMEOUT,
             )
 
             # Return the backend response
@@ -704,6 +706,7 @@ def api_add_comment(request, post_id):
                 f"{FLASK_BACKEND_URL}/posts/{post_id}/comments",
                 headers=headers,
                 json=data,
+                timeout=REQUEST_TIMEOUT,
             )
 
             # Return the backend response
@@ -786,6 +789,7 @@ def api_comments(request, post_id):
                 f"{FLASK_BACKEND_URL}/posts/{post_id}/comments",
                 headers=headers,
                 json=data,
+                timeout=REQUEST_TIMEOUT,
             )
 
             # Return the backend response

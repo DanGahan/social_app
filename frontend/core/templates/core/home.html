@@ -727,12 +727,15 @@
                         }
                         capturedImageBlob = file;
 
-                        // Show preview of selected image
+                        // Show preview of selected image - validate file type before creating URL
                         const img = document.createElement('img');
-                        const objectUrl = URL.createObjectURL(file);
-                        // Safely set the src by validating it's a blob URL
-                        if (objectUrl.startsWith('blob:')) {
-                            img.src = objectUrl;
+                        // Additional validation: check MIME type for security
+                        if (file.type && file.type.startsWith('image/')) {
+                            const objectUrl = URL.createObjectURL(file);
+                            // Safely set the src by validating it's a blob URL
+                            if (objectUrl.startsWith('blob:')) {
+                                img.src = objectUrl;
+                            }
                         }
                         img.style.maxWidth = '320px';
                         img.style.maxHeight = '240px';
