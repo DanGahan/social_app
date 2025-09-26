@@ -747,10 +747,13 @@
                                     existingImg.remove();
                                 }
                                 document.getElementById('camera-fallback').appendChild(img);
-                            }
-                        }
 
-                        document.getElementById('camera-error').innerText = 'Photo selected successfully!';
+                                document.getElementById('camera-error').innerText = 'Photo selected successfully!';
+                            }
+                        } else {
+                            // For non-image files, still show success but without preview
+                            document.getElementById('camera-error').innerText = 'Photo selected successfully!';
+                        }
                     } else {
                         capturedImageBlob = null;
                     }

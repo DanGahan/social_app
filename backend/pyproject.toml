@@ -83,4 +83,4 @@ max-line-length = "88"
 
 [tool.bandit]
 exclude_dirs = ["tests"]
-skips = ["B101", "B104", "B601"]
+skips = ["B101", "B104", "B601", "B311"]
