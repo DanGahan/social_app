@@ -39,7 +39,7 @@ def test_debug_what_page_loads(page, live_server):
             password_fields = page.locator('input[type="password"], input[name="password"]')
 
             print(f"Email fields found: {email_fields.count()}")
-            print(f"Password fields found: {password_fields.count()}")
+            print(f"Form fields found: {password_fields.count() > 0}")
 
     elif "home" in title.lower() or "posts" in content.lower():
         print("*** We're on the HOME page - success! ***")

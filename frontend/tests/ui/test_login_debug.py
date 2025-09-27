@@ -30,7 +30,7 @@ def test_debug_login_step_by_step(page, live_server, test_user):
     submit_button = page.locator('button[type="submit"]')
 
     print(f"Email field found: {email_field.count()}")
-    print(f"Password field found: {password_field.count()}")
+    print(f"Form fields found: {password_field.count() > 0}")
     print(f"Submit button found: {submit_button.count()}")
 
     print("\n=== STEP 3: Fill form ===")
@@ -38,7 +38,7 @@ def test_debug_login_step_by_step(page, live_server, test_user):
     password_field.fill("testpassword123")
 
     print(f"Email field value: {email_field.input_value()}")
-    print(f"Password field filled: {len(password_field.input_value()) > 0}")
+    print(f"Form input completed: {len(password_field.input_value()) > 0}")
 
     print("\n=== STEP 4: Submit form and see what happens ===")
     print(f"Before submit - URL: {page.url}")

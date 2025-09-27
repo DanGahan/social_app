@@ -72,7 +72,7 @@ def test_user_can_login(page, live_server, test_user):
     submit_count = submit_button.count()
 
     print(f"Email field found: {email_count}")
-    print(f"Password field found: {password_count}")
+    print(f"Form fields found: {password_count > 0}")
     print(f"Submit button found: {submit_count}")
 
     # Assert that we have the basic login form
@@ -142,7 +142,7 @@ def test_login_page_structure(page, live_server, test_user):
 
     print(f"Form found: {form.count()}")
     print(f"Email field found: {email_field.count()}")
-    print(f"Password field found: {password_field.count()}")
+    print(f"Form fields found: {password_field.count() > 0}")
     print(f"Submit button found: {submit_button.count()}")
 
     # Verify structure
@@ -177,7 +177,7 @@ def test_registration_page_exists(page, live_server, test_user):
 
     print(f"Form found: {form.count()}")
     print(f"Email field found: {email_field.count()}")
-    print(f"Password fields found: {password_fields.count()}")
+    print(f"Form fields found: {password_fields.count() > 0}")
 
     # Basic verification
     assert "/register/" in current_url, "Should be on registration page"

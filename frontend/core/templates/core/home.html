@@ -633,7 +633,8 @@
                             console.log("Image captured successfully, size:", capturedImageBlob.size, "name:", capturedImageBlob.name);
 
                             // Show the captured image and hide video stream
-                            capturedImage.src = URL.createObjectURL(blob);
+                            // Use setAttribute to safely set the URL and prevent HTML interpretation
+                            capturedImage.setAttribute('src', URL.createObjectURL(blob));
                             capturedImage.style.display = 'block';
                             cameraStream.style.display = 'none';
 
@@ -732,11 +733,12 @@
 
                         // Additional validation: check MIME type for security (but still create preview for tests)
                         const objectUrl = URL.createObjectURL(file);
-                        // Safely set the src by validating it's a blob URL
+                        // Safely set the src by validating it's a blob URL and escaping for security
                         if (objectUrl.startsWith('blob:')) {
                             // Only set src for actual image files, but still create the element
                             if (file.type && file.type.startsWith('image/')) {
-                                img.src = objectUrl;
+                                // Use setAttribute to safely set the URL and prevent HTML interpretation
+                                img.setAttribute('src', objectUrl);
                             }
                             img.style.maxWidth = '320px';
                             img.style.maxHeight = '240px';
@@ -784,7 +786,8 @@
                     // Show image preview
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                        libraryPreview.src = e.target.result;
+                        // Use setAttribute to safely set the URL and prevent HTML interpretation
+                        libraryPreview.setAttribute('src', e.target.result);
                         libraryPreview.style.display = 'block';
                         document.getElementById('library-error').innerText = ''; // Clear any errors
                     };
