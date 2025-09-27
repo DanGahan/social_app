@@ -16,9 +16,7 @@ from .forms import CreatePostForm, LoginForm, ProfileEditForm, RegistrationForm
 logger = logging.getLogger(__name__)
 
 # Define the Flask backend URL
-FLASK_BACKEND_URL = (
-    "http://social_backend:5000"  # Use the service name from docker-compose
-)
+FLASK_BACKEND_URL = "http://social_backend:5000"  # Use the service name from docker-compose
 
 # Request timeout in seconds
 REQUEST_TIMEOUT = 30
@@ -74,9 +72,7 @@ def login_view(request):
                     # messages.success(request, 'Login successful!') # Removed this line
                     return redirect(reverse("home"))
                 else:
-                    messages.error(
-                        request, "Login failed: Invalid response from server."
-                    )
+                    messages.error(request, "Login failed: Invalid response from server.")
             except requests.exceptions.RequestException as e:
                 messages.error(request, f"Login failed: {e}")
         else:
@@ -143,9 +139,7 @@ def home_view(request):
 
     # Handle POST requests for profile update and create post
     if request.method == "POST":
-        if (
-            "update_profile" in request.POST
-        ):  # Check if profile update button was clicked
+        if "update_profile" in request.POST:  # Check if profile update button was clicked
             profile_form = ProfileEditForm(request.POST)
             if profile_form.is_valid():
                 display_name = profile_form.cleaned_data["display_name"]
@@ -181,13 +175,9 @@ def home_view(request):
                     )
                     user_response.raise_for_status()
                     user_data = user_response.json()
-                    request.session["profile_picture_url"] = user_data.get(
-                        "profile_picture_url"
-                    )
+                    request.session["profile_picture_url"] = user_data.get("profile_picture_url")
                     request.session["display_name"] = user_data.get("display_name")
-                    return redirect(
-                        reverse("home")
-                    )  # Redirect to home to show updated info
+                    return redirect(reverse("home"))  # Redirect to home to show updated info
                 except requests.exceptions.RequestException as e:
                     messages.error(request, f"Failed to update profile: {e}")
             else:
@@ -215,9 +205,7 @@ def home_view(request):
                     )
                     response.raise_for_status()
                     messages.success(request, "Post created successfully!")
-                    return redirect(
-                        reverse("home")
-                    )  # Redirect to home to show new post
+                    return redirect(reverse("home"))  # Redirect to home to show new post
                 except requests.exceptions.RequestException as e:
                     messages.error(request, f"Failed to create post: {e}")
             else:
@@ -288,12 +276,8 @@ def home_view(request):
             for req in pending_requests_raw:
                 processed_req = req.copy()
                 if "from_user" in req and req["from_user"]:
-                    processed_req["from_user_display_name"] = req["from_user"].get(
-                        "display_name", "N/A"
-                    )
-                    processed_req["from_user_profile_picture_url"] = req[
-                        "from_user"
-                    ].get(
+                    processed_req["from_user_display_name"] = req["from_user"].get("display_name", "N/A")
+                    processed_req["from_user_profile_picture_url"] = req["from_user"].get(
                         "profile_picture_url",
                         "/static/default_profile_pic.png",
                     )
@@ -316,9 +300,7 @@ def home_view(request):
             for req in sent_requests_raw:
                 processed_req = req.copy()
                 if "to_user" in req and req["to_user"]:
-                    processed_req["to_user_display_name"] = req["to_user"].get(
-                        "display_name", "N/A"
-                    )
+                    processed_req["to_user_display_name"] = req["to_user"].get("display_name", "N/A")
                     processed_req["to_user_profile_picture_url"] = req["to_user"].get(
                         "profile_picture_url",
                         "/static/default_profile_pic.png",
@@ -526,34 +508,74 @@ def get_user_profile_and_posts(request, user_id):
         )
 
 
+@csrf_exempt
 def api_request_connection(request):
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     jwt_token = request.session.get("jwt_token")
     user_id = request.session.get("user_id")
 
+    logger.info(f"Connection request attempt - JWT present: {bool(jwt_token)}, User ID: {user_id}")
+
     if not jwt_token or not user_id:
+        logger.warning("Connection request failed - missing JWT token or user ID")
         return JsonResponse({"error": "Unauthorized"}, status=401)
 
     if request.method == "POST":
-        data = json.loads(request.body)
-        to_user_id = data.get("to_user_id")
-        if to_user_id:
-            try:
-                headers = {"x-access-token": jwt_token}
-                response = requests.post(
-                    f"{FLASK_BACKEND_URL}/connections/request",
-                    json={"to_user_id": int(to_user_id)},
-                    headers=headers,
-                    timeout=REQUEST_TIMEOUT,
-                )
-                response.raise_for_status()
-                return JsonResponse(response.json(), status=response.status_code)
-            except requests.exceptions.RequestException:
-                return JsonResponse({"error": "Failed to send request."}, status=500)
-        else:
-            return JsonResponse(
-                {"error": "Please provide a user ID to connect to."},
-                status=400,
-            )
+        try:
+            data = json.loads(request.body)
+            to_user_id = data.get("to_user_id")
+            logger.info(f"Connection request from user {user_id} to user {to_user_id}")
+
+            if to_user_id:
+                try:
+                    headers = {"x-access-token": jwt_token}
+                    backend_url = f"{FLASK_BACKEND_URL}/connections/request"
+                    logger.info(f"Calling backend at: {backend_url}")
+
+                    response = requests.post(
+                        backend_url,
+                        json={"to_user_id": int(to_user_id)},
+                        headers=headers,
+                        timeout=REQUEST_TIMEOUT,
+                    )
+
+                    logger.info(f"Backend response status: {response.status_code}")
+                    response.raise_for_status()
+
+                    response_data = response.json()
+                    logger.info(f"Backend response data: {response_data}")
+                    return JsonResponse(response_data, status=response.status_code)
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"Connection request failed: {str(e)}")
+
+                    # Provide more specific error messages
+                    if hasattr(e, "response") and e.response is not None:
+                        try:
+                            error_data = e.response.json()
+                            return JsonResponse(
+                                {"message": error_data.get("message", "Connection request failed")},
+                                status=e.response.status_code,
+                            )
+                        except ValueError:
+                            return JsonResponse(
+                                {"message": f"Connection request failed: {e.response.status_code}"},
+                                status=e.response.status_code,
+                            )
+                    else:
+                        return JsonResponse(
+                            {"message": f"Connection request failed: {str(e)}"}, status=500
+                        )
+            else:
+                return JsonResponse({"message": "Please provide a user ID to connect to."}, status=400)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse request body: {str(e)}")
+            return JsonResponse({"message": "Invalid request data"}, status=400)
+        except Exception as e:
+            logger.error(f"Unexpected error in connection request: {str(e)}")
+            return JsonResponse({"message": "An unexpected error occurred"}, status=500)
 
 
 @csrf_exempt
@@ -641,9 +663,7 @@ def api_create_post(request):
                 try:
                     return JsonResponse(response.json(), status=response.status_code)
                 except json.JSONDecodeError:
-                    return JsonResponse(
-                        {"error": "Malformed response from backend"}, status=502
-                    )
+                    return JsonResponse({"error": "Malformed response from backend"}, status=502)
             else:
                 try:
                     error_data = response.json()
@@ -665,9 +685,7 @@ def api_create_post(request):
 def serve_uploaded_image(request, filename):
     """Proxy to serve uploaded images from Flask backend"""
     try:
-        response = requests.get(
-            f"{FLASK_BACKEND_URL}/uploads/{filename}", timeout=REQUEST_TIMEOUT
-        )
+        response = requests.get(f"{FLASK_BACKEND_URL}/uploads/{filename}", timeout=REQUEST_TIMEOUT)
 
         if response.ok:
             from django.http import HttpResponse
@@ -899,9 +917,7 @@ def api_get_notifications(request):
         )
 
         if response.ok:
-            return JsonResponse(
-                response.json(), safe=False, status=response.status_code
-            )
+            return JsonResponse(response.json(), safe=False, status=response.status_code)
         else:
             try:
                 error_data = response.json()
@@ -947,9 +963,7 @@ def api_mark_notification_read(request, notification_id):
                 )
 
     except requests.exceptions.RequestException as e:
-        return JsonResponse(
-            {"error": "Failed to mark notification as read."}, status=500
-        )
+        return JsonResponse({"error": "Failed to mark notification as read."}, status=500)
 
 
 @csrf_exempt
@@ -978,14 +992,9 @@ def api_mark_all_notifications_read(request):
                 return JsonResponse(error_data, status=response.status_code)
             except:
                 return JsonResponse(
-                    {
-                        "error": response.text
-                        or "Failed to mark all notifications as read"
-                    },
+                    {"error": response.text or "Failed to mark all notifications as read"},
                     status=response.status_code,
                 )
 
     except requests.exceptions.RequestException:
-        return JsonResponse(
-            {"error": "Failed to mark all notifications as read."}, status=500
-        )
+        return JsonResponse({"error": "Failed to mark all notifications as read."}, status=500)

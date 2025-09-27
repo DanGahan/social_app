@@ -437,29 +437,22 @@ li small {
 
 /* Lightbox Styles */
 .lightbox {
-    display: none; /* Hidden by default */
     position: fixed; /* Stay in place */
     z-index: 1000; /* Sit on top */
-    left: 50%; /* Center horizontally */
-    top: 50%; /* Center vertically */
-    transform: translate(-50%, -50%); /* Adjust for element's own size */
+    left: 0;
+    top: 0;
     width: 100%; /* Full width */
     height: 100%; /* Full height */
-    /* overflow: auto; */ /* Removed */
     background-color: rgba(0,0,0,0.9); /* Black w/ opacity */
-    padding-top: 0; /* Remove padding-top */
     display: flex; /* Use flexbox for centering content */
     align-items: center; /* Center vertically */
     justify-content: center; /* Center horizontally */
 }
 
 .lightbox-content {
-    /* margin: auto; */ /* Removed */
     display: block;
-    /* max-width: 80%; */ /* Removed */
-    /* max-height: 80%; */ /* Removed */
-    width: 100%; /* Ensure it takes full width of flex container */
-    height: 100%; /* Ensure it takes full height of flex container */
+    max-width: 90%; /* Limit width on mobile */
+    max-height: 90%; /* Limit height on mobile */
     object-fit: contain; /* Scale image to fit within bounds */
 }
 
@@ -539,6 +532,18 @@ li small {
     /* Reduce padding for list items within connections grid */
     .connections-grid li {
         padding: 10px;
+    }
+
+    /* Lightbox mobile optimization */
+    .lightbox-content {
+        max-width: 95%; /* More space on mobile */
+        max-height: 95%; /* More space on mobile */
+    }
+
+    .close-button {
+        top: 10px; /* Closer to top edge on mobile */
+        right: 20px; /* Closer to right edge on mobile */
+        font-size: 35px; /* Slightly smaller but still accessible */
     }
 }
 
