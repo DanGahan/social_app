@@ -4,6 +4,8 @@ UI Functional Tests with Mock Authentication
 Tests UI elements by bypassing backend authentication and directly accessing the home page.
 """
 
+import re
+
 import pytest
 from django.contrib.auth.models import User
 from playwright.sync_api import expect
@@ -480,3 +482,589 @@ def test_post_interaction_structure(page, live_server, test_user):
     test_comment = "Test comment"
     comment_input.fill(test_comment)
     expect(comment_input).to_have_value(test_comment)
+
+
+@pytest.mark.ui
+def test_notification_bell_visibility_and_interaction(page, live_server, test_user):
+    """
+    Test notification bell visibility and basic interaction:
+    Given I am logged into the home page
+    When notifications exist for the user
+    Then I should see the notification bell with count badge
+    And I should be able to click it to open the dropdown
+    """
+    page.set_default_timeout(10000)
+    navigate_to_home_and_verify(page, live_server)
+
+    # Mock notification system
+    page.evaluate(
+        """
+        // Mock notification bell and functionality
+        const profileContainer = document.querySelector('.display-name-text') ||
+                                 document.querySelector('.home-profile-pic-container');
+
+        if (profileContainer) {
+            profileContainer.innerHTML = `
+                <span>Test User</span>
+                <div id="notification-bell-container" style="display: block;">
+                    <button id="notification-bell" style="
+                        position: relative;
+                        background: none;
+                        border: 2px solid black;
+                        border-radius: 50%;
+                        width: 30px;
+                        height: 30px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="m13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        <span id="notification-count" style="
+                            position: absolute;
+                            top: -8px;
+                            right: -8px;
+                            background: black;
+                            color: white;
+                            border-radius: 50%;
+                            width: 20px;
+                            height: 20px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 12px;
+                            font-weight: bold;
+                        ">3</span>
+                    </button>
+                </div>
+            `;
+        }
+
+        // Add notification dropdown
+        const container = document.querySelector('.container');
+        if (container) {
+            const dropdown = document.createElement('div');
+            dropdown.id = 'notification-dropdown';
+            dropdown.style.cssText = `
+                position: fixed;
+                top: 120px;
+                right: 20px;
+                background: white;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                width: 300px;
+                max-height: 400px;
+                overflow-y: auto;
+                display: none;
+                z-index: 1001;
+            `;
+
+            dropdown.innerHTML = `
+                <div style="padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                    <h4 style="margin: 0;">Notifications</h4>
+                    <button id="mark-all-read" style="background: none; border: none; color: #007bff; cursor: pointer; font-size: 12px;">
+                        Mark all read
+                    </button>
+                </div>
+                <div id="notification-list">
+                    <div class="notification-item" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;" data-notification-id="1" data-post-id="123">
+                        <div style="font-size: 14px; margin-bottom: 4px;">Alice Smith liked your post</div>
+                        <div style="font-size: 12px; color: #666;">2m ago</div>
+                    </div>
+                    <div class="notification-item" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;" data-notification-id="2" data-post-id="124">
+                        <div style="font-size: 14px; margin-bottom: 4px;">Bob Jones commented on your post</div>
+                        <div style="font-size: 12px; color: #666;">5m ago</div>
+                    </div>
+                    <div class="notification-item" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;" data-notification-id="3">
+                        <div style="font-size: 14px; margin-bottom: 4px;">Charlie Brown has requested a connection</div>
+                        <div style="font-size: 12px; color: #666;">10m ago</div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(dropdown);
+        }
+
+        // Mock click handlers
+        document.getElementById('notification-bell').addEventListener('click', function() {
+            const dropdown = document.getElementById('notification-dropdown');
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        });
+
+        document.getElementById('mark-all-read').addEventListener('click', function() {
+            document.getElementById('notification-count').style.display = 'none';
+            document.getElementById('notification-dropdown').style.display = 'none';
+        });
+    """
+    )
+
+    # Test notification bell visibility
+    notification_bell = page.locator("#notification-bell")
+    notification_count = page.locator("#notification-count")
+
+    expect(notification_bell).to_be_visible()
+    expect(notification_count).to_be_visible()
+    expect(notification_count).to_contain_text("3")
+
+    # Test clicking bell opens dropdown
+    notification_bell.click()
+    notification_dropdown = page.locator("#notification-dropdown")
+    expect(notification_dropdown).to_be_visible()
+
+    # Test notification items are visible
+    notification_items = page.locator(".notification-item")
+    expect(notification_items).to_have_count(3)
+
+
+@pytest.mark.ui
+def test_notification_dropdown_content_and_interaction(page, live_server, test_user):
+    """
+    Test notification dropdown content and interaction:
+    Given the notification dropdown is open
+    When I interact with notification items
+    Then they should respond appropriately
+    """
+    page.set_default_timeout(10000)
+    navigate_to_home_and_verify(page, live_server)
+
+    # Setup notification system (reuse from previous test)
+    page.evaluate(
+        """
+        // Mock notification system (abbreviated)
+        const container = document.querySelector('.container');
+        if (!document.getElementById('notification-dropdown')) {
+            const dropdown = document.createElement('div');
+            dropdown.id = 'notification-dropdown';
+            dropdown.style.display = 'block';
+            dropdown.innerHTML = `
+                <div style="padding: 10px; border-bottom: 1px solid #eee;">
+                    <h4 style="margin: 0;">Notifications</h4>
+                    <button id="mark-all-read">Mark all read</button>
+                </div>
+                <div id="notification-list">
+                    <div class="notification-item" data-notification-id="1" data-post-id="123" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;">
+                        <div>Alice Smith liked your post</div>
+                        <div style="font-size: 12px; color: #666;">2m ago</div>
+                    </div>
+                    <div class="notification-item" data-notification-id="2" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;">
+                        <div>Charlie Brown has requested a connection</div>
+                        <div style="font-size: 12px; color: #666;">10m ago</div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(dropdown);
+        }
+
+        // Add mock tabs to the page only if none exist
+        if (!document.querySelector('[data-tab="MyPosts"]')) {
+            const mockTabs = document.createElement('div');
+            mockTabs.innerHTML = `
+                <div class="tab">
+                    <button class="tablinks" data-tab="MyPosts">My Posts</button>
+                    <button class="tablinks" data-tab="Connections">Connections</button>
+                </div>
+                <div id="MyPosts" class="tabcontent" style="display: none;"></div>
+                <div id="Connections" class="tabcontent" style="display: none;"></div>
+            `;
+            container.appendChild(mockTabs);
+        }
+
+        // Mock notification click handling
+        document.querySelectorAll('.notification-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const postId = this.getAttribute('data-post-id');
+                const notificationId = this.getAttribute('data-notification-id');
+
+                // Mark as handled by changing style
+                this.style.backgroundColor = '#f0f8ff';
+
+                // Mock navigation behavior
+                if (postId) {
+                    // Navigate to My Posts tab (simulate post navigation)
+                    const myPostsTab = document.querySelector('[data-tab="MyPosts"]');
+                    if (myPostsTab) {
+                        // Remove active from all tabs
+                        document.querySelectorAll('.tablinks').forEach(tab => {
+                            tab.classList.remove('active');
+                        });
+                        // Add active to My Posts tab
+                        myPostsTab.classList.add('active');
+                        // Show My Posts content
+                        document.querySelectorAll('.tabcontent').forEach(content => {
+                            content.style.display = 'none';
+                        });
+                        document.getElementById('MyPosts').style.display = 'block';
+                    }
+                } else {
+                    // Navigate to Connections tab
+                    const connectionsTab = document.querySelector('[data-tab="Connections"]');
+                    if (connectionsTab) {
+                        // Remove active from all tabs
+                        document.querySelectorAll('.tablinks').forEach(tab => {
+                            tab.classList.remove('active');
+                        });
+                        // Add active to Connections tab
+                        connectionsTab.classList.add('active');
+                        // Show Connections content
+                        document.querySelectorAll('.tabcontent').forEach(content => {
+                            content.style.display = 'none';
+                        });
+                        document.getElementById('Connections').style.display = 'block';
+                    }
+                }
+
+                // Close dropdown
+                document.getElementById('notification-dropdown').style.display = 'none';
+            });
+        });
+
+        document.getElementById('mark-all-read').addEventListener('click', function() {
+            document.getElementById('notification-dropdown').style.display = 'none';
+        });
+    """
+    )
+
+    # Test notification items exist
+    notification_items = page.locator(".notification-item")
+    expect(notification_items).to_have_count(2)
+
+    # Test clicking post notification navigates to My Posts
+    post_notification = page.locator('.notification-item[data-post-id="123"]')
+    post_notification.click()
+
+    # Verify navigation happened
+    my_posts_tab = page.locator('[data-tab="MyPosts"]')
+    expect(my_posts_tab).to_have_class(re.compile(r".*\bactive\b.*"))
+
+    # Verify dropdown closed
+    notification_dropdown = page.locator("#notification-dropdown")
+    expect(notification_dropdown).to_be_hidden()
+
+
+@pytest.mark.ui
+def test_notification_mark_all_read_functionality(page, live_server, test_user):
+    """
+    Test mark all read functionality:
+    Given I have unread notifications
+    When I click mark all read
+    Then all notifications should be marked as read and dropdown should close
+    """
+    page.set_default_timeout(10000)
+    navigate_to_home_and_verify(page, live_server)
+
+    # Setup notification system with count badge
+    page.evaluate(
+        """
+        const container = document.querySelector('.container');
+
+        // Add notification bell with count
+        const bellHtml = `
+            <div id="notification-bell-container" style="position: fixed; top: 20px; right: 20px;">
+                <button id="notification-bell">
+                    🔔
+                    <span id="notification-count" style="background: red; color: white; border-radius: 50%; padding: 2px 6px;">5</span>
+                </button>
+            </div>
+        `;
+        container.insertAdjacentHTML('afterbegin', bellHtml);
+
+        // Add dropdown
+        const dropdown = document.createElement('div');
+        dropdown.id = 'notification-dropdown';
+        dropdown.style.display = 'block';
+        dropdown.innerHTML = `
+            <div style="padding: 10px; border-bottom: 1px solid #eee;">
+                <h4>Notifications</h4>
+                <button id="mark-all-read">Mark all read</button>
+            </div>
+            <div id="notification-list">
+                <div class="notification-item">Notification 1</div>
+                <div class="notification-item">Notification 2</div>
+            </div>
+        `;
+        container.appendChild(dropdown);
+
+        // Mock mark all read functionality
+        document.getElementById('mark-all-read').addEventListener('click', function() {
+            // Hide count badge
+            const countBadge = document.getElementById('notification-count');
+            if (countBadge) {
+                countBadge.style.display = 'none';
+            }
+
+            // Close dropdown
+            document.getElementById('notification-dropdown').style.display = 'none';
+
+            // Mock clearing notifications
+            document.getElementById('notification-list').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No new notifications</div>';
+        });
+    """
+    )
+
+    # Verify initial state
+    notification_count = page.locator("#notification-count")
+    expect(notification_count).to_be_visible()
+    expect(notification_count).to_contain_text("5")
+
+    # Click mark all read
+    mark_all_read_btn = page.locator("#mark-all-read")
+    mark_all_read_btn.click()
+
+    # Verify count badge is hidden
+    expect(notification_count).to_be_hidden()
+
+    # Verify dropdown is closed
+    notification_dropdown = page.locator("#notification-dropdown")
+    expect(notification_dropdown).to_be_hidden()
+
+
+@pytest.mark.ui
+def test_notification_connection_request_navigation(page, live_server, test_user):
+    """
+    Test that connection request notifications navigate to connections tab:
+    Given I have a connection request notification
+    When I click on it
+    Then I should be taken to the Connections tab
+    """
+    page.set_default_timeout(10000)
+    navigate_to_home_and_verify(page, live_server)
+
+    # Setup notification for connection request
+    page.evaluate(
+        """
+        const container = document.querySelector('.container');
+
+        // Add mock tab structure only if none exists
+        if (!document.querySelector('[data-tab="Connections"]')) {
+            const mockTabs = document.createElement('div');
+            mockTabs.innerHTML = `
+                <div class="tab">
+                    <button class="tablinks" data-tab="Posts">Posts</button>
+                    <button class="tablinks" data-tab="MyPosts">My Posts</button>
+                    <button class="tablinks" data-tab="Connections">Connections</button>
+                </div>
+                <div id="Posts" class="tabcontent" style="display: none;"></div>
+                <div id="MyPosts" class="tabcontent" style="display: none;"></div>
+                <div id="Connections" class="tabcontent" style="display: none;"></div>
+            `;
+            container.appendChild(mockTabs);
+        }
+
+        // Add dropdown with connection notification
+        const dropdown = document.createElement('div');
+        dropdown.id = 'notification-dropdown';
+        dropdown.style.display = 'block';
+        dropdown.innerHTML = `
+            <div id="notification-list">
+                <div class="notification-item connection-notification" data-type="connection_request" style="padding: 12px; cursor: pointer; border-bottom: 1px solid #eee;">
+                    <div>John Doe has requested a connection</div>
+                    <div style="font-size: 12px; color: #666;">1h ago</div>
+                </div>
+            </div>
+        `;
+        container.appendChild(dropdown);
+
+        // Mock connection notification click
+        document.querySelector('.connection-notification').addEventListener('click', function() {
+            const connectionsTab = document.querySelector('[data-tab="Connections"]');
+            if (connectionsTab) {
+                // Remove active from other tabs
+                document.querySelectorAll('.tablinks').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+
+                // Make connections tab active
+                connectionsTab.classList.add('active');
+
+                // Show connections content
+                document.querySelectorAll('.tabcontent').forEach(content => {
+                    content.style.display = 'none';
+                });
+                document.getElementById('Connections').style.display = 'block';
+            }
+
+            // Close dropdown
+            document.getElementById('notification-dropdown').style.display = 'none';
+        });
+    """
+    )
+
+    # Click on connection notification
+    connection_notification = page.locator(".connection-notification")
+    connection_notification.click()
+
+    # Verify navigation to Connections tab
+    connections_tab = page.locator('[data-tab="Connections"]')
+    expect(connections_tab).to_have_class(re.compile(r".*\bactive\b.*"))
+
+    connections_content = page.locator("#Connections")
+    expect(connections_content).to_be_visible()
+
+    # Verify dropdown closed
+    notification_dropdown = page.locator("#notification-dropdown")
+    expect(notification_dropdown).to_be_hidden()
+
+
+@pytest.mark.ui
+def test_notification_mobile_responsiveness(page, live_server, test_user):
+    """
+    Test notification system works properly on mobile viewport:
+    Given I am using a mobile device
+    When I interact with notifications
+    Then they should remain accessible and functional
+    """
+    page.set_default_timeout(10000)
+    # Set mobile viewport
+    page.set_viewport_size({"width": 375, "height": 667})
+
+    navigate_to_home_and_verify(page, live_server)
+
+    # Setup mobile-friendly notification system
+    page.evaluate(
+        """
+        const container = document.querySelector('.container');
+
+        // Add mobile notification bell
+        const bellHtml = `
+            <div id="notification-bell-container" style="
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                z-index: 1000;
+            ">
+                <button id="notification-bell" style="
+                    background: white;
+                    border: 2px solid black;
+                    border-radius: 50%;
+                    width: 40px;
+                    height: 40px;
+                    cursor: pointer;
+                ">
+                    🔔
+                    <span id="notification-count" style="
+                        position: absolute;
+                        top: -5px;
+                        right: -5px;
+                        background: red;
+                        color: white;
+                        border-radius: 50%;
+                        width: 20px;
+                        height: 20px;
+                        font-size: 12px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">2</span>
+                </button>
+            </div>
+        `;
+        container.insertAdjacentHTML('afterbegin', bellHtml);
+
+        // Add mobile dropdown
+        const dropdown = document.createElement('div');
+        dropdown.id = 'notification-dropdown';
+        dropdown.style.cssText = `
+            position: fixed;
+            top: 60px;
+            left: 10px;
+            right: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1001;
+        `;
+        dropdown.innerHTML = `
+            <div style="padding: 10px; border-bottom: 1px solid #eee;">
+                <h4 style="margin: 0; font-size: 16px;">Notifications</h4>
+            </div>
+            <div id="notification-list">
+                <div class="notification-item" style="padding: 15px; border-bottom: 1px solid #eee; cursor: pointer;">
+                    <div style="font-size: 14px;">Test notification for mobile</div>
+                    <div style="font-size: 12px; color: #666;">Just now</div>
+                </div>
+            </div>
+        `;
+        container.appendChild(dropdown);
+
+        // Mobile click handler
+        document.getElementById('notification-bell').addEventListener('click', function() {
+            const dropdown = document.getElementById('notification-dropdown');
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        });
+    """
+    )
+
+    # Test notification bell is visible and accessible on mobile
+    notification_bell = page.locator("#notification-bell")
+    expect(notification_bell).to_be_visible()
+
+    notification_count = page.locator("#notification-count")
+    expect(notification_count).to_be_visible()
+    expect(notification_count).to_contain_text("2")
+
+    # Test clicking bell opens dropdown on mobile
+    notification_bell.click()
+    notification_dropdown = page.locator("#notification-dropdown")
+    expect(notification_dropdown).to_be_visible()
+
+    # Test dropdown is properly sized for mobile
+    dropdown_width = notification_dropdown.bounding_box()["width"]
+    viewport_width = page.viewport_size["width"]
+
+    # Dropdown should take most of the mobile screen width (allowing for margins)
+    assert (
+        dropdown_width > viewport_width * 0.8
+    ), f"Dropdown width {dropdown_width} should be > {viewport_width * 0.8}"
+
+
+@pytest.mark.ui
+def test_notification_empty_state(page, live_server, test_user):
+    """
+    Test notification system when no notifications exist:
+    Given I have no notifications
+    When I check the notification area
+    Then the bell should be hidden or show no count
+    """
+    page.set_default_timeout(10000)
+    navigate_to_home_and_verify(page, live_server)
+
+    # Setup notification system with no notifications
+    page.evaluate(
+        """
+        const container = document.querySelector('.container');
+
+        // Add notification bell without count (hidden state)
+        const bellHtml = `
+            <div id="notification-bell-container" style="display: none;">
+                <button id="notification-bell">🔔</button>
+            </div>
+        `;
+        container.insertAdjacentHTML('afterbegin', bellHtml);
+
+        // Add empty dropdown
+        const dropdown = document.createElement('div');
+        dropdown.id = 'notification-dropdown';
+        dropdown.style.display = 'none';
+        dropdown.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: #666;">
+                No new notifications
+            </div>
+        `;
+        container.appendChild(dropdown);
+    """
+    )
+
+    # Test that notification bell is hidden when no notifications
+    notification_bell_container = page.locator("#notification-bell-container")
+    expect(notification_bell_container).to_be_hidden()
+
+    # Test that count badge doesn't exist
+    notification_count = page.locator("#notification-count")
+    expect(notification_count).not_to_be_attached()

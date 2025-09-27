@@ -381,6 +381,357 @@
           }
         }
       }
+    },
+    {
+      "description": "a request to get user notifications",
+      "providerState": "User has unread notifications",
+      "request": {
+        "method": "get",
+        "path": "/api/notifications",
+        "headers": {
+          "x-access-token": "valid.jwt.token"
+        },
+        "matchingRules": {
+          "$.headers.x-access-token": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": [
+          {
+            "id": 123,
+            "user_id": 456,
+            "actor_user_id": 789,
+            "type": "post_liked",
+            "post_id": 101,
+            "message": "John Doe liked your post",
+            "target_url": "/posts/101",
+            "is_read": false,
+            "created_at": "2024-01-01T12:00:00"
+          }
+        ],
+        "matchingRules": {
+          "$.body": {
+            "min": 1
+          },
+          "$.body[*].*": {
+            "match": "type"
+          },
+          "$.body[*].id": {
+            "match": "type"
+          },
+          "$.body[*].user_id": {
+            "match": "type"
+          },
+          "$.body[*].actor_user_id": {
+            "match": "type"
+          },
+          "$.body[*].type": {
+            "match": "regex",
+            "regex": "(post_liked|post_commented|connection_request|connection_accepted)"
+          },
+          "$.body[*].post_id": {
+            "match": "type"
+          },
+          "$.body[*].message": {
+            "match": "type"
+          },
+          "$.body[*].target_url": {
+            "match": "type"
+          },
+          "$.body[*].is_read": {
+            "match": "type"
+          },
+          "$.body[*].created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to get user notifications",
+      "providerState": "User has no notifications",
+      "request": {
+        "method": "get",
+        "path": "/api/notifications",
+        "headers": {
+          "x-access-token": "valid.jwt.token"
+        },
+        "matchingRules": {
+          "$.headers.x-access-token": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": [
+
+        ]
+      }
+    },
+    {
+      "description": "a request to mark notification as read",
+      "providerState": "Notification exists and is unread",
+      "request": {
+        "method": "post",
+        "path": "/api/notifications/123/mark-read",
+        "headers": {
+          "x-access-token": "valid.jwt.token"
+        },
+        "matchingRules": {
+          "$.path": {
+            "match": "regex",
+            "regex": "\\/api\\/notifications\\/\\d+\\/mark-read"
+          },
+          "$.headers.x-access-token": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "message": "Notification marked as read",
+          "notification_id": 123
+        },
+        "matchingRules": {
+          "$.body.notification_id": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to mark all notifications as read",
+      "providerState": "User has multiple unread notifications",
+      "request": {
+        "method": "post",
+        "path": "/api/notifications/mark-all-read",
+        "headers": {
+          "x-access-token": "valid.jwt.token"
+        },
+        "matchingRules": {
+          "$.headers.x-access-token": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "message": "All notifications marked as read",
+          "count": 5
+        },
+        "matchingRules": {
+          "$.body.count": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to get notifications without token",
+      "providerState": "User is not authenticated",
+      "request": {
+        "method": "get",
+        "path": "/api/notifications"
+      },
+      "response": {
+        "status": 401,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "error": "Access token required",
+          "status_code": 401
+        },
+        "matchingRules": {
+          "$.body.status_code": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to mark non-existent notification as read",
+      "providerState": "Notification does not exist",
+      "request": {
+        "method": "post",
+        "path": "/api/notifications/99999/mark-read",
+        "headers": {
+          "x-access-token": "valid.jwt.token"
+        },
+        "matchingRules": {
+          "$.headers.x-access-token": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "error": "Notification not found",
+          "status_code": 404
+        },
+        "matchingRules": {
+          "$.body.status_code": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to get notifications with all types",
+      "providerState": "User has notifications of all types",
+      "request": {
+        "method": "get",
+        "path": "/api/notifications",
+        "headers": {
+          "x-access-token": "valid.jwt.token"
+        },
+        "matchingRules": {
+          "$.headers.x-access-token": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": [
+          {
+            "id": 1,
+            "user_id": 456,
+            "actor_user_id": 789,
+            "type": "post_liked",
+            "post_id": 123,
+            "message": "Alice Smith liked your post",
+            "target_url": "/posts/123",
+            "is_read": false,
+            "created_at": "2024-01-01T12:00:00"
+          },
+          {
+            "id": 2,
+            "user_id": 456,
+            "actor_user_id": 790,
+            "type": "post_commented",
+            "post_id": 124,
+            "message": "Bob Jones commented on your post",
+            "target_url": "/posts/124",
+            "is_read": false,
+            "created_at": "2024-01-01T12:00:00"
+          },
+          {
+            "id": 3,
+            "user_id": 456,
+            "actor_user_id": 791,
+            "type": "connection_request",
+            "post_id": null,
+            "message": "Charlie Brown has requested a connection",
+            "target_url": "/connections",
+            "is_read": false,
+            "created_at": "2024-01-01T12:00:00"
+          },
+          {
+            "id": 4,
+            "user_id": 456,
+            "actor_user_id": 792,
+            "type": "connection_accepted",
+            "post_id": null,
+            "message": "Diana Evans accepted your connection request",
+            "target_url": "/connections",
+            "is_read": false,
+            "created_at": "2024-01-01T12:00:00"
+          }
+        ],
+        "matchingRules": {
+          "$.body[0].id": {
+            "match": "type"
+          },
+          "$.body[0].user_id": {
+            "match": "type"
+          },
+          "$.body[0].actor_user_id": {
+            "match": "type"
+          },
+          "$.body[0].is_read": {
+            "match": "type"
+          },
+          "$.body[0].created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          },
+          "$.body[1].id": {
+            "match": "type"
+          },
+          "$.body[1].user_id": {
+            "match": "type"
+          },
+          "$.body[1].actor_user_id": {
+            "match": "type"
+          },
+          "$.body[1].is_read": {
+            "match": "type"
+          },
+          "$.body[1].created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          },
+          "$.body[2].id": {
+            "match": "type"
+          },
+          "$.body[2].user_id": {
+            "match": "type"
+          },
+          "$.body[2].actor_user_id": {
+            "match": "type"
+          },
+          "$.body[2].is_read": {
+            "match": "type"
+          },
+          "$.body[2].created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          },
+          "$.body[3].id": {
+            "match": "type"
+          },
+          "$.body[3].user_id": {
+            "match": "type"
+          },
+          "$.body[3].actor_user_id": {
+            "match": "type"
+          },
+          "$.body[3].is_read": {
+            "match": "type"
+          },
+          "$.body[3].created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          }
+        }
+      }
     }
   ],
   "metadata": {

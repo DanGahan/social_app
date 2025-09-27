@@ -16,6 +16,37 @@
                 {% endfor %}
             </ul>
         {% endif %}
+
+        <!-- Notification Dropdown (moved from home page, positioned globally) -->
+        <div id="notification-dropdown" style="
+            position: fixed;
+            top: 120px;
+            right: 20px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1001;
+        ">
+            <div style="padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                <h4 style="margin: 0;">Notifications</h4>
+                <button id="mark-all-read" style="
+                    background: none;
+                    border: none;
+                    color: #007bff;
+                    cursor: pointer;
+                    font-size: 12px;
+                ">Mark all read</button>
+            </div>
+            <div id="notification-list">
+                <!-- Notifications will be populated here -->
+            </div>
+        </div>
+
         {% block content %}
         {% endblock %}
     </div>
@@ -108,14 +139,226 @@
         window.onclick = function(event) {
             const userProfileModal = document.getElementById('userProfileModal');
             const myLightbox = document.getElementById('myLightbox');
+            const notificationDropdown = document.getElementById('notification-dropdown');
+            const notificationBell = document.getElementById('notification-bell');
+
             if (event.target == userProfileModal) {
                 userProfileModal.style.display = "none";
             }
             if (event.target == myLightbox) {
                 myLightbox.classList.add("hidden");
             }
+            // Close notification dropdown when clicking outside
+            if (notificationDropdown && notificationBell &&
+                !notificationDropdown.contains(event.target) &&
+                !notificationBell.contains(event.target)) {
+                notificationDropdown.style.display = "none";
+            }
         }
 
+        // Notification System Functions
+        let notifications = [];
+        let pollingInterval = null;
+
+        async function fetchNotifications() {
+            try {
+                const token = '{{ request.session.jwt_token }}';
+                if (!token) return;
+
+                const response = await fetch('/api/notifications', {
+                    headers: {
+                        'x-access-token': token
+                    }
+                });
+
+                if (response.ok) {
+                    notifications = await response.json();
+                    updateNotificationUI();
+                } else {
+                    console.error('Failed to fetch notifications:', response.status);
+                }
+            } catch (error) {
+                console.error('Error fetching notifications:', error);
+            }
+        }
+
+        function updateNotificationUI() {
+            const bellContainer = document.getElementById('notification-bell-container');
+            const countBadge = document.getElementById('notification-count');
+            const notificationList = document.getElementById('notification-list');
+
+            if (!bellContainer || !countBadge || !notificationList) return;
+
+            const unreadCount = notifications.length;
+
+            if (unreadCount > 0) {
+                // Show bell
+                bellContainer.style.display = 'block';
+                countBadge.textContent = unreadCount;
+                countBadge.style.display = 'block';
+
+                // Populate notification list
+                notificationList.innerHTML = '';
+                notifications.forEach(notification => {
+                    const notificationElement = createNotificationElement(notification);
+                    notificationList.appendChild(notificationElement);
+                });
+            } else {
+                // Hide bell when no notifications
+                bellContainer.style.display = 'none';
+            }
+        }
+
+        function createNotificationElement(notification) {
+            const div = document.createElement('div');
+            div.style.cssText = 'padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; hover: background-color: #f8f9fa;';
+            div.onclick = () => handleNotificationClick(notification);
+
+            const timeAgo = getTimeAgo(new Date(notification.created_at));
+
+            div.innerHTML = `
+                <div style="font-size: 14px; margin-bottom: 4px;">${notification.message}</div>
+                <div style="font-size: 12px; color: #666;">${timeAgo}</div>
+            `;
+
+            return div;
+        }
+
+        async function handleNotificationClick(notification) {
+            try {
+                // Mark as read
+                const token = '{{ request.session.jwt_token }}';
+                const response = await fetch(`/api/notifications/${notification.id}/mark-read`, {
+                    method: 'POST',
+                    headers: {
+                        'x-access-token': token
+                    }
+                });
+
+                if (response.ok) {
+                    // Remove from local notifications array
+                    notifications = notifications.filter(n => n.id !== notification.id);
+                    updateNotificationUI();
+
+                    // Close the dropdown
+                    document.getElementById('notification-dropdown').style.display = 'none';
+
+                    // Navigate based on notification type
+                    if (notification.type === 'post_liked' || notification.type === 'post_commented') {
+                        // For post-related notifications, go to My Posts tab and scroll to the specific post
+                        const myPostsTab = document.querySelector('button[onclick*="MyPosts"]');
+                        if (myPostsTab) {
+                            myPostsTab.click();
+
+                            // Wait for tab content to load, then scroll to the specific post
+                            setTimeout(() => {
+                                const postElement = document.querySelector(`li[data-post-id="${notification.post_id}"]`);
+
+                                if (postElement) {
+                                    // Scroll to the post with smooth animation
+                                    postElement.scrollIntoView({
+                                        behavior: 'smooth',
+                                        block: 'center'
+                                    });
+
+                                    // Add a subtle highlight effect
+                                    postElement.style.transition = 'background-color 0.3s ease';
+                                    postElement.style.backgroundColor = '#f0f8ff';
+                                    setTimeout(() => {
+                                        postElement.style.backgroundColor = '';
+                                    }, 2000);
+
+                                    console.log(`✅ Navigated to post ${notification.post_id}`);
+                                } else {
+                                    console.warn(`❌ Post ${notification.post_id} not found in My Posts tab`);
+                                }
+                            }, 300);
+                        }
+                    } else if (notification.type === 'connection_request' || notification.type === 'connection_accepted') {
+                        // For connection notifications, go to connections tab
+                        const connectionsTab = document.querySelector('button[onclick*="Connections"]');
+                        if (connectionsTab) {
+                            connectionsTab.click();
+                            console.log(`✅ Navigated to Connections tab for ${notification.type}`);
+                        } else {
+                            console.warn('❌ Connections tab button not found');
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error marking notification as read:', error);
+            }
+        }
+
+        async function markAllNotificationsRead() {
+            try {
+                const token = '{{ request.session.jwt_token }}';
+                const response = await fetch('/api/notifications/mark-all-read', {
+                    method: 'POST',
+                    headers: {
+                        'x-access-token': token
+                    }
+                });
+
+                if (response.ok) {
+                    notifications = [];
+                    updateNotificationUI();
+                    document.getElementById('notification-dropdown').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error marking all notifications as read:', error);
+            }
+        }
+
+        function getTimeAgo(date) {
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+
+            if (diffInSeconds < 60) return 'Just now';
+            if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+            if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+            return `${Math.floor(diffInSeconds / 86400)}d ago`;
+        }
+
+        function toggleNotificationDropdown() {
+            const dropdown = document.getElementById('notification-dropdown');
+            if (dropdown.style.display === 'none' || dropdown.style.display === '') {
+                dropdown.style.display = 'block';
+            } else {
+                dropdown.style.display = 'none';
+            }
+        }
+
+        // Initialize notification system when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const notificationBell = document.getElementById('notification-bell');
+            const markAllReadBtn = document.getElementById('mark-all-read');
+
+            if (notificationBell) {
+                notificationBell.addEventListener('click', toggleNotificationDropdown);
+            }
+
+            if (markAllReadBtn) {
+                markAllReadBtn.addEventListener('click', markAllNotificationsRead);
+            }
+
+            // Only start polling if we have a JWT token
+            const token = '{{ request.session.jwt_token }}';
+            if (token) {
+                // Initial fetch
+                fetchNotifications();
+
+                // Poll for new notifications every 30 seconds
+                pollingInterval = setInterval(fetchNotifications, 30000);
+            }
+        });
+
+        // Clean up polling on page unload
+        window.addEventListener('beforeunload', function() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+        });
 
     </script>
 </body>
