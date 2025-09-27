@@ -2,3 +2,9 @@
 
 # SSL Certificates - generated locally, should not be committed
 certs/
+
+# Generated test artifacts
+backend/__pycache__/
+backend/pact-mock-service.log
+backend/socialapp-frontend-socialapp-backend.json
+frontend/db.sqlite3
