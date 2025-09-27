@@ -452,7 +452,7 @@ jobs:
           # Backend Security Scan with Bandit
           echo "Running Backend Security Scan..."
           cd backend
-          BACKEND_BANDIT_OUTPUT=$(bandit -r . -f txt || true)
+          BACKEND_BANDIT_OUTPUT=$(bandit -r . -c pyproject.toml -f txt || true)
           echo "$BACKEND_BANDIT_OUTPUT"
 
           # Parse backend bandit results for severity breakdown
