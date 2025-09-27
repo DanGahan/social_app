@@ -20,11 +20,15 @@ class TestAPIContract:
     def pact(self):
         """Create Pact consumer-provider relationship."""
         pact = Consumer("SocialApp-Frontend").has_pact_with(
-            Provider("SocialApp-Backend"), host_name="localhost", port=1234
+            Provider("SocialApp-Backend"), host_name="localhost", port=1235
         )
         pact.start_service()
         yield pact
-        pact.stop_service()
+        try:
+            pact.stop_service()
+        except RuntimeError:
+            # Ignore teardown errors - service may have already stopped
+            pass
 
     @pytest.mark.contract
     def test_user_registration_contract(self, pact):
@@ -310,9 +314,6 @@ class TestAPIContract:
             assert data["comment"]["content"] == "This is a test comment"
 
     @pytest.mark.contract
-    @pytest.mark.skip(
-        reason="Complex query parameter matching causing 500 error - needs investigation"
-    )
     def test_get_comments_contract(self, pact):
         """Test get comments API contract."""
         expected_response = {
@@ -341,8 +342,9 @@ class TestAPIContract:
             .upon_receiving("a request to get comments with pagination")
             .with_request(
                 "get",
-                "/posts/123/comments?page=1&per_page=10",
+                Term(r"/posts/\d+/comments", "/posts/123/comments"),
                 headers={"x-access-token": Like("valid.jwt.token")},
+                query={"page": Like("1"), "per_page": Like("10")},
             )
             .will_respond_with(
                 200,
@@ -353,15 +355,11 @@ class TestAPIContract:
 
         with pact:
             response = requests.get(
-                "http://localhost:1235/posts/123/comments?page=1&per_page=10",
+                "http://localhost:1235/posts/123/comments",
+                params={"page": "1", "per_page": "10"},
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
-
-            # Debug output for troubleshooting
-            if response.status_code != 200:
-                print(f"Response status: {response.status_code}")
-                print(f"Response text: {response.text}")
 
             assert response.status_code == 200
             data = response.json()

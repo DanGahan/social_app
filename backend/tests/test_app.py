@@ -733,14 +733,20 @@ def test_get_notifications(mock_query, client, mock_jwt_decode):
         message="Test notification",
         target_url="/posts/1",
         is_read=False,
-        created_at=datetime.now(),
+        created_at=datetime.datetime.now(),
     )
 
+    # Mock for user lookup
+    mock_user_filter = MagicMock()
+    mock_user_filter.first.return_value = mock_current_user
+
+    # Mock for notifications lookup
+    mock_notif_filter = MagicMock()
+    mock_notif_filter.order_by.return_value.all.return_value = [mock_notification]
+
     mock_query.return_value.filter_by.side_effect = [
-        MagicMock(first=MagicMock(return_value=mock_current_user)),
-    ]
-    mock_query.return_value.filter_by.return_value.order_by.return_value.all.return_value = [
-        mock_notification
+        mock_user_filter,
+        mock_notif_filter,
     ]
 
     response = client.get("/notifications", headers={"x-access-token": "valid_token"})
@@ -752,12 +758,19 @@ def test_get_notifications(mock_query, client, mock_jwt_decode):
 def test_get_notifications_empty(mock_query, client, mock_jwt_decode):
     """Test getting notifications when none exist."""
     mock_current_user = User(id=1)
+
+    # Mock for user lookup
+    mock_user_filter = MagicMock()
+    mock_user_filter.first.return_value = mock_current_user
+
+    # Mock for notifications lookup
+    mock_notif_filter = MagicMock()
+    mock_notif_filter.order_by.return_value.all.return_value = []
+
     mock_query.return_value.filter_by.side_effect = [
-        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        mock_user_filter,
+        mock_notif_filter,
     ]
-    mock_query.return_value.filter_by.return_value.order_by.return_value.all.return_value = (
-        []
-    )
 
     response = client.get("/notifications", headers={"x-access-token": "valid_token"})
     assert response.status_code == 200
@@ -822,13 +835,15 @@ def test_mark_notification_read_wrong_user(mock_query, client, mock_jwt_decode):
 
     mock_query.return_value.filter_by.side_effect = [
         MagicMock(first=MagicMock(return_value=mock_current_user)),
-        MagicMock(first=MagicMock(return_value=mock_notification)),
+        MagicMock(
+            first=MagicMock(return_value=None)
+        ),  # Notification not found because it belongs to another user
     ]
 
     response = client.post(
         "/notifications/1/mark-read", headers={"x-access-token": "valid_token"}
     )
-    assert response.status_code == 403
+    assert response.status_code == 404
 
 
 @patch("app.session.query")
