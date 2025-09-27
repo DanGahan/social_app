@@ -183,8 +183,8 @@ class TestConnectionCRUD:
     @pytest.mark.integration
     def test_create_connection(self, test_session):
         """Test creating a connection between users."""
-        user1 = User(email="user1@example.com", password_hash="hash1")
-        user2 = User(email="user2@example.com", password_hash="hash2")
+        user1 = User(email="test_conn_user1@example.com", password_hash="hash1")
+        user2 = User(email="test_conn_user2@example.com", password_hash="hash2")
         test_session.add_all([user1, user2])
         test_session.commit()
 
@@ -740,8 +740,8 @@ class TestNotificationIntegration:
         test_session.delete(user3)
         test_session.commit()
 
-        # Verify the notification was also deleted (should cascade or be handled properly)
+        # Verify the notification was deleted due to cascade
         remaining_notification = (
             test_session.query(Notification).filter_by(id=notification_id).first()
         )
-        # This depends on how the database schema is set up for cascading
+        assert remaining_notification is None  # Should be deleted due to CASCADE

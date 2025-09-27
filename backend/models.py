@@ -54,6 +54,17 @@ class User(Base):
     )
     likes = relationship("Like", cascade="all, delete-orphan")
     comments = relationship("Comment", cascade="all, delete-orphan")
+    # Notification relationships
+    notifications_received = relationship(
+        "Notification",
+        foreign_keys="[Notification.user_id]",
+        cascade="all, delete-orphan",
+    )
+    notifications_sent = relationship(
+        "Notification",
+        foreign_keys="[Notification.actor_user_id]",
+        cascade="all, delete-orphan",
+    )
 
 
 class Post(Base):
@@ -71,6 +82,9 @@ class Post(Base):
     likes = relationship("Like", back_populates="post", cascade="all, delete-orphan")
     comments = relationship(
         "Comment", back_populates="post", cascade="all, delete-orphan"
+    )
+    notifications = relationship(
+        "Notification", back_populates="post", cascade="all, delete-orphan"
     )
 
 
@@ -150,15 +164,17 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # recipient
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )  # recipient
     actor_user_id = Column(
-        Integer, ForeignKey("users.id"), nullable=False
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )  # who triggered
     type = Column(
         String(50), nullable=False
     )  # 'post_liked', 'post_commented', 'connection_request', 'connection_accepted'
     post_id = Column(
-        Integer, ForeignKey("posts.id"), nullable=True
+        Integer, ForeignKey("posts.id", ondelete="SET NULL"), nullable=True
     )  # for post-related notifications
     message = Column(Text, nullable=False)  # pre-formatted message
     target_url = Column(String(255), nullable=False)  # navigation URL
@@ -166,6 +182,10 @@ class Notification(Base):
     created_at = Column(TIMESTAMP, default=func.now())
 
     # Relationships
-    user = relationship("User", foreign_keys=[user_id])
-    actor_user = relationship("User", foreign_keys=[actor_user_id])
-    post = relationship("Post")
+    user = relationship(
+        "User", foreign_keys=[user_id], back_populates="notifications_received"
+    )
+    actor_user = relationship(
+        "User", foreign_keys=[actor_user_id], back_populates="notifications_sent"
+    )
+    post = relationship("Post", back_populates="notifications")

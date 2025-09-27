@@ -57,7 +57,7 @@ class TestAPIContract:
         # Execute test
         with pact:
             response = requests.post(
-                "http://localhost:1234/auth/register",
+                "http://localhost:1235/auth/register",
                 json={"email": "test@example.com", "password": "securepassword"},
                 headers={"Content-Type": "application/json"},
                 timeout=10,
@@ -98,7 +98,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/auth/login",
+                "http://localhost:1235/auth/login",
                 json={"email": "existing@example.com", "password": "password"},
                 headers={"Content-Type": "application/json"},
                 timeout=10,
@@ -141,7 +141,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/posts",
+                "http://localhost:1235/posts",
                 json={"image_url": "/uploads/test.jpg", "caption": "Test post caption"},
                 headers={
                     "Content-Type": "application/json",
@@ -205,7 +205,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.get(
-                "http://localhost:1234/users/123/posts",
+                "http://localhost:1235/users/123/posts",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
@@ -247,7 +247,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/posts/123/like",
+                "http://localhost:1235/posts/123/like",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
@@ -295,7 +295,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/posts/123/comments",
+                "http://localhost:1235/posts/123/comments",
                 json={"content": "This is a test comment"},
                 headers={
                     "Content-Type": "application/json",
@@ -353,7 +353,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.get(
-                "http://localhost:1234/posts/123/comments?page=1&per_page=10",
+                "http://localhost:1235/posts/123/comments?page=1&per_page=10",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
@@ -389,7 +389,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/posts/99999/like",
+                "http://localhost:1235/posts/99999/like",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
@@ -465,11 +465,15 @@ class TestNotificationAPIContract:
     def pact(self):
         """Create Pact consumer-provider relationship for notification tests."""
         pact = Consumer("SocialApp-Frontend").has_pact_with(
-            Provider("SocialApp-Backend"), host_name="localhost", port=1234
+            Provider("SocialApp-Backend"), host_name="localhost", port=1235
         )
         pact.start_service()
         yield pact
-        pact.stop_service()
+        try:
+            pact.stop_service()
+        except RuntimeError:
+            # Ignore teardown errors - service may have already stopped
+            pass
 
     @pytest.mark.contract
     def test_get_notifications_contract(self, pact):
@@ -511,7 +515,7 @@ class TestNotificationAPIContract:
 
         with pact:
             response = requests.get(
-                "http://localhost:1234/api/notifications",
+                "http://localhost:1235/api/notifications",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
@@ -554,7 +558,7 @@ class TestNotificationAPIContract:
 
         with pact:
             response = requests.get(
-                "http://localhost:1234/api/notifications",
+                "http://localhost:1235/api/notifications",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
@@ -592,7 +596,7 @@ class TestNotificationAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/api/notifications/123/mark-read",
+                "http://localhost:1235/api/notifications/123/mark-read",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
@@ -628,7 +632,7 @@ class TestNotificationAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/api/notifications/mark-all-read",
+                "http://localhost:1235/api/notifications/mark-all-read",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
@@ -660,7 +664,7 @@ class TestNotificationAPIContract:
 
         with pact:
             response = requests.get(
-                "http://localhost:1234/api/notifications",
+                "http://localhost:1235/api/notifications",
                 timeout=10,
             )
 
@@ -690,7 +694,7 @@ class TestNotificationAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/api/notifications/99999/mark-read",
+                "http://localhost:1235/api/notifications/99999/mark-read",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
@@ -764,7 +768,7 @@ class TestNotificationAPIContract:
 
         with pact:
             response = requests.get(
-                "http://localhost:1234/api/notifications",
+                "http://localhost:1235/api/notifications",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
