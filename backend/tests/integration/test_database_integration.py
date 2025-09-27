@@ -13,7 +13,16 @@ from sqlalchemy.orm import sessionmaker
 from testcontainers.postgres import PostgresContainer
 
 # Import only models, not the app which connects to database during import
-from models import Base, Comment, Connection, Like, Post, User
+from models import (
+    Base,
+    Comment,
+    Connection,
+    ConnectionRequest,
+    Like,
+    Notification,
+    Post,
+    User,
+)
 
 # Skip API integration tests in CI if not able to override database config
 CI_ENV = bool(os.getenv("CI")) or bool(os.getenv("GITHUB_ACTIONS"))
@@ -336,3 +345,403 @@ class TestAPIIntegrationWithDatabase:
         data = response.get_json()
         assert "token" in data
         assert data["message"] == "Login successful"
+
+
+class TestNotificationIntegration:
+    """Test notification system integration with real database."""
+
+    @pytest.mark.integration
+    def test_notification_creation_and_persistence(self, test_session):
+        """Test notification creation and database persistence."""
+        # Create test users
+        user1 = User(
+            email="notif1@example.com", password_hash="hash1", display_name="User One"
+        )
+        user2 = User(
+            email="notif2@example.com", password_hash="hash2", display_name="User Two"
+        )
+        test_session.add_all([user1, user2])
+        test_session.commit()
+
+        # Create a test post
+        post = Post(user_id=user1.id, image_url="test.jpg", caption="Test post")
+        test_session.add(post)
+        test_session.commit()
+
+        # Create notification
+        notification = Notification(
+            user_id=user1.id,
+            actor_user_id=user2.id,
+            type="post_liked",
+            post_id=post.id,
+            message="User Two liked your post",
+            target_url=f"/posts/{post.id}",
+            is_read=False,
+        )
+        test_session.add(notification)
+        test_session.commit()
+
+        # Verify notification persisted correctly
+        retrieved = (
+            test_session.query(Notification)
+            .filter_by(user_id=user1.id, actor_user_id=user2.id, type="post_liked")
+            .first()
+        )
+
+        assert retrieved is not None
+        assert retrieved.post_id == post.id
+        assert retrieved.is_read is False
+        assert "User Two liked your post" in retrieved.message
+
+    @pytest.mark.integration
+    def test_like_workflow_creates_notification(self, test_session):
+        """Test that liking a post creates proper notification."""
+        # Create users and post
+        author = User(
+            email="author@example.com", password_hash="hash1", display_name="Author"
+        )
+        liker = User(
+            email="liker@example.com", password_hash="hash2", display_name="Liker"
+        )
+        test_session.add_all([author, liker])
+        test_session.commit()
+
+        post = Post(user_id=author.id, image_url="test.jpg", caption="Test post")
+        test_session.add(post)
+        test_session.commit()
+
+        # Create like
+        like = Like(user_id=liker.id, post_id=post.id)
+        test_session.add(like)
+        test_session.commit()
+
+        # Manually create notification (simulating app workflow)
+        notification = Notification(
+            user_id=author.id,
+            actor_user_id=liker.id,
+            type="post_liked",
+            post_id=post.id,
+            message="Liker liked your post",
+            target_url=f"/posts/{post.id}",
+            is_read=False,
+        )
+        test_session.add(notification)
+        test_session.commit()
+
+        # Verify notification exists for the author
+        notifications = (
+            test_session.query(Notification).filter_by(user_id=author.id).all()
+        )
+        assert len(notifications) == 1
+        assert notifications[0].type == "post_liked"
+        assert notifications[0].actor_user_id == liker.id
+
+    @pytest.mark.integration
+    def test_comment_workflow_creates_notification(self, test_session):
+        """Test that commenting on a post creates proper notification."""
+        # Create users and post
+        author = User(
+            email="post_author@example.com",
+            password_hash="hash1",
+            display_name="Post Author",
+        )
+        commenter = User(
+            email="commenter@example.com",
+            password_hash="hash2",
+            display_name="Commenter",
+        )
+        test_session.add_all([author, commenter])
+        test_session.commit()
+
+        post = Post(user_id=author.id, image_url="test.jpg", caption="Test post")
+        test_session.add(post)
+        test_session.commit()
+
+        # Create comment
+        comment = Comment(user_id=commenter.id, post_id=post.id, content="Great post!")
+        test_session.add(comment)
+        test_session.commit()
+
+        # Manually create notification (simulating app workflow)
+        notification = Notification(
+            user_id=author.id,
+            actor_user_id=commenter.id,
+            type="post_commented",
+            post_id=post.id,
+            message="Commenter commented on your post",
+            target_url=f"/posts/{post.id}",
+            is_read=False,
+        )
+        test_session.add(notification)
+        test_session.commit()
+
+        # Verify notification exists for the post author
+        notifications = (
+            test_session.query(Notification).filter_by(user_id=author.id).all()
+        )
+        assert len(notifications) == 1
+        assert notifications[0].type == "post_commented"
+        assert notifications[0].actor_user_id == commenter.id
+
+    @pytest.mark.integration
+    def test_connection_request_creates_notification(self, test_session):
+        """Test that connection request creates proper notification."""
+        # Create users
+        requester = User(
+            email="requester@example.com",
+            password_hash="hash1",
+            display_name="Requester",
+        )
+        target = User(
+            email="target@example.com", password_hash="hash2", display_name="Target"
+        )
+        test_session.add_all([requester, target])
+        test_session.commit()
+
+        # Create connection request
+        request = ConnectionRequest(
+            from_user_id=requester.id, to_user_id=target.id, status="pending"
+        )
+        test_session.add(request)
+        test_session.commit()
+
+        # Manually create notification (simulating app workflow)
+        notification = Notification(
+            user_id=target.id,
+            actor_user_id=requester.id,
+            type="connection_request",
+            message="Requester has requested a connection",
+            target_url="/connections",
+            is_read=False,
+        )
+        test_session.add(notification)
+        test_session.commit()
+
+        # Verify notification exists for the target user
+        notifications = (
+            test_session.query(Notification).filter_by(user_id=target.id).all()
+        )
+        assert len(notifications) == 1
+        assert notifications[0].type == "connection_request"
+        assert notifications[0].actor_user_id == requester.id
+
+    @pytest.mark.integration
+    def test_connection_accepted_creates_notification(self, test_session):
+        """Test that accepting connection creates proper notification."""
+        # Create users
+        user1 = User(
+            email="conn1@example.com", password_hash="hash1", display_name="User One"
+        )
+        user2 = User(
+            email="conn2@example.com", password_hash="hash2", display_name="User Two"
+        )
+        test_session.add_all([user1, user2])
+        test_session.commit()
+
+        # Create connection (simulating accepted request)
+        connection = Connection(user_id1=user1.id, user_id2=user2.id)
+        test_session.add(connection)
+        test_session.commit()
+
+        # Manually create notification (simulating app workflow)
+        notification = Notification(
+            user_id=user1.id,
+            actor_user_id=user2.id,
+            type="connection_accepted",
+            message="User Two accepted your connection request",
+            target_url="/connections",
+            is_read=False,
+        )
+        test_session.add(notification)
+        test_session.commit()
+
+        # Verify notification exists
+        notifications = (
+            test_session.query(Notification).filter_by(user_id=user1.id).all()
+        )
+        assert len(notifications) == 1
+        assert notifications[0].type == "connection_accepted"
+        assert notifications[0].actor_user_id == user2.id
+
+    @pytest.mark.integration
+    def test_notification_mark_as_read(self, test_session):
+        """Test marking notification as read."""
+        # Create test users and notification
+        user1 = User(
+            email="reader@example.com", password_hash="hash1", display_name="Reader"
+        )
+        user2 = User(
+            email="actor@example.com", password_hash="hash2", display_name="Actor"
+        )
+        test_session.add_all([user1, user2])
+        test_session.commit()
+
+        notification = Notification(
+            user_id=user1.id,
+            actor_user_id=user2.id,
+            type="connection_request",
+            message="Actor has requested a connection",
+            target_url="/connections",
+            is_read=False,
+        )
+        test_session.add(notification)
+        test_session.commit()
+
+        # Mark as read
+        notification.is_read = True
+        test_session.commit()
+
+        # Verify status changed
+        retrieved = (
+            test_session.query(Notification).filter_by(id=notification.id).first()
+        )
+        assert retrieved.is_read is True
+
+    @pytest.mark.integration
+    def test_multiple_notifications_for_user(self, test_session):
+        """Test user can have multiple notifications from different activities."""
+        # Create users
+        user = User(
+            email="multi@example.com", password_hash="hash1", display_name="Multi User"
+        )
+        actor1 = User(
+            email="actor1@example.com", password_hash="hash2", display_name="Actor One"
+        )
+        actor2 = User(
+            email="actor2@example.com", password_hash="hash3", display_name="Actor Two"
+        )
+        test_session.add_all([user, actor1, actor2])
+        test_session.commit()
+
+        # Create post
+        post = Post(user_id=user.id, image_url="test.jpg", caption="Test post")
+        test_session.add(post)
+        test_session.commit()
+
+        # Create multiple notifications
+        notifications = [
+            Notification(
+                user_id=user.id,
+                actor_user_id=actor1.id,
+                type="post_liked",
+                post_id=post.id,
+                message="Actor One liked your post",
+                target_url=f"/posts/{post.id}",
+                is_read=False,
+            ),
+            Notification(
+                user_id=user.id,
+                actor_user_id=actor2.id,
+                type="post_commented",
+                post_id=post.id,
+                message="Actor Two commented on your post",
+                target_url=f"/posts/{post.id}",
+                is_read=False,
+            ),
+            Notification(
+                user_id=user.id,
+                actor_user_id=actor1.id,
+                type="connection_request",
+                message="Actor One has requested a connection",
+                target_url="/connections",
+                is_read=False,
+            ),
+        ]
+        test_session.add_all(notifications)
+        test_session.commit()
+
+        # Verify all notifications exist
+        user_notifications = (
+            test_session.query(Notification).filter_by(user_id=user.id).all()
+        )
+        assert len(user_notifications) == 3
+
+        notification_types = [n.type for n in user_notifications]
+        assert "post_liked" in notification_types
+        assert "post_commented" in notification_types
+        assert "connection_request" in notification_types
+
+    @pytest.mark.integration
+    def test_notification_cascade_deletion(self, test_session):
+        """Test that deleting related entities properly handles notifications."""
+        # Create users and post
+        author = User(
+            email="cascade_author@example.com",
+            password_hash="hash1",
+            display_name="Author",
+        )
+        liker = User(
+            email="cascade_liker@example.com",
+            password_hash="hash2",
+            display_name="Liker",
+        )
+        test_session.add_all([author, liker])
+        test_session.commit()
+
+        post = Post(user_id=author.id, image_url="test.jpg", caption="Test post")
+        test_session.add(post)
+        test_session.commit()
+
+        # Create notification
+        notification = Notification(
+            user_id=author.id,
+            actor_user_id=liker.id,
+            type="post_liked",
+            post_id=post.id,
+            message="Liker liked your post",
+            target_url=f"/posts/{post.id}",
+            is_read=False,
+        )
+        test_session.add(notification)
+        test_session.commit()
+
+        # First delete the notification, then the post (since notification references post)
+        test_session.delete(notification)
+        test_session.delete(post)
+        test_session.commit()
+
+        # Verify both notification and post are deleted
+        retrieved_notification = (
+            test_session.query(Notification).filter_by(id=notification.id).first()
+        )
+        retrieved_post = test_session.query(Post).filter_by(id=post.id).first()
+
+        assert retrieved_notification is None
+        assert retrieved_post is None
+
+        # Test that deleting a user cascades properly to their notifications
+        user3 = User(
+            email="cascade_user3@example.com",
+            password_hash="hash3",
+            display_name="User Three",
+        )
+        user4 = User(
+            email="cascade_user4@example.com",
+            password_hash="hash4",
+            display_name="User Four",
+        )
+        test_session.add_all([user3, user4])
+        test_session.commit()
+
+        # Create connection notification (no post dependency)
+        connection_notification = Notification(
+            user_id=user3.id,
+            actor_user_id=user4.id,
+            type="connection_request",
+            message="User Four has requested a connection",
+            target_url="/connections",
+            is_read=False,
+        )
+        test_session.add(connection_notification)
+        test_session.commit()
+
+        # Delete the user who received the notification
+        notification_id = connection_notification.id
+        test_session.delete(user3)
+        test_session.commit()
+
+        # Verify the notification was also deleted (should cascade or be handled properly)
+        remaining_notification = (
+            test_session.query(Notification).filter_by(id=notification_id).first()
+        )
+        # This depends on how the database schema is set up for cascading

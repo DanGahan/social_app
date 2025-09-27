@@ -34,4 +34,17 @@ urlpatterns = [
         views.api_request_connection,
         name="api_request_connection",
     ),
+    path(
+        "api/notifications", views.api_get_notifications, name="api_get_notifications"
+    ),
+    path(
+        "api/notifications/<int:notification_id>/mark-read",
+        views.api_mark_notification_read,
+        name="api_mark_notification_read",
+    ),
+    path(
+        "api/notifications/mark-all-read",
+        views.api_mark_all_notifications_read,
+        name="api_mark_all_notifications_read",
+    ),
 ]

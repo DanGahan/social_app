@@ -8,7 +8,16 @@ from sqlalchemy.orm import sessionmaker
 from werkzeug.security import generate_password_hash
 
 from config import Config
-from models import Base, Connection, ConnectionRequest, Post, User
+from models import (
+    Base,
+    Comment,
+    Connection,
+    ConnectionRequest,
+    Like,
+    Notification,
+    Post,
+    User,
+)
 
 # Database setup
 app_config = Config()
@@ -80,6 +89,32 @@ CAPTION_MESSAGES = [
     "Simply gorgeous.",
 ]
 
+COMMENT_MESSAGES = [
+    "Amazing photo! 📸",
+    "Absolutely beautiful! 😍",
+    "Wow, this is incredible!",
+    "Love this shot! ❤️",
+    "So peaceful and serene",
+    "Great capture! 👍",
+    "This made my day! ☀️",
+    "Breathtaking view!",
+    "Perfect timing! ⏰",
+    "Nature is amazing! 🌿",
+]
+
+BIO_MESSAGES = [
+    "Photography enthusiast and nature lover 📸🌿",
+    "Tech blogger and coffee addict ☕💻",
+    "Artist and world traveler 🎨✈️",
+    "Chef and food blogger 👩‍🍳🍽️",
+    "Fitness trainer and wellness coach 💪🧘‍♀️",
+    "Music lover and concert photographer 🎵📷",
+    "Outdoor adventurer and hiking guide 🥾⛰️",
+    "Book enthusiast and writer 📚✍️",
+    "Gardening expert and plant parent 🌱🪴",
+    "Fashion designer and style blogger 👗✨",
+]
+
 
 # ----------------------------
 # Populate test data
@@ -96,6 +131,9 @@ def populate_data(session=None):
     Base.metadata.create_all(engine)
 
     # Clear existing data
+    session.query(Notification).delete()
+    session.query(Comment).delete()
+    session.query(Like).delete()
     session.query(Connection).delete()
     session.query(ConnectionRequest).delete()
     session.query(Post).delete()
@@ -107,16 +145,16 @@ def populate_data(session=None):
     for i in range(1, 21):
         email = f"user{i}@example.com"
         password_hash = generate_password_hash(f"password{i}")
-        display_name = (
-            f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
-        )
+        display_name = f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
         profile_picture_url = random.choice(PROFILE_PIC_URLS)
+        bio = random.choice(BIO_MESSAGES)
 
         user = User(
             email=email,
             password_hash=password_hash,
             display_name=display_name,
             profile_picture_url=profile_picture_url,
+            bio=bio,
         )
         session.add(user)
         users.append(user)
@@ -169,7 +207,164 @@ def populate_data(session=None):
 
     session.commit()
     print(f"Created {connections_count} connections.")
+
+    # Create some pending connection requests
+    requests_count = 0
+    for user in users[:5]:  # First 5 users send requests
+        possible_targets = [u for u in users if u.id != user.id]
+        random.shuffle(possible_targets)
+        for target in possible_targets[:2]:  # Send 2 requests each
+            # Check if already connected or request exists
+            u1_id = min(user.id, target.id)
+            u2_id = max(user.id, target.id)
+            existing_connection = (
+                session.query(Connection)
+                .filter_by(user_id1=u1_id, user_id2=u2_id)
+                .first()
+            )
+            existing_request = (
+                session.query(ConnectionRequest)
+                .filter(
+                    (
+                        (ConnectionRequest.from_user_id == user.id)
+                        & (ConnectionRequest.to_user_id == target.id)
+                    )
+                    | (
+                        (ConnectionRequest.from_user_id == target.id)
+                        & (ConnectionRequest.to_user_id == user.id)
+                    )
+                )
+                .first()
+            )
+
+            if not existing_connection and not existing_request:
+                request = ConnectionRequest(
+                    from_user_id=user.id, to_user_id=target.id, status="pending"
+                )
+                session.add(request)
+                requests_count += 1
+
+    session.commit()
+    print(f"Created {requests_count} pending connection requests.")
+
+    # Create likes for posts
+    likes_count = 0
+    for post in posts:
+        # Each post gets liked by 1-4 random users (not the author)
+        num_likes = random.randint(1, 4)
+        possible_likers = [u for u in users if u.id != post.user_id]
+        random.shuffle(possible_likers)
+
+        for user in possible_likers[:num_likes]:
+            # Check if like already exists
+            existing_like = (
+                session.query(Like).filter_by(user_id=user.id, post_id=post.id).first()
+            )
+            if not existing_like:
+                like = Like(user_id=user.id, post_id=post.id)
+                session.add(like)
+                likes_count += 1
+
+    session.commit()
+    print(f"Created {likes_count} likes.")
+
+    # Create comments on posts
+    comments_count = 0
+    for post in posts:
+        # Each post gets 0-3 comments
+        num_comments = random.randint(0, 3)
+        possible_commenters = [u for u in users if u.id != post.user_id]
+        random.shuffle(possible_commenters)
+
+        for user in possible_commenters[:num_comments]:
+            comment_content = random.choice(COMMENT_MESSAGES)
+            comment = Comment(user_id=user.id, post_id=post.id, content=comment_content)
+            session.add(comment)
+            comments_count += 1
+
+    session.commit()
+    print(f"Created {comments_count} comments.")
+
+    # Generate notifications based on the interactions
+    print("Generating notifications...")
+    notifications_count = 0
+
+    # Import the create_notification function
+    from app import create_notification
+
+    # Notifications for likes
+    likes = session.query(Like).all()
+    for like in likes:
+        post = session.query(Post).filter_by(id=like.post_id).first()
+        if post and post.user_id != like.user_id:
+            create_notification(post.user_id, like.user_id, "post_liked", post.id)
+            notifications_count += 1
+
+    # Notifications for comments
+    comments = session.query(Comment).all()
+    for comment in comments:
+        post = session.query(Post).filter_by(id=comment.post_id).first()
+        if post and post.user_id != comment.user_id:
+            create_notification(
+                post.user_id, comment.user_id, "post_commented", post.id
+            )
+            notifications_count += 1
+
+    # Notifications for connection requests
+    connection_requests = (
+        session.query(ConnectionRequest).filter_by(status="pending").all()
+    )
+    for request in connection_requests:
+        create_notification(
+            request.to_user_id, request.from_user_id, "connection_request"
+        )
+        notifications_count += 1
+
+    # Create some "connection accepted" notifications by simulating recent acceptances
+    accepted_connections = (
+        session.query(Connection).limit(5).all()
+    )  # First 5 connections
+    for connection in accepted_connections:
+        # Randomly choose who gets the notification (simulate who originally sent the request)
+        if random.choice([True, False]):
+            create_notification(
+                connection.user_id1, connection.user_id2, "connection_accepted"
+            )
+        else:
+            create_notification(
+                connection.user_id2, connection.user_id1, "connection_accepted"
+            )
+        notifications_count += 1
+
+    print(f"Generated {notifications_count} notifications.")
     print("Test data population complete.")
+
+    # Print summary for manual testing
+    print("\n" + "=" * 50)
+    print("🎉 DATABASE POPULATED FOR MANUAL TESTING!")
+    print("=" * 50)
+    print("Test users created (password: passwordX where X is user number):")
+    test_users = session.query(User).limit(5).all()
+    for user in test_users:
+        unread_count = (
+            session.query(Notification)
+            .filter_by(user_id=user.id, is_read=False)
+            .count()
+        )
+        print(
+            f"📧 {user.email} | 👤 {user.display_name} | 🔔 {unread_count} notifications"
+        )
+
+    print(f"\n📊 Summary:")
+    print(f"👥 {len(users)} users created")
+    print(f"📸 {len(posts)} posts created")
+    print(f"🤝 {connections_count} connections created")
+    print(f"📝 {requests_count} pending requests created")
+    print(f"❤️ {likes_count} likes created")
+    print(f"💬 {comments_count} comments created")
+    print(f"🔔 {notifications_count} notifications generated")
+    print("\n🚀 Ready for manual testing at http://localhost:80")
+    print("=" * 50)
 
 
 # ----------------------------

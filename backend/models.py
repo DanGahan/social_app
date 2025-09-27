@@ -2,6 +2,7 @@
 
 from sqlalchemy import (
     TIMESTAMP,
+    Boolean,
     Column,
     ForeignKey,
     Integer,
@@ -141,3 +142,30 @@ class Comment(Base):
 
     user = relationship("User", overlaps="comments")
     post = relationship("Post", back_populates="comments")
+
+
+class Notification(Base):
+    """Notification model representing user notifications."""
+
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # recipient
+    actor_user_id = Column(
+        Integer, ForeignKey("users.id"), nullable=False
+    )  # who triggered
+    type = Column(
+        String(50), nullable=False
+    )  # 'post_liked', 'post_commented', 'connection_request', 'connection_accepted'
+    post_id = Column(
+        Integer, ForeignKey("posts.id"), nullable=True
+    )  # for post-related notifications
+    message = Column(Text, nullable=False)  # pre-formatted message
+    target_url = Column(String(255), nullable=False)  # navigation URL
+    is_read = Column(Boolean, default=False, nullable=False)
+    created_at = Column(TIMESTAMP, default=func.now())
+
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    actor_user = relationship("User", foreign_keys=[actor_user_id])
+    post = relationship("Post")

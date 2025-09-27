@@ -878,3 +878,114 @@ def api_comments(request, post_id):
             return JsonResponse({"error": "Failed to get comments."}, status=500)
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def api_get_notifications(request):
+    """Get unread notifications for the current user."""
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    jwt_token = request.session.get("jwt_token")
+    if not jwt_token:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    try:
+        headers = {"x-access-token": jwt_token}
+        response = requests.get(
+            f"{FLASK_BACKEND_URL}/notifications",
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
+        )
+
+        if response.ok:
+            return JsonResponse(
+                response.json(), safe=False, status=response.status_code
+            )
+        else:
+            try:
+                error_data = response.json()
+                return JsonResponse(error_data, status=response.status_code)
+            except:
+                return JsonResponse(
+                    {"error": response.text or "Failed to get notifications"},
+                    status=response.status_code,
+                )
+
+    except requests.exceptions.RequestException as e:
+        return JsonResponse({"error": "Failed to get notifications."}, status=500)
+
+
+@csrf_exempt
+def api_mark_notification_read(request, notification_id):
+    """Mark a single notification as read."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    jwt_token = request.session.get("jwt_token")
+    if not jwt_token:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    try:
+        headers = {"x-access-token": jwt_token}
+        response = requests.post(
+            f"{FLASK_BACKEND_URL}/notifications/{notification_id}/mark-read",
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
+        )
+
+        if response.ok:
+            return JsonResponse(response.json(), status=response.status_code)
+        else:
+            try:
+                error_data = response.json()
+                return JsonResponse(error_data, status=response.status_code)
+            except:
+                return JsonResponse(
+                    {"error": response.text or "Failed to mark notification as read"},
+                    status=response.status_code,
+                )
+
+    except requests.exceptions.RequestException as e:
+        return JsonResponse(
+            {"error": "Failed to mark notification as read."}, status=500
+        )
+
+
+@csrf_exempt
+def api_mark_all_notifications_read(request):
+    """Mark all notifications as read for the current user."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    jwt_token = request.session.get("jwt_token")
+    if not jwt_token:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    try:
+        headers = {"x-access-token": jwt_token}
+        response = requests.post(
+            f"{FLASK_BACKEND_URL}/notifications/mark-all-read",
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
+        )
+
+        if response.ok:
+            return JsonResponse(response.json(), status=response.status_code)
+        else:
+            try:
+                error_data = response.json()
+                return JsonResponse(error_data, status=response.status_code)
+            except:
+                return JsonResponse(
+                    {
+                        "error": response.text
+                        or "Failed to mark all notifications as read"
+                    },
+                    status=response.status_code,
+                )
+
+    except requests.exceptions.RequestException as e:
+        return JsonResponse(
+            {"error": "Failed to mark all notifications as read."}, status=500
+        )
