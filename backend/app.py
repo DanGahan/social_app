@@ -1,3 +1,5 @@
+"""Flask backend application for social media platform."""
+
 import datetime
 import logging
 import os
@@ -32,6 +34,8 @@ Base.metadata.create_all(engine)
 
 
 def token_required(f):
+    """Decorator to require JWT token authentication for API endpoints."""
+
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
@@ -54,6 +58,7 @@ def token_required(f):
 @app.route("/users/me", methods=["GET"])
 @token_required
 def get_current_user(current_user):
+    """Get current user information endpoint."""
     return (
         jsonify(
             {
@@ -71,6 +76,7 @@ def get_current_user(current_user):
 @app.route("/users/<int:user_id>/profile", methods=["GET"])
 @token_required
 def get_user_profile(current_user, user_id):
+    """Get user profile information endpoint."""
     user = session.query(User).filter_by(id=user_id).first()
     if not user:
         return jsonify({"message": "User not found"}), 404
@@ -91,6 +97,7 @@ def get_user_profile(current_user, user_id):
 @app.route("/users/search", methods=["GET"])
 @token_required
 def search_users(current_user):
+    """Search for users by name endpoint."""
     query = request.args.get("query", "")
     app.logger.debug(f"Search query: {query}")
     if not query:
@@ -208,11 +215,7 @@ def request_connection(current_user):
     except IntegrityError:
         session.rollback()
         return (
-            jsonify(
-                {
-                    "message": "Connection request already exists or a similar issue occurred."
-                }
-            ),
+            jsonify({"message": "Connection request already exists or similar issue."}),
             409,
         )
     except Exception as e:
@@ -228,6 +231,7 @@ def request_connection(current_user):
 
 @app.route("/auth/register", methods=["POST"])
 def register_user():
+    """Handle user registration endpoint."""
     data = request.get_json()
     email = data.get("email")
     password = data.get("password")

@@ -49,7 +49,18 @@ This project is a social media application with a Python-based backend and front
 ### Testing
 - **Backend tests**: `docker-compose exec backend python -m pytest tests/ -v` (62 tests)
 - **Frontend tests**: `docker-compose exec frontend python manage.py test` (21 tests)
-- **Test coverage**: 83 total tests following agile test pyramid principles
+- **UI tests**: `docker-compose exec frontend bash -c "DJANGO_SETTINGS_MODULE=social_frontend.settings DJANGO_ALLOW_ASYNC_UNSAFE=true python -m pytest tests/ui/ -v -m ui --tb=short"` (39 tests)
+- **Test coverage**: 122 total tests following agile test pyramid principles
+
+### Security Scanning
+- **Backend Bandit**: `docker-compose exec backend bash -c "python -m bandit -r . -c pyproject.toml -f json"`
+- **Frontend Bandit**: `docker-compose exec frontend bash -c "python -m bandit -r . -f json"`
+- **Backend Pylint**: `docker-compose exec backend bash -c "python -m pylint --rcfile=pyproject.toml app.py models.py"`
+- **Frontend Pylint**: `docker-compose exec frontend bash -c "python -m pylint --rcfile=../backend/pyproject.toml core/"`
+
+### Performance Testing
+- **Load Test**: `k6 run tests/performance/load_test.js`
+- **Stress Test**: `k6 run tests/performance/stress_test.js`
 
 ### File Upload System
 - **Backend endpoint**: `POST /posts/upload` - Handles multipart file uploads
@@ -109,3 +120,36 @@ This project is a social media application with a Python-based backend and front
 - Adhere to the existing code style and conventions in each service (Flask for backend, Django for frontend).
 - When modifying dependencies, update the appropriate `requirements.txt` file.
 - For database schema changes, new migrations may be needed.
+
+## Efficient Agent Workflows
+
+### Quick Test Execution
+For faster execution, always run tests and scans directly in Docker containers using the commands above.
+
+**Full UI Test Suite (39 tests)**:
+```bash
+docker-compose exec frontend bash -c "DJANGO_SETTINGS_MODULE=social_frontend.settings DJANGO_ALLOW_ASYNC_UNSAFE=true python -m pytest tests/ui/ -v -m ui --tb=short"
+```
+
+**Backend Security Scan (should show 0 medium/high issues)**:
+```bash
+docker-compose exec backend bash -c "python -m bandit -r . -c pyproject.toml -f json" | jq '._totals'
+```
+
+**Single UI Test File**:
+```bash
+docker-compose exec frontend bash -c "DJANGO_SETTINGS_MODULE=social_frontend.settings DJANGO_ALLOW_ASYNC_UNSAFE=true python -m pytest tests/ui/test_authentication_fixed.py -v -m ui --tb=short"
+```
+
+### Test Status Verification
+- **Backend**: 62 unit/integration tests
+- **Frontend**: 21 Django tests
+- **UI**: 39 pytest-playwright tests (converted from StaticLiveServerTestCase)
+- **Security**: Backend Bandit configured to skip test directories and common test patterns
+- **Performance**: K6 scripts for load and stress testing
+
+### Common Issues & Solutions
+- **UI Tests**: Require `DJANGO_ALLOW_ASYNC_UNSAFE=true` for local Docker testing
+- **Bandit**: Backend uses `-c pyproject.toml` to apply proper configuration
+- **Playwright**: All UI tests converted to pytest-playwright fixtures (no more sync_playwright() errors)
+- **CI**: Uses same commands but without DJANGO_ALLOW_ASYNC_UNSAFE flag

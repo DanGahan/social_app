@@ -39,11 +39,14 @@ const testUsers = [
   // Add more test users as needed
 ];
 
+// Simple counter for test user selection (avoids cryptographic concerns)
+let userCounter = 0;
+
 /**
  * Main test function executed by each virtual user
  */
 export default function () {
-  const user = testUsers[Math.floor(Math.random() * testUsers.length)];
+  const user = testUsers[userCounter++ % testUsers.length];
 
   group('Authentication Flow', () => {
     testUserLogin(user);

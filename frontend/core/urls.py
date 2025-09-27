@@ -1,3 +1,5 @@
+"""URL configuration for core Django application."""
+
 from django.urls import path
 
 from . import views

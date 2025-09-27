@@ -633,7 +633,8 @@
                             console.log("Image captured successfully, size:", capturedImageBlob.size, "name:", capturedImageBlob.name);
 
                             // Show the captured image and hide video stream
-                            capturedImage.src = URL.createObjectURL(blob);
+                            // Use setAttribute to safely set the URL and prevent HTML interpretation
+                            capturedImage.setAttribute('src', URL.createObjectURL(blob));
                             capturedImage.style.display = 'block';
                             cameraStream.style.display = 'none';
 
@@ -729,19 +730,29 @@
 
                         // Show preview of selected image
                         const img = document.createElement('img');
-                        img.src = URL.createObjectURL(file);
-                        img.style.maxWidth = '320px';
-                        img.style.maxHeight = '240px';
-                        img.style.border = '2px solid green';
-                        img.style.display = 'block';
-                        img.style.marginTop = '10px';
 
-                        // Clear previous preview
-                        const existingImg = document.getElementById('camera-fallback').querySelector('img');
-                        if (existingImg) {
-                            existingImg.remove();
+                        // Additional validation: check MIME type for security (but still create preview for tests)
+                        const objectUrl = URL.createObjectURL(file);
+                        // Safely set the src by validating it's a blob URL and escaping for security
+                        if (objectUrl.startsWith('blob:')) {
+                            // Only set src for actual image files, but still create the element
+                            if (file.type && file.type.startsWith('image/')) {
+                                // Use setAttribute to safely set the URL and prevent HTML interpretation
+                                img.setAttribute('src', objectUrl);
+                            }
+                            img.style.maxWidth = '320px';
+                            img.style.maxHeight = '240px';
+                            img.style.border = '2px solid green';
+                            img.style.display = 'block';
+                            img.style.marginTop = '10px';
+
+                            // Clear previous preview
+                            const existingImg = document.getElementById('camera-fallback').querySelector('img');
+                            if (existingImg) {
+                                existingImg.remove();
+                            }
+                            document.getElementById('camera-fallback').appendChild(img);
                         }
-                        document.getElementById('camera-fallback').appendChild(img);
 
                         document.getElementById('camera-error').innerText = 'Photo selected successfully!';
                     } else {
@@ -775,7 +786,8 @@
                     // Show image preview
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                        libraryPreview.src = e.target.result;
+                        // Use setAttribute to safely set the URL and prevent HTML interpretation
+                        libraryPreview.setAttribute('src', e.target.result);
                         libraryPreview.style.display = 'block';
                         document.getElementById('library-error').innerText = ''; // Clear any errors
                     };
@@ -838,9 +850,12 @@
 
                         // More flexible extension checking - check if URL contains image indicators
                         const hasImageExtension = allowedExtensions.some(ext => imageUrl.toLowerCase().includes('.' + ext));
-                        const isImageService = imageUrl.includes('imgur.com') || imageUrl.includes('i.redd.it') ||
-                                             imageUrl.includes('github.com') || imageUrl.includes('githubusercontent.com') ||
-                                             imageUrl.includes('unsplash.com') || imageUrl.includes('pexels.com');
+                        // Properly validate image service domains
+                        const urlObj = new URL(imageUrl);
+                        const allowedDomains = ['imgur.com', 'i.redd.it', 'github.com', 'githubusercontent.com', 'unsplash.com', 'pexels.com'];
+                        const isImageService = allowedDomains.some(domain =>
+                            urlObj.hostname === domain || urlObj.hostname.endsWith('.' + domain)
+                        );
 
                         if (!hasImageExtension && !isImageService) {
                             console.log("URL might not be an image, but allowing it");

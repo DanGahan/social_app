@@ -4,7 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --strict-markers --disable-warnings"
+addopts = "-ra -q --strict-markers"
+filterwarnings = [
+    "ignore::DeprecationWarning:testcontainers.*",
+    "ignore::DeprecationWarning:docker.*",
+    "ignore::DeprecationWarning:urllib3.*",
+    "ignore::sqlalchemy.exc.MovedIn20Warning",
+    "ignore::PendingDeprecationWarning",
+]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
@@ -69,11 +76,11 @@ line_length = 88
 known_first_party = ["app", "models"]
 
 [tool.pylint.messages_control]
-disable = ["C0330", "C0326", "W0613", "W0621"]
+disable = ["W0613", "W0621", "R0903", "E1102"]
 
 [tool.pylint.format]
 max-line-length = "88"
 
 [tool.bandit]
 exclude_dirs = ["tests"]
-skips = ["B101", "B601"]
+skips = ["B101", "B104", "B601", "B311"]

@@ -1,3 +1,5 @@
+"""URL configuration for posts_app Django application."""
+
 from django.urls import path
 
 from . import views

@@ -1,3 +1,5 @@
+"""Database models for the social media application."""
+
 from sqlalchemy import (
     TIMESTAMP,
     Column,
@@ -8,13 +10,14 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
 
 class User(Base):
+    """User model representing registered users in the system."""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
@@ -53,6 +56,8 @@ class User(Base):
 
 
 class Post(Base):
+    """Post model representing user posts/photos in the system."""
+
     __tablename__ = "posts"
 
     id = Column(Integer, primary_key=True)
@@ -69,6 +74,8 @@ class Post(Base):
 
 
 class Connection(Base):
+    """Connection model representing user follow relationships."""
+
     __tablename__ = "connections"
 
     id = Column(Integer, primary_key=True)
@@ -83,6 +90,8 @@ class Connection(Base):
 
 
 class ConnectionRequest(Base):
+    """ConnectionRequest model representing pending follow requests."""
+
     __tablename__ = "connection_requests"
 
     id = Column(Integer, primary_key=True)
@@ -102,6 +111,8 @@ class ConnectionRequest(Base):
 
 
 class Like(Base):
+    """Like model representing user likes on posts."""
+
     __tablename__ = "likes"
 
     id = Column(Integer, primary_key=True)
@@ -118,6 +129,8 @@ class Like(Base):
 
 
 class Comment(Base):
+    """Comment model representing comments on posts."""
+
     __tablename__ = "comments"
 
     id = Column(Integer, primary_key=True)

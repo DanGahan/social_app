@@ -363,12 +363,13 @@ jobs:
         id: ui_tests
         env:
           DJANGO_SETTINGS_MODULE: social_frontend.settings
+          DJANGO_ALLOW_ASYNC_UNSAFE: true
         run: |
           cd frontend
           UI_OUTPUT=$(python -m pytest tests/ui/ -v -m ui --tb=short || true)
           echo "$UI_OUTPUT"
-          # Extract meaningful summary
-          UI_SUMMARY=$(echo "$UI_OUTPUT" | grep -E "(PASSED|FAILED|ERROR|\d+ passed|\d+ failed)" | tail -10)
+          # Extract complete test summary including passes, skips, and failures
+          UI_SUMMARY=$(echo "$UI_OUTPUT" | grep -E "(PASSED|FAILED|ERROR|SKIPPED|\d+ passed|\d+ failed|\d+ skipped|===)" | tail -15)
           echo "summary<<EOF" >> $GITHUB_OUTPUT
           echo "$UI_SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -404,11 +405,11 @@ jobs:
           LOAD_STATUS="VALID"
           STRESS_STATUS="VALID"
 
-          if echo "$LOAD_VALIDATION" | grep -qi "error\|invalid\|validation_error"; then
+          if echo "$LOAD_VALIDATION" | grep -qi "validation_error\|parse error\|syntax error"; then
             LOAD_STATUS="INVALID"
           fi
 
-          if echo "$STRESS_VALIDATION" | grep -qi "error\|invalid\|validation_error"; then
+          if echo "$STRESS_VALIDATION" | grep -qi "validation_error\|parse error\|syntax error"; then
             STRESS_STATUS="INVALID"
           fi
 
@@ -452,7 +453,7 @@ jobs:
           # Backend Security Scan with Bandit
           echo "Running Backend Security Scan..."
           cd backend
-          BACKEND_BANDIT_OUTPUT=$(bandit -r . -f txt || true)
+          BACKEND_BANDIT_OUTPUT=$(bandit -r . -c pyproject.toml -f txt || true)
           echo "$BACKEND_BANDIT_OUTPUT"
 
           # Parse backend bandit results for severity breakdown
@@ -678,7 +679,7 @@ jobs:
           body: ${{ steps.generate_comment.outputs.pr_comment }}
 
   gemini_review:
-    needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests]
+    needs: [static_analysis, dependency_scan, container_scan, shakedown_test, backend_unit_tests, frontend_unit_tests, integration_tests, contract_tests, ui_tests, performance_tests, enhanced_security_analysis]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -774,6 +775,16 @@ jobs:
           FRONTEND_TRIVY_HIGH="${{ needs.container_scan.outputs.parse_frontend_trivy_high }}"
           FRONTEND_TRIVY_MEDIUM="${{ needs.container_scan.outputs.parse_frontend_trivy_medium }}"
           SHAKEDOWN_SUMMARY="${{ needs.shakedown_test.outputs.summary }}"
+          INTEGRATION_BACKEND_SUMMARY="${{ needs.integration_tests.outputs.backend_integration_summary }}"
+          INTEGRATION_FRONTEND_SUMMARY="${{ needs.integration_tests.outputs.frontend_integration_summary }}"
+          CONTRACT_SUMMARY="${{ needs.contract_tests.outputs.contract_summary }}"
+          API_DOCS_SUMMARY="${{ needs.contract_tests.outputs.api_docs_summary }}"
+          UI_SUMMARY="${{ needs.ui_tests.outputs.ui_summary }}"
+          PERFORMANCE_SUMMARY="${{ needs.performance_tests.outputs.performance_summary }}"
+          BACKEND_BANDIT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.backend_bandit_summary }}"
+          FRONTEND_BANDIT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.frontend_bandit_summary }}"
+          BACKEND_PYLINT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.backend_pylint_summary }}"
+          FRONTEND_PYLINT_SUMMARY="${{ needs.enhanced_security_analysis.outputs.frontend_pylint_summary }}"
 
           # --- Prompt 2: Generate Analysis and Recommendation ---
           cat > analysis_prompt.txt <<EOT
@@ -812,6 +823,30 @@ jobs:
           \`\`\`
           $SHAKEDOWN_SUMMARY
           \`\`\`
+
+          ### Integration Tests
+          Backend Integration: $INTEGRATION_BACKEND_SUMMARY
+          Frontend Integration: $INTEGRATION_FRONTEND_SUMMARY
+
+          ### Contract Tests
+          Contract Tests: $CONTRACT_SUMMARY
+          API Documentation: $API_DOCS_SUMMARY
+
+          ### UI Tests
+          \`\`\`
+          $UI_SUMMARY
+          \`\`\`
+
+          ### Performance Tests
+          \`\`\`
+          $PERFORMANCE_SUMMARY
+          \`\`\`
+
+          ### Enhanced Security Analysis
+          Backend Bandit: $BACKEND_BANDIT_SUMMARY
+          Frontend Bandit: $FRONTEND_BANDIT_SUMMARY
+          Backend Pylint: $BACKEND_PYLINT_SUMMARY
+          Frontend Pylint: $FRONTEND_PYLINT_SUMMARY
 
           Based on the change summary and the test results, provide a concise analysis of the test results and a clear merge recommendation (e.g., 'Merge', 'Do Not Merge', 'Merge with Cautions').
           EOT

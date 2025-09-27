@@ -1,16 +1,18 @@
+"""Views for posts_app Django application."""
+
 import requests
-from django.conf import settings
-from django.contrib import messages  # Import messages
+from django.contrib import messages
 from django.shortcuts import redirect, render
 
 
 def post_list(request, user_id):
+    """Display a list of posts for a specific user."""
     # In a real application, you'd get the user_id from the authenticated user
     # For now, we'll use a hardcoded user_id or one passed in the URL
 
     backend_url = f"http://social_backend:5000/users/{user_id}/posts"
     try:
-        response = requests.get(backend_url)
+        response = requests.get(backend_url, timeout=30)
         response.raise_for_status()  # Raise an exception for HTTP errors
         posts = response.json()
     except requests.exceptions.RequestException as e:
@@ -22,6 +24,7 @@ def post_list(request, user_id):
 
 
 def add_post(request):
+    """Handle post creation form submission."""
     if request.method == "POST":
         image_url = request.POST.get("image_url")
         caption = request.POST.get("caption")
@@ -44,7 +47,7 @@ def add_post(request):
         payload = {"image_url": image_url, "caption": caption}
         backend_url = f"http://social_backend:5000/posts"
         try:
-            response = requests.post(backend_url, json=payload, headers=headers)
+            response = requests.post(backend_url, json=payload, headers=headers, timeout=30)
             response.raise_for_status()  # Raise an exception for HTTP errors
             messages.success(request, "Post created successfully!")
             return redirect("post_list", user_id=user_id)  # Redirect to user's post list
