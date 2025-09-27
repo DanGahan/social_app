@@ -363,6 +363,7 @@ jobs:
         id: ui_tests
         env:
           DJANGO_SETTINGS_MODULE: social_frontend.settings
+          DJANGO_ALLOW_ASYNC_UNSAFE: true
         run: |
           cd frontend
           UI_OUTPUT=$(python -m pytest tests/ui/ -v -m ui --tb=short || true)
