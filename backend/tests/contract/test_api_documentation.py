@@ -10,7 +10,7 @@ from pathlib import Path
 
 import jsonschema
 import pytest
-from jsonschema import Draft7Validator, validate
+from jsonschema import validate
 
 
 class TestAPIDocumentation:
@@ -20,9 +20,8 @@ class TestAPIDocumentation:
         """Validate instance against schema with proper reference resolution."""
         # Resolve references manually since this is simpler for our use case
         resolved_schema = self._resolve_schema_refs(schema, api_spec)
-        validator = Draft7Validator(resolved_schema)
         try:
-            validator.validate(instance)
+            validate(instance=instance, schema=resolved_schema)
         except jsonschema.ValidationError as e:
             pytest.fail(f"Schema validation failed: {e}")
 
@@ -465,9 +464,6 @@ class TestAPIDocumentation:
             pytest.fail(f"Login response doesn't match spec: {e}")
 
     @pytest.mark.contract
-    @pytest.mark.skip(
-        reason="Schema reference resolution needs updating for jsonschema 4.x"
-    )
     def test_get_posts_endpoint_matches_spec(self, api_spec):
         """Test get posts endpoint response matches OpenAPI spec."""
         endpoint_spec = api_spec["paths"]["/users/{user_id}/posts"]["get"]
@@ -522,9 +518,6 @@ class TestAPIDocumentation:
             pytest.fail(f"Like toggle response doesn't match spec: {e}")
 
     @pytest.mark.contract
-    @pytest.mark.skip(
-        reason="Schema reference resolution needs updating for jsonschema 4.x"
-    )
     def test_add_comment_endpoint_matches_spec(self, api_spec):
         """Test add comment endpoint response matches OpenAPI spec."""
         endpoint_spec = api_spec["paths"]["/posts/{post_id}/comments"]["post"]
@@ -546,9 +539,6 @@ class TestAPIDocumentation:
         self._validate_with_refs(mock_response, success_schema, api_spec)
 
     @pytest.mark.contract
-    @pytest.mark.skip(
-        reason="Schema reference resolution needs updating for jsonschema 4.x"
-    )
     def test_get_comments_endpoint_matches_spec(self, api_spec):
         """Test get comments endpoint response matches OpenAPI spec."""
         endpoint_spec = api_spec["paths"]["/posts/{post_id}/comments"]["get"]

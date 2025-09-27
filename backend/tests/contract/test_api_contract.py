@@ -20,11 +20,15 @@ class TestAPIContract:
     def pact(self):
         """Create Pact consumer-provider relationship."""
         pact = Consumer("SocialApp-Frontend").has_pact_with(
-            Provider("SocialApp-Backend"), host_name="localhost", port=1234
+            Provider("SocialApp-Backend"), host_name="localhost", port=1235
         )
         pact.start_service()
         yield pact
-        pact.stop_service()
+        try:
+            pact.stop_service()
+        except RuntimeError:
+            # Ignore teardown errors - service may have already stopped
+            pass
 
     @pytest.mark.contract
     def test_user_registration_contract(self, pact):
@@ -57,7 +61,7 @@ class TestAPIContract:
         # Execute test
         with pact:
             response = requests.post(
-                "http://localhost:1234/auth/register",
+                "http://localhost:1235/auth/register",
                 json={"email": "test@example.com", "password": "securepassword"},
                 headers={"Content-Type": "application/json"},
                 timeout=10,
@@ -98,7 +102,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/auth/login",
+                "http://localhost:1235/auth/login",
                 json={"email": "existing@example.com", "password": "password"},
                 headers={"Content-Type": "application/json"},
                 timeout=10,
@@ -141,7 +145,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/posts",
+                "http://localhost:1235/posts",
                 json={"image_url": "/uploads/test.jpg", "caption": "Test post caption"},
                 headers={
                     "Content-Type": "application/json",
@@ -205,7 +209,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.get(
-                "http://localhost:1234/users/123/posts",
+                "http://localhost:1235/users/123/posts",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
@@ -247,7 +251,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/posts/123/like",
+                "http://localhost:1235/posts/123/like",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
@@ -295,7 +299,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/posts/123/comments",
+                "http://localhost:1235/posts/123/comments",
                 json={"content": "This is a test comment"},
                 headers={
                     "Content-Type": "application/json",
@@ -310,9 +314,6 @@ class TestAPIContract:
             assert data["comment"]["content"] == "This is a test comment"
 
     @pytest.mark.contract
-    @pytest.mark.skip(
-        reason="Complex query parameter matching causing 500 error - needs investigation"
-    )
     def test_get_comments_contract(self, pact):
         """Test get comments API contract."""
         expected_response = {
@@ -341,8 +342,9 @@ class TestAPIContract:
             .upon_receiving("a request to get comments with pagination")
             .with_request(
                 "get",
-                "/posts/123/comments?page=1&per_page=10",
+                Term(r"/posts/\d+/comments", "/posts/123/comments"),
                 headers={"x-access-token": Like("valid.jwt.token")},
+                query={"page": Like("1"), "per_page": Like("10")},
             )
             .will_respond_with(
                 200,
@@ -353,15 +355,11 @@ class TestAPIContract:
 
         with pact:
             response = requests.get(
-                "http://localhost:1234/posts/123/comments?page=1&per_page=10",
+                "http://localhost:1235/posts/123/comments",
+                params={"page": "1", "per_page": "10"},
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
-
-            # Debug output for troubleshooting
-            if response.status_code != 200:
-                print(f"Response status: {response.status_code}")
-                print(f"Response text: {response.text}")
 
             assert response.status_code == 200
             data = response.json()
@@ -389,7 +387,7 @@ class TestAPIContract:
 
         with pact:
             response = requests.post(
-                "http://localhost:1234/posts/99999/like",
+                "http://localhost:1235/posts/99999/like",
                 headers={"x-access-token": "valid.jwt.token"},
                 timeout=10,
             )
@@ -456,3 +454,353 @@ class TestContractVerification:
         """Set up post with comments for contract verification."""
         # Implementation would create post and comments
         pass
+
+
+class TestNotificationAPIContract:
+    """Contract tests for Notification API endpoints."""
+
+    @pytest.fixture(scope="session")
+    def pact(self):
+        """Create Pact consumer-provider relationship for notification tests."""
+        pact = Consumer("SocialApp-Frontend").has_pact_with(
+            Provider("SocialApp-Backend"), host_name="localhost", port=1235
+        )
+        pact.start_service()
+        yield pact
+        try:
+            pact.stop_service()
+        except RuntimeError:
+            # Ignore teardown errors - service may have already stopped
+            pass
+
+    @pytest.mark.contract
+    def test_get_notifications_contract(self, pact):
+        """Test get notifications API contract."""
+        expected_response = EachLike(
+            {
+                "id": Like(123),
+                "user_id": Like(456),
+                "actor_user_id": Like(789),
+                "type": Term(
+                    r"(post_liked|post_commented|connection_request|connection_accepted)",
+                    "post_liked",
+                ),
+                "post_id": Like(101),
+                "message": Like("John Doe liked your post"),
+                "target_url": Like("/posts/101"),
+                "is_read": Like(False),
+                "created_at": Term(
+                    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "2024-01-01T12:00:00"
+                ),
+            },
+            minimum=1,
+        )
+
+        (
+            pact.given("User has unread notifications")
+            .upon_receiving("a request to get user notifications")
+            .with_request(
+                "get",
+                "/api/notifications",
+                headers={"x-access-token": Like("valid.jwt.token")},
+            )
+            .will_respond_with(
+                200,
+                headers={"Content-Type": "application/json"},
+                body=expected_response,
+            )
+        )
+
+        with pact:
+            response = requests.get(
+                "http://localhost:1235/api/notifications",
+                headers={"x-access-token": "valid.jwt.token"},
+                timeout=10,
+            )
+
+            assert response.status_code == 200
+            notifications = response.json()
+            assert isinstance(notifications, list)
+            if notifications:  # If notifications exist
+                notification = notifications[0]
+                assert "id" in notification
+                assert "type" in notification
+                assert "message" in notification
+                assert "is_read" in notification
+                assert notification["type"] in [
+                    "post_liked",
+                    "post_commented",
+                    "connection_request",
+                    "connection_accepted",
+                ]
+
+    @pytest.mark.contract
+    def test_get_notifications_empty_contract(self, pact):
+        """Test get notifications API contract when no notifications exist."""
+        expected_response = []
+
+        (
+            pact.given("User has no notifications")
+            .upon_receiving("a request to get user notifications")
+            .with_request(
+                "get",
+                "/api/notifications",
+                headers={"x-access-token": Like("valid.jwt.token")},
+            )
+            .will_respond_with(
+                200,
+                headers={"Content-Type": "application/json"},
+                body=expected_response,
+            )
+        )
+
+        with pact:
+            response = requests.get(
+                "http://localhost:1235/api/notifications",
+                headers={"x-access-token": "valid.jwt.token"},
+                timeout=10,
+            )
+
+            assert response.status_code == 200
+            notifications = response.json()
+            assert isinstance(notifications, list)
+            assert len(notifications) == 0
+
+    @pytest.mark.contract
+    def test_mark_notification_read_contract(self, pact):
+        """Test mark notification as read API contract."""
+        expected_response = {
+            "message": "Notification marked as read",
+            "notification_id": Like(123),
+        }
+
+        (
+            pact.given("Notification exists and is unread")
+            .upon_receiving("a request to mark notification as read")
+            .with_request(
+                "post",
+                Term(
+                    r"/api/notifications/\d+/mark-read",
+                    "/api/notifications/123/mark-read",
+                ),
+                headers={"x-access-token": Like("valid.jwt.token")},
+            )
+            .will_respond_with(
+                200,
+                headers={"Content-Type": "application/json"},
+                body=expected_response,
+            )
+        )
+
+        with pact:
+            response = requests.post(
+                "http://localhost:1235/api/notifications/123/mark-read",
+                headers={"x-access-token": "valid.jwt.token"},
+                timeout=10,
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "message" in data
+            assert "notification_id" in data
+            assert data["message"] == "Notification marked as read"
+
+    @pytest.mark.contract
+    def test_mark_all_notifications_read_contract(self, pact):
+        """Test mark all notifications as read API contract."""
+        expected_response = {
+            "message": "All notifications marked as read",
+            "count": Like(5),
+        }
+
+        (
+            pact.given("User has multiple unread notifications")
+            .upon_receiving("a request to mark all notifications as read")
+            .with_request(
+                "post",
+                "/api/notifications/mark-all-read",
+                headers={"x-access-token": Like("valid.jwt.token")},
+            )
+            .will_respond_with(
+                200,
+                headers={"Content-Type": "application/json"},
+                body=expected_response,
+            )
+        )
+
+        with pact:
+            response = requests.post(
+                "http://localhost:1235/api/notifications/mark-all-read",
+                headers={"x-access-token": "valid.jwt.token"},
+                timeout=10,
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "message" in data
+            assert "count" in data
+            assert data["message"] == "All notifications marked as read"
+
+    @pytest.mark.contract
+    def test_notification_authentication_error_contract(self, pact):
+        """Test notification API authentication error contract."""
+        expected_error = {"error": "Access token required", "status_code": Like(401)}
+
+        (
+            pact.given("User is not authenticated")
+            .upon_receiving("a request to get notifications without token")
+            .with_request(
+                "get",
+                "/api/notifications",
+            )
+            .will_respond_with(
+                401,
+                headers={"Content-Type": "application/json"},
+                body=expected_error,
+            )
+        )
+
+        with pact:
+            response = requests.get(
+                "http://localhost:1235/api/notifications",
+                timeout=10,
+            )
+
+            assert response.status_code == 401
+            data = response.json()
+            assert "error" in data
+
+    @pytest.mark.contract
+    def test_mark_nonexistent_notification_read_contract(self, pact):
+        """Test marking non-existent notification as read contract."""
+        expected_error = {"error": "Notification not found", "status_code": Like(404)}
+
+        (
+            pact.given("Notification does not exist")
+            .upon_receiving("a request to mark non-existent notification as read")
+            .with_request(
+                "post",
+                "/api/notifications/99999/mark-read",
+                headers={"x-access-token": Like("valid.jwt.token")},
+            )
+            .will_respond_with(
+                404,
+                headers={"Content-Type": "application/json"},
+                body=expected_error,
+            )
+        )
+
+        with pact:
+            response = requests.post(
+                "http://localhost:1235/api/notifications/99999/mark-read",
+                headers={"x-access-token": "valid.jwt.token"},
+                timeout=10,
+            )
+
+            assert response.status_code == 404
+            data = response.json()
+            assert "error" in data
+            assert data["error"] == "Notification not found"
+
+    @pytest.mark.contract
+    def test_notification_types_contract(self, pact):
+        """Test various notification types in API contract."""
+        notification_types = [
+            {
+                "type": "post_liked",
+                "message": "Alice Smith liked your post",
+                "target_url": "/posts/123",
+                "post_id": 123,
+            },
+            {
+                "type": "post_commented",
+                "message": "Bob Jones commented on your post",
+                "target_url": "/posts/124",
+                "post_id": 124,
+            },
+            {
+                "type": "connection_request",
+                "message": "Charlie Brown has requested a connection",
+                "target_url": "/connections",
+                "post_id": None,
+            },
+            {
+                "type": "connection_accepted",
+                "message": "Diana Evans accepted your connection request",
+                "target_url": "/connections",
+                "post_id": None,
+            },
+        ]
+
+        expected_response = [
+            {
+                "id": Like(i + 1),
+                "user_id": Like(456),
+                "actor_user_id": Like(789 + i),
+                "type": notif["type"],
+                "post_id": notif["post_id"],
+                "message": notif["message"],
+                "target_url": notif["target_url"],
+                "is_read": Like(False),
+                "created_at": Term(
+                    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "2024-01-01T12:00:00"
+                ),
+            }
+            for i, notif in enumerate(notification_types)
+        ]
+
+        (
+            pact.given("User has notifications of all types")
+            .upon_receiving("a request to get notifications with all types")
+            .with_request(
+                "get",
+                "/api/notifications",
+                headers={"x-access-token": Like("valid.jwt.token")},
+            )
+            .will_respond_with(
+                200,
+                headers={"Content-Type": "application/json"},
+                body=expected_response,
+            )
+        )
+
+        with pact:
+            response = requests.get(
+                "http://localhost:1235/api/notifications",
+                headers={"x-access-token": "valid.jwt.token"},
+                timeout=10,
+            )
+
+            assert response.status_code == 200
+            notifications = response.json()
+            assert isinstance(notifications, list)
+            assert len(notifications) == 4
+
+            # Verify all notification types are present
+            types_found = [n["type"] for n in notifications]
+            assert "post_liked" in types_found
+            assert "post_commented" in types_found
+            assert "connection_request" in types_found
+            assert "connection_accepted" in types_found
+
+            # Verify structure for each type
+            for notification in notifications:
+                assert "id" in notification
+                assert "message" in notification
+                assert "target_url" in notification
+                assert "is_read" in notification
+                assert notification["type"] in [
+                    "post_liked",
+                    "post_commented",
+                    "connection_request",
+                    "connection_accepted",
+                ]
+
+                # Post-related notifications should have post_id
+                if notification["type"] in ["post_liked", "post_commented"]:
+                    assert notification["post_id"] is not None
+                    assert "/posts/" in notification["target_url"]
+                # Connection-related notifications should not have post_id
+                else:
+                    assert notification["post_id"] is None
+                    assert notification["target_url"] == "/connections"

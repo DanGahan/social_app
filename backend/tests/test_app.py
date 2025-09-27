@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 
 from app import app
-from models import Connection, ConnectionRequest, Post, User
+from models import Connection, ConnectionRequest, Notification, Post, User
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -718,6 +718,204 @@ def test_get_connections_posts_post_user_none(mock_query, client, mock_jwt_decod
     )
     assert response.status_code == 200
     assert response.json == []
+
+
+# Test notification endpoints
+@patch("app.session.query")
+def test_get_notifications(mock_query, client, mock_jwt_decode):
+    """Test getting notifications for a user."""
+    mock_current_user = User(id=1)
+    mock_notification = Notification(
+        id=1,
+        user_id=1,
+        actor_user_id=2,
+        type="post_liked",
+        message="Test notification",
+        target_url="/posts/1",
+        is_read=False,
+        created_at=datetime.datetime.now(),
+    )
+
+    # Mock for user lookup
+    mock_user_filter = MagicMock()
+    mock_user_filter.first.return_value = mock_current_user
+
+    # Mock for notifications lookup
+    mock_notif_filter = MagicMock()
+    mock_notif_filter.order_by.return_value.all.return_value = [mock_notification]
+
+    mock_query.return_value.filter_by.side_effect = [
+        mock_user_filter,
+        mock_notif_filter,
+    ]
+
+    response = client.get("/notifications", headers={"x-access-token": "valid_token"})
+    assert response.status_code == 200
+    assert len(response.json) == 1
+
+
+@patch("app.session.query")
+def test_get_notifications_empty(mock_query, client, mock_jwt_decode):
+    """Test getting notifications when none exist."""
+    mock_current_user = User(id=1)
+
+    # Mock for user lookup
+    mock_user_filter = MagicMock()
+    mock_user_filter.first.return_value = mock_current_user
+
+    # Mock for notifications lookup
+    mock_notif_filter = MagicMock()
+    mock_notif_filter.order_by.return_value.all.return_value = []
+
+    mock_query.return_value.filter_by.side_effect = [
+        mock_user_filter,
+        mock_notif_filter,
+    ]
+
+    response = client.get("/notifications", headers={"x-access-token": "valid_token"})
+    assert response.status_code == 200
+    assert response.json == []
+
+
+@patch("app.session.query")
+def test_mark_notification_read_success(mock_query, client, mock_jwt_decode):
+    """Test marking a notification as read."""
+    mock_current_user = User(id=1)
+    mock_notification = Notification(
+        id=1,
+        user_id=1,
+        actor_user_id=2,
+        type="post_liked",
+        message="Test notification",
+        target_url="/posts/1",
+        is_read=False,
+    )
+
+    mock_query.return_value.filter_by.side_effect = [
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(first=MagicMock(return_value=mock_notification)),
+    ]
+
+    response = client.post(
+        "/notifications/1/mark-read", headers={"x-access-token": "valid_token"}
+    )
+    assert response.status_code == 200
+    assert mock_notification.is_read is True
+
+
+@patch("app.session.query")
+def test_mark_notification_read_not_found(mock_query, client, mock_jwt_decode):
+    """Test marking a non-existent notification as read."""
+    mock_current_user = User(id=1)
+
+    mock_query.return_value.filter_by.side_effect = [
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(first=MagicMock(return_value=None)),
+    ]
+
+    response = client.post(
+        "/notifications/999/mark-read", headers={"x-access-token": "valid_token"}
+    )
+    assert response.status_code == 404
+
+
+@patch("app.session.query")
+def test_mark_notification_read_wrong_user(mock_query, client, mock_jwt_decode):
+    """Test marking a notification that belongs to another user."""
+    mock_current_user = User(id=1)
+    mock_notification = Notification(
+        id=1,
+        user_id=2,  # Different user
+        actor_user_id=3,
+        type="post_liked",
+        message="Test notification",
+        target_url="/posts/1",
+        is_read=False,
+    )
+
+    mock_query.return_value.filter_by.side_effect = [
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(
+            first=MagicMock(return_value=None)
+        ),  # Notification not found because it belongs to another user
+    ]
+
+    response = client.post(
+        "/notifications/1/mark-read", headers={"x-access-token": "valid_token"}
+    )
+    assert response.status_code == 404
+
+
+@patch("app.session.query")
+@patch("app.session.commit")
+def test_mark_all_notifications_read(mock_commit, mock_query, client, mock_jwt_decode):
+    """Test marking all notifications as read."""
+    mock_current_user = User(id=1)
+    mock_notifications = [
+        Notification(id=1, user_id=1, is_read=False),
+        Notification(id=2, user_id=1, is_read=False),
+    ]
+
+    mock_query.return_value.filter_by.side_effect = [
+        MagicMock(first=MagicMock(return_value=mock_current_user)),
+        MagicMock(all=MagicMock(return_value=mock_notifications)),
+    ]
+
+    response = client.post(
+        "/notifications/mark-all-read", headers={"x-access-token": "valid_token"}
+    )
+    assert response.status_code == 200
+    assert response.json["count"] == 2
+
+    # Verify all notifications were marked as read
+    for notification in mock_notifications:
+        assert notification.is_read is True
+
+
+@patch("app.session.query")
+def test_create_notification_all_types(mock_query, client, mock_jwt_decode):
+    """Test create_notification function with all notification types."""
+    from app import create_notification
+
+    mock_user = User(id=1, display_name="Test User")
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_user
+
+    # Test each notification type
+    notification_types = [
+        ("post_liked", 1),
+        ("post_commented", 1),
+        ("connection_request", None),
+        ("connection_accepted", None),
+    ]
+
+    for notif_type, post_id in notification_types:
+        create_notification(1, 2, notif_type, post_id)
+        # Function should not raise exceptions
+
+
+@patch("app.session.query")
+def test_create_notification_unknown_type(mock_query, client, mock_jwt_decode):
+    """Test create_notification with unknown notification type."""
+    from app import create_notification
+
+    mock_user = User(id=1, display_name="Test User")
+    mock_query.return_value.filter_by.return_value.first.return_value = mock_user
+
+    # Should not create notification for unknown type
+    create_notification(1, 2, "unknown_type", None)
+    # Function should handle gracefully without error
+
+
+@patch("app.session.query")
+def test_create_notification_missing_actor(mock_query, client, mock_jwt_decode):
+    """Test create_notification with missing actor user."""
+    from app import create_notification
+
+    mock_query.return_value.filter_by.return_value.first.return_value = None
+
+    # Should not create notification when actor doesn't exist
+    create_notification(1, 999, "post_liked", 1)
+    # Function should handle gracefully without error
 
 
 @patch("flask.app.Flask.run")

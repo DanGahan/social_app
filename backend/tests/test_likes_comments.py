@@ -86,12 +86,19 @@ class TestLikesAPI:
         like_query_count = MagicMock()
         like_query_count.filter_by.return_value.count.return_value = 1
 
+        # For notification creation - actor user lookup
+        notification_user_query = MagicMock()
+        notification_user_query.filter_by.return_value.first.return_value = (
+            mock_current_user
+        )
+
         # Set up the query sequence - this matches the actual order in the code
         mock_session.query.side_effect = [
             user_query,  # User lookup in token_required decorator
             post_query,  # Post lookup
             connection_query,  # Connection check
             like_query_existing,  # Check for existing like
+            notification_user_query,  # Actor user lookup for notification
             like_query_count,  # Get final like count
         ]
 

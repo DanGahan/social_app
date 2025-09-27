@@ -15,7 +15,16 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 from config import Config
-from models import Base, Comment, Connection, ConnectionRequest, Like, Post, User
+from models import (
+    Base,
+    Comment,
+    Connection,
+    ConnectionRequest,
+    Like,
+    Notification,
+    Post,
+    User,
+)
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -53,6 +62,56 @@ def token_required(f):
         return f(current_user, *args, **kwargs)
 
     return decorated
+
+
+def create_notification(user_id, actor_user_id, notification_type, post_id=None):
+    """Create a notification for a user."""
+    try:
+        # Get actor user details for message formatting
+        actor_user = session.query(User).filter_by(id=actor_user_id).first()
+        if not actor_user:
+            app.logger.error(f"Actor user {actor_user_id} not found for notification")
+            return
+
+        actor_name = actor_user.display_name or actor_user.email
+
+        # Generate message and target URL based on notification type
+        if notification_type == "post_liked":
+            message = f"{actor_name} liked your post"
+            target_url = f"/posts/{post_id}"
+        elif notification_type == "post_commented":
+            message = f"{actor_name} commented on your post"
+            target_url = f"/posts/{post_id}"
+        elif notification_type == "connection_request":
+            message = f"{actor_name} has requested a connection"
+            target_url = "/connections"
+        elif notification_type == "connection_accepted":
+            message = f"{actor_name} accepted your connection request"
+            target_url = "/connections"
+        else:
+            app.logger.error(f"Unknown notification type: {notification_type}")
+            return
+
+        # Create the notification
+        notification = Notification(
+            user_id=user_id,
+            actor_user_id=actor_user_id,
+            type=notification_type,
+            post_id=post_id,
+            message=message,
+            target_url=target_url,
+            is_read=False,
+        )
+
+        session.add(notification)
+        session.commit()
+        app.logger.debug(
+            f"Created notification: {notification_type} for user {user_id}"
+        )
+
+    except Exception as e:
+        session.rollback()
+        app.logger.error(f"Failed to create notification: {e}")
 
 
 @app.route("/users/me", methods=["GET"])
@@ -203,6 +262,14 @@ def request_connection(current_user):
     try:
         session.add(new_request)
         session.commit()
+
+        # Create notification for the recipient
+        create_notification(
+            user_id=to_user_id,
+            actor_user_id=current_user.id,
+            notification_type="connection_request",
+        )
+
         return (
             jsonify(
                 {
@@ -310,6 +377,13 @@ def accept_connection(current_user):
     # Update request status
     connection_request.status = "accepted"
     session.commit()
+
+    # Create notification for the requester
+    create_notification(
+        user_id=connection_request.from_user_id,
+        actor_user_id=current_user.id,
+        notification_type="connection_accepted",
+    )
 
     return (
         jsonify(
@@ -735,6 +809,15 @@ def toggle_like(current_user, post_id):
         session.commit()
         action = "liked"
 
+        # Create notification for post owner (if not liking own post)
+        if post.user_id != current_user.id:
+            create_notification(
+                user_id=post.user_id,
+                actor_user_id=current_user.id,
+                notification_type="post_liked",
+                post_id=post_id,
+            )
+
     # Get current like count
     like_count = session.query(Like).filter_by(post_id=post_id).count()
 
@@ -843,6 +926,15 @@ def add_comment(current_user, post_id):
     new_comment = Comment(user_id=current_user.id, post_id=post_id, content=content)
     session.add(new_comment)
     session.commit()
+
+    # Create notification for post owner (if not commenting on own post)
+    if post.user_id != current_user.id:
+        create_notification(
+            user_id=post.user_id,
+            actor_user_id=current_user.id,
+            notification_type="post_commented",
+            post_id=post_id,
+        )
 
     return (
         jsonify(
@@ -957,6 +1049,96 @@ def delete_comment(current_user, comment_id):
     session.commit()
 
     return jsonify({"message": "Comment deleted successfully"}), 200
+
+
+@app.route("/notifications", methods=["GET"])
+@token_required
+def get_notifications(current_user):
+    """Get unread notifications for the current user."""
+    try:
+        notifications = (
+            session.query(Notification)
+            .filter_by(user_id=current_user.id, is_read=False)
+            .order_by(Notification.created_at.desc())
+            .all()
+        )
+
+        notifications_data = []
+        for notification in notifications:
+            notifications_data.append(
+                {
+                    "id": notification.id,
+                    "type": notification.type,
+                    "message": notification.message,
+                    "target_url": notification.target_url,
+                    "created_at": notification.created_at.isoformat(),
+                    "actor_user_id": notification.actor_user_id,
+                    "post_id": notification.post_id,
+                }
+            )
+
+        return jsonify(notifications_data), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching notifications: {e}")
+        return jsonify({"message": "Failed to fetch notifications"}), 500
+
+
+@app.route("/notifications/<int:notification_id>/mark-read", methods=["POST"])
+@token_required
+def mark_notification_read(current_user, notification_id):
+    """Mark a single notification as read."""
+    try:
+        notification = (
+            session.query(Notification)
+            .filter_by(id=notification_id, user_id=current_user.id)
+            .first()
+        )
+
+        if not notification:
+            return jsonify({"message": "Notification not found"}), 404
+
+        notification.is_read = True
+        session.commit()
+
+        return jsonify({"message": "Notification marked as read"}), 200
+
+    except Exception as e:
+        session.rollback()
+        app.logger.error(f"Error marking notification as read: {e}")
+        return jsonify({"message": "Failed to mark notification as read"}), 500
+
+
+@app.route("/notifications/mark-all-read", methods=["POST"])
+@token_required
+def mark_all_notifications_read(current_user):
+    """Mark all notifications as read for the current user."""
+    try:
+        notifications = (
+            session.query(Notification)
+            .filter_by(user_id=current_user.id, is_read=False)
+            .all()
+        )
+
+        for notification in notifications:
+            notification.is_read = True
+
+        session.commit()
+
+        return (
+            jsonify(
+                {
+                    "message": "All notifications marked as read",
+                    "count": len(notifications),
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        session.rollback()
+        app.logger.error(f"Error marking all notifications as read: {e}")
+        return jsonify({"message": "Failed to mark all notifications as read"}), 500
 
 
 if __name__ == "__main__":

@@ -1,19 +1,19 @@
+"""Core views for the social media application."""
+
 import json
 import logging
 from datetime import datetime
 
 import requests
 from django.contrib import messages
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-
-logger = logging.getLogger(__name__)
-
-from django.http import JsonResponse  # New import
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 
 from .forms import CreatePostForm, LoginForm, ProfileEditForm, RegistrationForm
+
+logger = logging.getLogger(__name__)
 
 # Define the Flask backend URL
 FLASK_BACKEND_URL = (
@@ -468,7 +468,7 @@ def search_users_view(request):
         response.raise_for_status()
         users = response.json()
         return JsonResponse({"users": users})
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         return JsonResponse({"error": "Failed to search users."}, status=500)
 
 
@@ -547,7 +547,7 @@ def api_request_connection(request):
                 )
                 response.raise_for_status()
                 return JsonResponse(response.json(), status=response.status_code)
-            except requests.exceptions.RequestException as e:
+            except requests.exceptions.RequestException:
                 return JsonResponse({"error": "Failed to send request."}, status=500)
         else:
             return JsonResponse(
@@ -605,7 +605,7 @@ def api_upload_image(request):
                     status=response.status_code,
                 )
 
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             return JsonResponse({"error": "Failed to upload image."}, status=500)
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -654,9 +654,9 @@ def api_create_post(request):
                         status=response.status_code,
                     )
 
-        except requests.exceptions.Timeout as e:
+        except requests.exceptions.Timeout:
             return JsonResponse({"error": "Request timed out."}, status=504)
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             return JsonResponse({"error": "Failed to create post."}, status=500)
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -878,3 +878,114 @@ def api_comments(request, post_id):
             return JsonResponse({"error": "Failed to get comments."}, status=500)
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def api_get_notifications(request):
+    """Get unread notifications for the current user."""
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    jwt_token = request.session.get("jwt_token")
+    if not jwt_token:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    try:
+        headers = {"x-access-token": jwt_token}
+        response = requests.get(
+            f"{FLASK_BACKEND_URL}/notifications",
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
+        )
+
+        if response.ok:
+            return JsonResponse(
+                response.json(), safe=False, status=response.status_code
+            )
+        else:
+            try:
+                error_data = response.json()
+                return JsonResponse(error_data, status=response.status_code)
+            except:
+                return JsonResponse(
+                    {"error": response.text or "Failed to get notifications"},
+                    status=response.status_code,
+                )
+
+    except requests.exceptions.RequestException as e:
+        return JsonResponse({"error": "Failed to get notifications."}, status=500)
+
+
+@csrf_exempt
+def api_mark_notification_read(request, notification_id):
+    """Mark a single notification as read."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    jwt_token = request.session.get("jwt_token")
+    if not jwt_token:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    try:
+        headers = {"x-access-token": jwt_token}
+        response = requests.post(
+            f"{FLASK_BACKEND_URL}/notifications/{notification_id}/mark-read",
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
+        )
+
+        if response.ok:
+            return JsonResponse(response.json(), status=response.status_code)
+        else:
+            try:
+                error_data = response.json()
+                return JsonResponse(error_data, status=response.status_code)
+            except:
+                return JsonResponse(
+                    {"error": response.text or "Failed to mark notification as read"},
+                    status=response.status_code,
+                )
+
+    except requests.exceptions.RequestException as e:
+        return JsonResponse(
+            {"error": "Failed to mark notification as read."}, status=500
+        )
+
+
+@csrf_exempt
+def api_mark_all_notifications_read(request):
+    """Mark all notifications as read for the current user."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    jwt_token = request.session.get("jwt_token")
+    if not jwt_token:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    try:
+        headers = {"x-access-token": jwt_token}
+        response = requests.post(
+            f"{FLASK_BACKEND_URL}/notifications/mark-all-read",
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
+        )
+
+        if response.ok:
+            return JsonResponse(response.json(), status=response.status_code)
+        else:
+            try:
+                error_data = response.json()
+                return JsonResponse(error_data, status=response.status_code)
+            except:
+                return JsonResponse(
+                    {
+                        "error": response.text
+                        or "Failed to mark all notifications as read"
+                    },
+                    status=response.status_code,
+                )
+
+    except requests.exceptions.RequestException:
+        return JsonResponse(
+            {"error": "Failed to mark all notifications as read."}, status=500
+        )
