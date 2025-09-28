@@ -276,12 +276,71 @@
                         }
                     } else if (notification.type === 'connection_request' || notification.type === 'connection_accepted') {
                         // For connection notifications, go to connections tab
-                        const connectionsTab = document.querySelector('button[onclick*="Connections"]');
+                        console.log('🔍 Looking for Connections tab button...');
+
+                        // Try multiple approaches to find the Connections tab button
+                        let connectionsTab = null;
+
+                        // First try specific onclick attribute selector for just the Connections tab
+                        try {
+                            connectionsTab = document.querySelector('button[onclick="openTab(event, \'Connections\')"]');
+                            if (connectionsTab) {
+                                console.log('✅ Found Connections tab with specific onclick selector');
+                            }
+                        } catch (e) {
+                            console.log('⚠️ onclick selector failed:', e);
+                        }
+
+                        // If not found, try alternative selectors
+                        if (!connectionsTab) {
+                            try {
+                                // Try with double quotes
+                                connectionsTab = document.querySelector('button[onclick="openTab(event, \\"Connections\\")"]');
+                                if (connectionsTab) {
+                                    console.log('✅ Found Connections tab with double quote selector');
+                                }
+                            } catch (e) {
+                                console.log('⚠️ Double quote selector failed:', e);
+                            }
+                        }
+
+                        // If still not found, try finding by text content
+                        if (!connectionsTab) {
+                            const allButtons = document.querySelectorAll('button.tablinks');
+                            console.log(`🔍 Searching ${allButtons.length} tab buttons for "Connections" text...`);
+                            for (const button of allButtons) {
+                                console.log(`- Button text: "${button.textContent.trim()}" onclick: "${button.getAttribute('onclick')}"`);
+                                if (button.textContent.trim() === 'Connections') {
+                                    connectionsTab = button;
+                                    console.log('✅ Found Connections tab by text content');
+                                    break;
+                                }
+                            }
+                        }
+
                         if (connectionsTab) {
-                            connectionsTab.click();
-                            console.log(`✅ Navigated to Connections tab for ${notification.type}`);
+                            // Ensure the page is ready and the tab system is functional
+                            setTimeout(() => {
+                                connectionsTab.click();
+                                console.log(`✅ Clicked Connections tab for ${notification.type}`);
+
+                                // Additional check to ensure the tab actually opened
+                                setTimeout(() => {
+                                    const connectionsTabContent = document.getElementById('Connections');
+                                    if (connectionsTabContent && connectionsTabContent.style.display !== 'none') {
+                                        console.log('✅ Connections tab content is now visible');
+                                    } else {
+                                        console.warn('❌ Connections tab content is not visible after click');
+                                    }
+                                }, 100);
+                            }, 100);
                         } else {
-                            console.warn('❌ Connections tab button not found');
+                            console.warn('❌ Connections tab button not found with any selector');
+                            console.log('Available buttons:', Array.from(document.querySelectorAll('button')).map(b => ({
+                                text: b.textContent.trim(),
+                                onclick: b.getAttribute('onclick'),
+                                className: b.className
+                            })));
                         }
                     }
                 }

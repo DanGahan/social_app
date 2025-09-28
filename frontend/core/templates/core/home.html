@@ -403,10 +403,30 @@
                 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
                 const isMacSafari = /Safari/.test(navigator.userAgent) && /Macintosh/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
                 const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const isiPhone = /iPhone/.test(navigator.userAgent);
+                const isiPad = /iPad/.test(navigator.userAgent);
+
+                // Enhanced iPad OS detection for different versions
+                // iPad OS 13+ often reports as MacIntel with touch support
+                // iPad OS 23 may have additional detection requirements
+                const hasTouchPoints = navigator.maxTouchPoints > 1;
+                const isMacIntelWithTouch = navigator.platform === 'MacIntel' && hasTouchPoints;
+                const hasWebkitTouch = 'ontouchend' in document;
+
+                // Multiple detection strategies for iPad OS
+                const isiPadOS = isiPad ||
+                    (isMacIntelWithTouch && !isiPhone) ||
+                    (hasTouchPoints && navigator.platform === 'MacIntel' && hasWebkitTouch && !isiPhone) ||
+                    (navigator.userAgent.includes('Safari') && hasTouchPoints && !isiPhone && !navigator.userAgent.includes('Mobile'));
+
+                const isActuallyiPad = isiPadOS;
 
                 console.log("Protocol:", window.location.protocol, "Hostname:", window.location.hostname);
                 console.log("User agent:", navigator.userAgent);
-                console.log("Is Mac Safari:", isMacSafari, "Is iOS:", isiOS);
+                console.log("Platform:", navigator.platform, "Max touch points:", navigator.maxTouchPoints);
+                console.log("Is Mac Safari:", isMacSafari, "Is iOS:", isiOS, "Is iPhone:", isiPhone, "Is iPad:", isiPad);
+                console.log("Enhanced iPad detection - Touch points:", hasTouchPoints, "MacIntel+Touch:", isMacIntelWithTouch, "WebKit touch:", hasWebkitTouch, "Final iPad OS:", isiPadOS);
+
 
                 try {
                     // Basic support checks
@@ -430,8 +450,12 @@
                         console.log("Available video devices:", videoDevices.length);
 
                         if (videoDevices.length === 0) {
-                            console.log("⚠️ No camera devices detected - this is likely a macOS permission issue");
-                            if (isMacSafari) {
+                            console.log("⚠️ No camera devices detected - this is likely a permission issue");
+                            if (isiPhone) {
+                                throw new Error('No camera devices found. Please check iPhone Settings > Privacy & Security > Camera and ensure Safari has camera access, then reload the page.');
+                            } else if (isActuallyiPad) {
+                                throw new Error('No camera devices found. Please check iPad Settings > Privacy & Security > Camera and ensure Safari has camera access, then reload the page.');
+                            } else if (isMacSafari) {
                                 throw new Error('No camera devices found. Please check macOS System Settings > Privacy & Security > Camera and ensure Safari has camera access.');
                             }
                         }
@@ -449,7 +473,34 @@
                     // Different strategies for different browsers
                     let constraints;
 
-                    if (isMacSafari) {
+                    if (isiPhone) {
+                        console.log("Using iPhone Safari optimized constraints");
+                        // iPhone Safari works well with basic constraints
+                        constraints = {
+                            video: { facingMode: currentFacingMode },
+                            audio: false
+                        };
+                    } else if (isActuallyiPad) {
+                        console.log("Using iPad OS optimized constraints");
+                        // iPad OS 23+ often needs ultra-minimal constraints
+                        if (hasTouchPoints && isMacIntelWithTouch) {
+                            console.log("Using ultra-minimal iPad OS 23+ constraints");
+                            // Try the absolute most basic constraint for iPad OS 23
+                            constraints = {
+                                video: {}  // Even more minimal than true - empty object
+                            };
+                        } else {
+                            // iPad OS with traditional detection
+                            constraints = {
+                                video: {
+                                    facingMode: currentFacingMode,
+                                    width: { ideal: 640 },
+                                    height: { ideal: 480 }
+                                },
+                                audio: false
+                            };
+                        }
+                    } else if (isMacSafari) {
                         console.log("Using macOS Safari ultra-basic constraints");
                         // Mac Safari is very picky - start with absolute minimum
                         constraints = {
@@ -458,7 +509,7 @@
                         };
                     } else if (isiOS) {
                         console.log("Using iOS Safari optimized constraints");
-                        // iOS Safari prefers simpler constraints with facing mode
+                        // Other iOS devices (iPod touch, etc.)
                         constraints = {
                             video: { facingMode: currentFacingMode },
                             audio: false
@@ -479,8 +530,70 @@
                     } catch (constraintErr) {
                         console.log("Initial constraints failed:", constraintErr);
 
-                        // For Mac Safari, try multiple fallback strategies
-                        if (isMacSafari) {
+                        // For iPhone, try iPhone-specific fallback strategies
+                        if (isiPhone) {
+                            console.log("Trying iPhone fallback strategies...");
+
+                            const iPhoneFallbackAttempts = [
+                                { video: { facingMode: currentFacingMode } },  // Basic facing mode only
+                                { video: {} },  // Completely empty constraints
+                                { video: true }  // Boolean true fallback
+                            ];
+
+                            let attemptIndex = 0;
+                            let fallbackWorked = false;
+
+                            for (const attempt of iPhoneFallbackAttempts) {
+                                try {
+                                    console.log(`iPhone fallback attempt ${attemptIndex + 1}:`, attempt);
+                                    mediaStream = await navigator.mediaDevices.getUserMedia(attempt);
+                                    console.log(`iPhone fallback attempt ${attemptIndex + 1} worked!`);
+                                    fallbackWorked = true;
+                                    break;
+                                } catch (fallbackErr) {
+                                    console.log(`iPhone fallback attempt ${attemptIndex + 1} failed:`, fallbackErr);
+                                    attemptIndex++;
+                                }
+                            }
+
+                            if (!fallbackWorked) {
+                                throw new Error("All iPhone fallback attempts failed");
+                            }
+                        } else if (isActuallyiPad) {
+                            console.log("Trying iPad OS fallback strategies...");
+
+                            // Enhanced fallback for iPad OS 23+ which can be very picky
+                            const iPadFallbackAttempts = [
+                                { video: {} },  // Completely empty constraints - most basic
+                                { video: true },  // Boolean true
+                                { video: { facingMode: "user" } },  // Explicit front camera
+                                { video: { facingMode: "environment" } },  // Explicit back camera
+                                { video: { width: 320, height: 240 } },  // Very small dimensions
+                                { video: { width: 640, height: 480 } },  // Standard dimensions
+                                { video: { facingMode: currentFacingMode } },  // Original facing mode
+                                { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },  // Higher resolution
+                            ];
+
+                            let attemptIndex = 0;
+                            let fallbackWorked = false;
+
+                            for (const attempt of iPadFallbackAttempts) {
+                                try {
+                                    console.log(`iPad fallback attempt ${attemptIndex + 1}:`, attempt);
+                                    mediaStream = await navigator.mediaDevices.getUserMedia(attempt);
+                                    console.log(`iPad fallback attempt ${attemptIndex + 1} worked!`);
+                                    fallbackWorked = true;
+                                    break;
+                                } catch (fallbackErr) {
+                                    console.log(`iPad fallback attempt ${attemptIndex + 1} failed:`, fallbackErr);
+                                    attemptIndex++;
+                                }
+                            }
+
+                            if (!fallbackWorked) {
+                                throw new Error("All iPad fallback attempts failed");
+                            }
+                        } else if (isMacSafari) {
                             console.log("Trying Mac Safari fallback strategies...");
 
                             const fallbackAttempts = [
@@ -557,11 +670,16 @@
                     let errorMessage = 'Could not access camera. ';
                     let shouldShowFallback = false;
 
+
                     if (err.message && err.message.includes('HTTPS')) {
                         errorMessage = 'Camera access requires HTTPS connection. Using fallback option.';
                         shouldShowFallback = true;
                     } else if (err.name === 'NotAllowedError') {
-                        if (isMacSafari) {
+                        if (isiPhone) {
+                            errorMessage += 'Please check iPhone Settings > Safari > Camera permissions and ensure camera access is allowed. You may also need to check Settings > Privacy & Security > Camera.';
+                        } else if (isActuallyiPad) {
+                            errorMessage += 'Please check iPad Settings > Safari > Camera permissions and ensure camera access is allowed. Also check Settings > Privacy & Security > Camera and make sure Safari is enabled.';
+                        } else if (isMacSafari) {
                             errorMessage += 'Please check Safari > Settings > Websites > Camera permissions, then reload the page.';
                         } else {
                             errorMessage += 'Please allow camera permissions when prompted and try again.';
