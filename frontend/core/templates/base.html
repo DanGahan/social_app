@@ -278,24 +278,28 @@
                         // For connection notifications, go to connections tab
                         console.log('🔍 Looking for Connections tab button...');
 
-                        // Try multiple selectors to find the Connections tab button
-                        const possibleSelectors = [
-                            'button[onclick*="Connections"]',
-                            '.tablinks:has-text("Connections")',
-                            'button.tablinks[onclick*="Connections"]',
-                            'button:contains("Connections")'
-                        ];
-
+                        // Try multiple approaches to find the Connections tab button
                         let connectionsTab = null;
-                        for (const selector of possibleSelectors) {
+
+                        // First try basic onclick attribute selector
+                        try {
+                            connectionsTab = document.querySelector('button[onclick*="Connections"]');
+                            if (connectionsTab) {
+                                console.log('✅ Found Connections tab with onclick selector');
+                            }
+                        } catch (e) {
+                            console.log('⚠️ onclick selector failed:', e);
+                        }
+
+                        // If not found, try class-based selector
+                        if (!connectionsTab) {
                             try {
-                                connectionsTab = document.querySelector(selector);
+                                connectionsTab = document.querySelector('button.tablinks[onclick*="Connections"]');
                                 if (connectionsTab) {
-                                    console.log(`✅ Found Connections tab with selector: ${selector}`);
-                                    break;
+                                    console.log('✅ Found Connections tab with class selector');
                                 }
                             } catch (e) {
-                                console.log(`⚠️ Selector failed: ${selector}`, e);
+                                console.log('⚠️ Class selector failed:', e);
                             }
                         }
 

@@ -403,13 +403,16 @@
                 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
                 const isMacSafari = /Safari/.test(navigator.userAgent) && /Macintosh/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
                 const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                const isiPadOS = isiOS || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-                const isActuallyiPad = /iPad/.test(navigator.userAgent) || isiPadOS;
+                const isiPhone = /iPhone/.test(navigator.userAgent);
+                const isiPad = /iPad/.test(navigator.userAgent);
+                // iPad OS sometimes reports as MacIntel with touch points but not as iPad in user agent
+                const isiPadOS = isiPad || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && !isiPhone);
+                const isActuallyiPad = isiPadOS;
 
                 console.log("Protocol:", window.location.protocol, "Hostname:", window.location.hostname);
                 console.log("User agent:", navigator.userAgent);
                 console.log("Platform:", navigator.platform, "Max touch points:", navigator.maxTouchPoints);
-                console.log("Is Mac Safari:", isMacSafari, "Is iOS:", isiOS, "Is iPad OS:", isiPadOS, "Is actually iPad:", isActuallyiPad);
+                console.log("Is Mac Safari:", isMacSafari, "Is iOS:", isiOS, "Is iPhone:", isiPhone, "Is iPad:", isiPad, "Is iPad OS:", isiPadOS);
 
                 try {
                     // Basic support checks
@@ -434,7 +437,9 @@
 
                         if (videoDevices.length === 0) {
                             console.log("⚠️ No camera devices detected - this is likely a permission issue");
-                            if (isActuallyiPad) {
+                            if (isiPhone) {
+                                throw new Error('No camera devices found. Please check iPhone Settings > Privacy & Security > Camera and ensure Safari has camera access, then reload the page.');
+                            } else if (isActuallyiPad) {
                                 throw new Error('No camera devices found. Please check iPad Settings > Privacy & Security > Camera and ensure Safari has camera access, then reload the page.');
                             } else if (isMacSafari) {
                                 throw new Error('No camera devices found. Please check macOS System Settings > Privacy & Security > Camera and ensure Safari has camera access.');
@@ -454,7 +459,14 @@
                     // Different strategies for different browsers
                     let constraints;
 
-                    if (isActuallyiPad) {
+                    if (isiPhone) {
+                        console.log("Using iPhone Safari optimized constraints");
+                        // iPhone Safari works well with basic constraints
+                        constraints = {
+                            video: { facingMode: currentFacingMode },
+                            audio: false
+                        };
+                    } else if (isActuallyiPad) {
                         console.log("Using iPad OS optimized constraints");
                         // iPad OS needs special handling - sometimes very basic constraints work better
                         constraints = {
@@ -474,7 +486,7 @@
                         };
                     } else if (isiOS) {
                         console.log("Using iOS Safari optimized constraints");
-                        // iOS Safari prefers simpler constraints with facing mode
+                        // Other iOS devices (iPod touch, etc.)
                         constraints = {
                             video: { facingMode: currentFacingMode },
                             audio: false
@@ -495,8 +507,36 @@
                     } catch (constraintErr) {
                         console.log("Initial constraints failed:", constraintErr);
 
-                        // For iPad OS, try specific iPad fallback strategies
-                        if (isActuallyiPad) {
+                        // For iPhone, try iPhone-specific fallback strategies
+                        if (isiPhone) {
+                            console.log("Trying iPhone fallback strategies...");
+
+                            const iPhoneFallbackAttempts = [
+                                { video: { facingMode: currentFacingMode } },  // Basic facing mode only
+                                { video: {} },  // Completely empty constraints
+                                { video: true }  // Boolean true fallback
+                            ];
+
+                            let attemptIndex = 0;
+                            let fallbackWorked = false;
+
+                            for (const attempt of iPhoneFallbackAttempts) {
+                                try {
+                                    console.log(`iPhone fallback attempt ${attemptIndex + 1}:`, attempt);
+                                    mediaStream = await navigator.mediaDevices.getUserMedia(attempt);
+                                    console.log(`iPhone fallback attempt ${attemptIndex + 1} worked!`);
+                                    fallbackWorked = true;
+                                    break;
+                                } catch (fallbackErr) {
+                                    console.log(`iPhone fallback attempt ${attemptIndex + 1} failed:`, fallbackErr);
+                                    attemptIndex++;
+                                }
+                            }
+
+                            if (!fallbackWorked) {
+                                throw new Error("All iPhone fallback attempts failed");
+                            }
+                        } else if (isActuallyiPad) {
                             console.log("Trying iPad OS fallback strategies...");
 
                             const iPadFallbackAttempts = [
@@ -607,7 +647,9 @@
                         errorMessage = 'Camera access requires HTTPS connection. Using fallback option.';
                         shouldShowFallback = true;
                     } else if (err.name === 'NotAllowedError') {
-                        if (isActuallyiPad) {
+                        if (isiPhone) {
+                            errorMessage += 'Please check iPhone Settings > Safari > Camera permissions and ensure camera access is allowed. You may also need to check Settings > Privacy & Security > Camera.';
+                        } else if (isActuallyiPad) {
                             errorMessage += 'Please check iPad Settings > Safari > Camera permissions and ensure camera access is allowed. Also check Settings > Privacy & Security > Camera and make sure Safari is enabled.';
                         } else if (isMacSafari) {
                             errorMessage += 'Please check Safari > Settings > Websites > Camera permissions, then reload the page.';
