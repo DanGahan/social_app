@@ -447,7 +447,7 @@
 
                 // Also show alert for immediate debugging
                 if (isiPadOS || isActuallyiPad) {
-                    alert(`iPad Debug Info:\nPlatform: ${navigator.platform}\nTouch Points: ${navigator.maxTouchPoints}\niPad detected: ${isiPad}\niPad OS detected: ${isiPadOS}\nUser Agent: ${navigator.userAgent.substring(0, 100)}`);
+                    alert(`iPad Debug Info:\nPlatform: ${navigator.platform}\nTouch Points: ${navigator.maxTouchPoints}\niPad detected: ${isiPad}\niPad OS detected: ${isiPadOS}\nMacIntel+Touch: ${isMacIntelWithTouch}\nUser Agent: ${navigator.userAgent.substring(0, 100)}`);
                 }
 
                 try {
@@ -507,15 +507,19 @@
                         // iPad OS 23+ often needs ultra-minimal constraints
                         if (hasTouchPoints && isMacIntelWithTouch) {
                             console.log("Using ultra-minimal iPad OS 23+ constraints");
+                            // Try the absolute most basic constraint for iPad OS 23
                             constraints = {
-                                video: true,  // Simplest possible constraint
-                                audio: false
+                                video: {}  // Even more minimal than true - empty object
                             };
                             // Update debug info
                             if (debugInfo) {
-                                debugInfo.innerHTML += `<br>Strategy: Ultra-minimal (video: true)`;
+                                debugInfo.innerHTML += `<br>Strategy: Ultra-minimal (video: {})`;
                             }
+                            // Alert to show strategy being used
+                            alert(`iPad OS 23 Strategy: Using ultra-minimal constraints (video: {})`);
                         } else {
+                            // Alert to show strategy being used
+                            alert(`iPad OS Strategy: Using standard iPad constraints with facingMode`);
                             // iPad OS with traditional detection
                             constraints = {
                                 video: {
@@ -594,13 +598,14 @@
 
                             // Enhanced fallback for iPad OS 23+ which can be very picky
                             const iPadFallbackAttempts = [
-                                { video: true },  // Ultra-minimal first try for iOS 23+
-                                { video: {} },  // Completely empty constraints
-                                { video: { facingMode: currentFacingMode } },  // Basic facing mode only
-                                { video: { width: 640, height: 480 } },  // Fixed dimensions
+                                { video: {} },  // Completely empty constraints - most basic
+                                { video: true },  // Boolean true
+                                { video: { facingMode: "user" } },  // Explicit front camera
+                                { video: { facingMode: "environment" } },  // Explicit back camera
+                                { video: { width: 320, height: 240 } },  // Very small dimensions
+                                { video: { width: 640, height: 480 } },  // Standard dimensions
+                                { video: { facingMode: currentFacingMode } },  // Original facing mode
                                 { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },  // Higher resolution
-                                { video: { advanced: [{ facingMode: currentFacingMode }] } },  // Legacy format
-                                { video: { mandatory: { minWidth: 320, minHeight: 240 } } }  // Legacy mandatory format
                             ];
 
                             let attemptIndex = 0;
