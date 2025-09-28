@@ -722,24 +722,43 @@ def allowed_file(filename):
     return extension in ALLOWED_EXTENSIONS
 
 
-def generate_secure_filename(original_filename):
-    """Generate a secure, unique filename to prevent path traversal and conflicts."""
+def get_safe_extension(original_filename):
+    """Extract and validate file extension, returning a safe extension or raising error."""
     if not original_filename or "." not in original_filename:
         raise ValueError("Invalid filename")
 
-    # Get the file extension and validate it strictly
-    extension = original_filename.rsplit(".", 1)[1].lower()
-    if extension not in ALLOWED_EXTENSIONS:
+    # Get the file extension
+    user_extension = original_filename.rsplit(".", 1)[1].lower()
+
+    # Map user extensions to safe, predefined extensions
+    # This breaks the data flow by using only predefined safe values
+    safe_extension_map = {
+        "png": "png",
+        "jpg": "jpg",
+        "jpeg": "jpg",  # Normalize jpeg to jpg
+        "gif": "gif",
+        "heic": "heic",
+        "webp": "webp",
+    }
+
+    if user_extension not in safe_extension_map:
         raise ValueError("File type not allowed")
 
-    # Additional validation: ensure extension contains only alphanumeric characters
-    if not extension.isalnum():
-        raise ValueError("File type not allowed")
+    # Return the safe, predefined extension
+    return safe_extension_map[user_extension]
 
-    # Generate a unique filename using UUID - completely independent of user input
-    unique_filename = f"{uuid.uuid4().hex}.{extension}"
+
+def generate_secure_filename(original_filename):
+    """Generate a secure, unique filename completely isolated from user input."""
+    # Get a safe extension (breaks data flow from user input)
+    safe_extension = get_safe_extension(original_filename)
+
+    # Generate a completely new filename using only UUID and safe extension
+    # This is completely independent of any user input
+    unique_filename = f"{uuid.uuid4().hex}.{safe_extension}"
 
     # Final validation: ensure the generated filename is safe
+    # This should never trigger since we control all components
     if ".." in unique_filename or "/" in unique_filename or "\\" in unique_filename:
         raise ValueError("Generated filename is unsafe")
 
@@ -766,7 +785,7 @@ def upload_file(current_user):
         return jsonify({"message": "File type not allowed"}), 400
 
     try:
-        # Generate a secure filename
+        # Generate a secure filename completely isolated from user input
         secure_filename_generated = generate_secure_filename(file.filename)
 
         # Additional validation: ensure the secure filename is truly safe
@@ -779,9 +798,13 @@ def upload_file(current_user):
         if any(char in secure_filename_generated for char in ["/", "\\", "..", "\x00"]):
             raise ValueError("Generated filename contains invalid characters")
 
-        # Create full path using only the validated secure filename
+        # Create full path using only our controlled, safe filename
+        # No user input is used in this path construction
         upload_folder = app.config["UPLOAD_FOLDER"]
-        file_path = os.path.join(upload_folder, secure_filename_generated)
+
+        # Explicitly construct path with only safe, controlled components
+        safe_filename = secure_filename_generated  # This is UUID + safe extension only
+        file_path = os.path.join(upload_folder, safe_filename)
 
         # Additional security: ensure the file path is within the upload directory
         upload_dir = os.path.abspath(upload_folder)
@@ -792,17 +815,17 @@ def upload_file(current_user):
 
         # Final check: ensure the filename in the path matches our secure filename
         actual_filename = os.path.basename(file_abs_path)
-        if actual_filename != secure_filename_generated:
+        if actual_filename != safe_filename:
             app.logger.error(
-                f"Filename mismatch detected: expected {secure_filename_generated}, got {actual_filename}"
+                f"Filename mismatch detected: expected {safe_filename}, got {actual_filename}"
             )
             return jsonify({"message": "Invalid file path"}), 400
 
-        # Save the file to the validated path
+        # Save the file to the validated path using our controlled filename
         file.save(file_path)
 
-        # Return the URL path for the uploaded file
-        file_url = f"/uploads/{secure_filename_generated}"
+        # Return the URL path for the uploaded file using our safe filename
+        file_url = f"/uploads/{safe_filename}"
         app.logger.info(
             f"File uploaded successfully by user {current_user.id}: {file_url}"
         )
