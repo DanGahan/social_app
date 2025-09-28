@@ -4,6 +4,7 @@ import datetime
 import logging
 import os
 import sys
+import uuid
 from functools import wraps
 
 import jwt
@@ -703,33 +704,92 @@ def get_connections_posts(current_user, user_id):
 
 UPLOAD_FOLDER = "./uploads"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "heic", "webp"}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB max file size
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["MAX_CONTENT_LENGTH"] = MAX_FILE_SIZE
+
+# Ensure upload directory exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
 def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    """Check if file has an allowed extension and validate basic security."""
+    if not filename or "." not in filename:
+        return False
+
+    extension = filename.rsplit(".", 1)[1].lower()
+    return extension in ALLOWED_EXTENSIONS
+
+
+def generate_secure_filename(original_filename):
+    """Generate a secure, unique filename to prevent path traversal and conflicts."""
+    if not original_filename or "." not in original_filename:
+        raise ValueError("Invalid filename")
+
+    # Get the file extension
+    extension = original_filename.rsplit(".", 1)[1].lower()
+    if extension not in ALLOWED_EXTENSIONS:
+        raise ValueError("File type not allowed")
+
+    # Generate a unique filename using UUID
+    unique_filename = f"{uuid.uuid4().hex}.{extension}"
+    return unique_filename
 
 
 @app.route("/posts/upload", methods=["POST"])
 @token_required
 def upload_file(current_user):
+    """Upload a file with enhanced security validation."""
     if "file" not in request.files:
         return jsonify({"message": "No file part"}), 400
+
     file = request.files["file"]
-    if file.filename == "":
+    if not file or file.filename == "":
         return jsonify({"message": "No selected file"}), 400
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
-        # Return full URL path for uploaded file
-        file_url = f"/uploads/{filename}"
+
+    # Validate file size (Flask's MAX_CONTENT_LENGTH handles this, but double-check)
+    if hasattr(file, "content_length") and file.content_length > MAX_FILE_SIZE:
+        return jsonify({"message": "File too large. Maximum size is 10MB"}), 413
+
+    # Validate file type
+    if not allowed_file(file.filename):
+        return jsonify({"message": "File type not allowed"}), 400
+
+    try:
+        # Generate a secure filename
+        secure_filename_generated = generate_secure_filename(file.filename)
+
+        # Create full path
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], secure_filename_generated)
+
+        # Additional security: ensure the file path is within the upload directory
+        upload_dir = os.path.abspath(app.config["UPLOAD_FOLDER"])
+        file_abs_path = os.path.abspath(file_path)
+        if not file_abs_path.startswith(upload_dir):
+            app.logger.error(f"Path traversal attempt detected: {file_path}")
+            return jsonify({"message": "Invalid file path"}), 400
+
+        # Save the file
+        file.save(file_path)
+
+        # Return the URL path for the uploaded file
+        file_url = f"/uploads/{secure_filename_generated}"
+        app.logger.info(
+            f"File uploaded successfully by user {current_user.id}: {file_url}"
+        )
+
         return (
             jsonify({"message": "File uploaded successfully", "filename": file_url}),
             200,
         )
-    else:
-        return jsonify({"message": "File type not allowed"}), 400
+
+    except ValueError as e:
+        app.logger.warning(f"File upload validation error: {e}")
+        return jsonify({"message": str(e)}), 400
+    except Exception as e:
+        app.logger.error(f"File upload error: {e}")
+        return jsonify({"message": "Upload failed"}), 500
 
 
 @app.route("/posts", methods=["POST"])
@@ -754,8 +814,32 @@ def create_post(current_user):
 
 @app.route("/uploads/<filename>")
 def uploaded_file(filename):
-    """Serve uploaded files"""
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+    """Serve uploaded files with security validation."""
+    # Validate filename to prevent directory traversal
+    if not filename or ".." in filename or "/" in filename or "\\" in filename:
+        app.logger.warning(f"Suspicious filename access attempt: {filename}")
+        return jsonify({"message": "Invalid filename"}), 400
+
+    # Ensure the requested file is within the upload directory
+    try:
+        upload_dir = os.path.abspath(app.config["UPLOAD_FOLDER"])
+        requested_path = os.path.abspath(os.path.join(upload_dir, filename))
+
+        if not requested_path.startswith(upload_dir):
+            app.logger.warning(
+                f"Path traversal attempt detected in file serving: {filename}"
+            )
+            return jsonify({"message": "Access denied"}), 403
+
+        # Check if file exists
+        if not os.path.isfile(requested_path):
+            return jsonify({"message": "File not found"}), 404
+
+        return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
+    except Exception as e:
+        app.logger.error(f"Error serving file {filename}: {e}")
+        return jsonify({"message": "File access error"}), 500
 
 
 @app.route("/posts/<int:post_id>/like", methods=["POST"])

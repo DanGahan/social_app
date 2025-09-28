@@ -88,11 +88,7 @@ def test_upload_file_invalid_file_type(client, mock_jwt_decode, mock_current_use
 
 
 @patch("werkzeug.datastructures.FileStorage.save")
-@patch("app.secure_filename", return_value="test_image.png")
-@patch("os.path.join", return_value="/secure/temp/test_image.png")
 def test_upload_file_success(
-    mock_join,
-    mock_secure_filename,
     mock_save,
     client,
     mock_jwt_decode,
@@ -121,7 +117,9 @@ def test_upload_file_success(
 
     assert response.status_code == 200
     assert response.json["message"] == "File uploaded successfully"
-    assert response.json["filename"] == "/uploads/test_image.png"
+    # The filename should be a secure UUID-based filename, not the original
+    assert response.json["filename"].startswith("/uploads/")
+    assert response.json["filename"].endswith(".png")
 
 
 def test_create_post_missing_fields(client, mock_jwt_decode, mock_current_user):
@@ -161,9 +159,11 @@ def test_create_post_success(
     mock_commit.assert_called_once()
 
 
+@patch("app.os.path.isfile")
 @patch("app.send_from_directory")
-def test_serve_uploaded_file_success(mock_send_from_directory, client):
+def test_serve_uploaded_file_success(mock_send_from_directory, mock_isfile, client):
     mock_send_from_directory.return_value = "file_content"
+    mock_isfile.return_value = True  # Simulate file exists
 
     client.get("/uploads/test_image.png")
 
@@ -217,26 +217,29 @@ def test_create_post_missing_token(client):
 def test_upload_file_large_filename(client, mock_jwt_decode, mock_current_user):
     import io
 
-    # Test with a very long filename
+    # Test with a very long filename - the new secure upload should handle this automatically
     long_filename = "a" * 300 + ".png"
     data = {"file": (io.BytesIO(b"dummy image data"), long_filename)}
 
-    with patch("app.secure_filename") as mock_secure:
-        mock_secure.return_value = "safe_filename.png"
-        client.post(
-            "/posts/upload",
-            data=data,
-            content_type="multipart/form-data",
-            headers={"x-access-token": "valid_token"},
-        )
-        mock_secure.assert_called_once_with(long_filename)
+    response = client.post(
+        "/posts/upload",
+        data=data,
+        content_type="multipart/form-data",
+        headers={"x-access-token": "valid_token"},
+    )
+
+    # Should succeed and return a securely generated filename
+    assert response.status_code == 200
+    assert response.json["message"] == "File uploaded successfully"
+    assert "/uploads/" in response.json["filename"]
 
 
 def test_create_post_with_uploaded_file_url(client, mock_jwt_decode, mock_current_user):
     """Test creating post with URL from uploaded file"""
-    with patch("app.session.add") as mock_add, patch(
-        "app.session.commit"
-    ) as mock_commit:
+    with (
+        patch("app.session.add") as mock_add,
+        patch("app.session.commit") as mock_commit,
+    ):
         response = client.post(
             "/posts",
             json={

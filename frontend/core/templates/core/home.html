@@ -1190,16 +1190,25 @@
                                     const userDiv = document.createElement('div');
                                     userDiv.className = 'connection-grid-item';
 
-                                    let buttonHtml = '';
-                                    if (!user.is_connection) {
-                                        buttonHtml = `<button class="send-request-button" data-user-id="${user.user_id}">+</button>`;
-                                    }
+                                    const img = document.createElement('img');
+                                    img.src = user.profile_picture_url || '/static/default_profile_pic.png';
+                                    img.alt = 'Profile Pic';
+                                    img.className = 'connection-profile-pic';
 
-                                    userDiv.innerHTML = `
-                                        <img src="${user.profile_picture_url || '/static/default_profile_pic.png'}" alt="Profile Pic" class="connection-profile-pic">
-                                        <div class="connection-display-name">${user.display_name || 'N/A'}</div>
-                                        ${buttonHtml}
-                                    `;
+                                    const nameDiv = document.createElement('div');
+                                    nameDiv.className = 'connection-display-name';
+                                    nameDiv.textContent = user.display_name || 'N/A';
+
+                                    userDiv.appendChild(img);
+                                    userDiv.appendChild(nameDiv);
+
+                                    if (!user.is_connection) {
+                                        const button = document.createElement('button');
+                                        button.className = 'send-request-button';
+                                        button.dataset.userId = user.user_id;
+                                        button.textContent = '+';
+                                        userDiv.appendChild(button);
+                                    }
                                     searchResultsDiv.appendChild(userDiv);
                                 }
                             } else {
@@ -1464,14 +1473,29 @@
 
             const commentElement = document.createElement('div');
             commentElement.className = 'comment';
-            commentElement.innerHTML = `
-                <img src="${comment.author_profile_picture_url || '/static/default_profile_pic.png'}" alt="Profile" class="comment-author-pic">
-                <div class="comment-content">
-                    <strong>${comment.author_display_name}</strong>
-                    <span>${comment.content}</span>
-                    <small>${new Date(comment.created_at).toLocaleString()}</small>
-                </div>
-            `;
+            const img = document.createElement('img');
+            img.src = comment.author_profile_picture_url || '/static/default_profile_pic.png';
+            img.alt = 'Profile';
+            img.className = 'comment-author-pic';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'comment-content';
+
+            const authorName = document.createElement('strong');
+            authorName.textContent = comment.author_display_name;
+
+            const contentSpan = document.createElement('span');
+            contentSpan.textContent = comment.content;
+
+            const timeSmall = document.createElement('small');
+            timeSmall.textContent = new Date(comment.created_at).toLocaleString();
+
+            contentDiv.appendChild(authorName);
+            contentDiv.appendChild(contentSpan);
+            contentDiv.appendChild(timeSmall);
+
+            commentElement.appendChild(img);
+            commentElement.appendChild(contentDiv);
 
             recentComments.appendChild(commentElement);
         }
@@ -1526,14 +1550,29 @@
                 comments.forEach(comment => {
                     const commentElement = document.createElement('div');
                     commentElement.className = 'comment';
-                    commentElement.innerHTML = `
-                        <img src="${comment.author_profile_picture_url || '/static/default_profile_pic.png'}" alt="Profile" class="comment-author-pic">
-                        <div class="comment-content">
-                            <strong>${comment.author_display_name}</strong>
-                            <span>${comment.content}</span>
-                            <small>${new Date(comment.created_at).toLocaleString()}</small>
-                        </div>
-                    `;
+                    const img = document.createElement('img');
+                    img.src = comment.author_profile_picture_url || '/static/default_profile_pic.png';
+                    img.alt = 'Profile';
+                    img.className = 'comment-author-pic';
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'comment-content';
+
+                    const authorName = document.createElement('strong');
+                    authorName.textContent = comment.author_display_name;
+
+                    const contentSpan = document.createElement('span');
+                    contentSpan.textContent = comment.content;
+
+                    const timeSmall = document.createElement('small');
+                    timeSmall.textContent = new Date(comment.created_at).toLocaleString();
+
+                    contentDiv.appendChild(authorName);
+                    contentDiv.appendChild(contentSpan);
+                    contentDiv.appendChild(timeSmall);
+
+                    commentElement.appendChild(img);
+                    commentElement.appendChild(contentDiv);
                     recentComments.appendChild(commentElement);
                 });
 

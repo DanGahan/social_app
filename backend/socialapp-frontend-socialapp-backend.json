@@ -349,6 +349,92 @@
       }
     },
     {
+      "description": "a request to get comments with pagination",
+      "providerState": "Post has comments",
+      "request": {
+        "method": "get",
+        "path": "/posts/123/comments",
+        "query": "page=1&per_page=10",
+        "headers": {
+          "x-access-token": "valid.jwt.token"
+        },
+        "matchingRules": {
+          "$.path": {
+            "match": "regex",
+            "regex": "\\/posts\\/\\d+\\/comments"
+          },
+          "$.query.page[0]": {
+            "match": "type"
+          },
+          "$.query.per_page[0]": {
+            "match": "type"
+          },
+          "$.headers.x-access-token": {
+            "match": "type"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "comments": [
+            {
+              "id": 123,
+              "content": "Great post!",
+              "author_display_name": "Commenter",
+              "author_profile_picture_url": "/uploads/commenter.jpg",
+              "created_at": "2024-01-01T14:00:00"
+            }
+          ],
+          "pagination": {
+            "page": 1,
+            "per_page": 10,
+            "total": 25,
+            "pages": 3
+          }
+        },
+        "matchingRules": {
+          "$.body.comments": {
+            "min": 1
+          },
+          "$.body.comments[*].*": {
+            "match": "type"
+          },
+          "$.body.comments[*].id": {
+            "match": "type"
+          },
+          "$.body.comments[*].content": {
+            "match": "type"
+          },
+          "$.body.comments[*].author_display_name": {
+            "match": "type"
+          },
+          "$.body.comments[*].author_profile_picture_url": {
+            "match": "type"
+          },
+          "$.body.comments[*].created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          },
+          "$.body.pagination.page": {
+            "match": "type"
+          },
+          "$.body.pagination.per_page": {
+            "match": "type"
+          },
+          "$.body.pagination.total": {
+            "match": "type"
+          },
+          "$.body.pagination.pages": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
       "description": "a request to like a non-existent post",
       "providerState": "Post does not exist",
       "request": {
