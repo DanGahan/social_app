@@ -304,6 +304,10 @@
                     </div>
                     <canvas id="canvas" style="display:none;"></canvas>
                     <p id="camera-error" class="error-message"></p>
+                    <div id="debug-info" style="font-size: 11px; color: #666; border: 1px solid #ddd; padding: 8px; margin-top: 10px; background: #f9f9f9;">
+                        <strong>Debug Info:</strong><br>
+                        <span id="debug-details">Loading...</span>
+                    </div>
                 </div>
                 <div id="camera-fallback" style="display: none; margin-bottom: 15px;">
                     <p><strong>Camera access not available.</strong></p>
@@ -427,6 +431,20 @@
                 console.log("Is Mac Safari:", isMacSafari, "Is iOS:", isiOS, "Is iPhone:", isiPhone, "Is iPad:", isiPad);
                 console.log("Enhanced iPad detection - Touch points:", hasTouchPoints, "MacIntel+Touch:", isMacIntelWithTouch, "WebKit touch:", hasWebkitTouch, "Final iPad OS:", isiPadOS);
 
+                // Show debug info on screen for iPad testing
+                const debugInfo = document.getElementById('debug-details');
+                if (debugInfo) {
+                    debugInfo.innerHTML = `
+                        User Agent: ${navigator.userAgent.substring(0, 80)}...<br>
+                        Platform: ${navigator.platform}<br>
+                        Touch Points: ${navigator.maxTouchPoints}<br>
+                        iPhone: ${isiPhone}, iPad: ${isiPad}, iPad OS: ${isiPadOS}<br>
+                        MacIntel+Touch: ${isMacIntelWithTouch}<br>
+                        Has MediaDevices: ${!!navigator.mediaDevices}<br>
+                        Protocol: ${window.location.protocol}
+                    `;
+                }
+
                 try {
                     // Basic support checks
                     if (!navigator.mediaDevices) {
@@ -488,6 +506,10 @@
                                 video: true,  // Simplest possible constraint
                                 audio: false
                             };
+                            // Update debug info
+                            if (debugInfo) {
+                                debugInfo.innerHTML += `<br>Strategy: Ultra-minimal (video: true)`;
+                            }
                         } else {
                             // iPad OS with traditional detection
                             constraints = {
@@ -498,6 +520,10 @@
                                 },
                                 audio: false
                             };
+                            // Update debug info
+                            if (debugInfo) {
+                                debugInfo.innerHTML += `<br>Strategy: Standard iPad (facingMode + dimensions)`;
+                            }
                         }
                     } else if (isMacSafari) {
                         console.log("Using macOS Safari ultra-basic constraints");
@@ -578,12 +604,29 @@
                             for (const attempt of iPadFallbackAttempts) {
                                 try {
                                     console.log(`iPad fallback attempt ${attemptIndex + 1}:`, attempt);
+                                    // Update debug info
+                                    if (debugInfo) {
+                                        debugInfo.innerHTML += `<br>Fallback ${attemptIndex + 1}: ${JSON.stringify(attempt).substring(0, 50)}...`;
+                                    }
+
                                     mediaStream = await navigator.mediaDevices.getUserMedia(attempt);
                                     console.log(`iPad fallback attempt ${attemptIndex + 1} worked!`);
+
+                                    // Update debug info with success
+                                    if (debugInfo) {
+                                        debugInfo.innerHTML += ` ✅ SUCCESS!`;
+                                    }
+
                                     fallbackWorked = true;
                                     break;
                                 } catch (fallbackErr) {
                                     console.log(`iPad fallback attempt ${attemptIndex + 1} failed:`, fallbackErr);
+
+                                    // Update debug info with failure
+                                    if (debugInfo) {
+                                        debugInfo.innerHTML += ` ❌ ${fallbackErr.name}`;
+                                    }
+
                                     attemptIndex++;
                                 }
                             }
@@ -667,6 +710,12 @@
 
                     let errorMessage = 'Could not access camera. ';
                     let shouldShowFallback = false;
+
+                    // Add error to debug info
+                    const debugInfo = document.getElementById('debug-details');
+                    if (debugInfo) {
+                        debugInfo.innerHTML += `<br><strong>Final Error:</strong> ${err.name || 'Unknown'} - ${err.message || 'No message'}`;
+                    }
 
                     if (err.message && err.message.includes('HTTPS')) {
                         errorMessage = 'Camera access requires HTTPS connection. Using fallback option.';
