@@ -112,11 +112,22 @@
                     const ul = document.createElement('ul');
                     posts.forEach(post => {
                         const li = document.createElement('li');
-                        li.innerHTML = `
-                            <img src="${post.image_url}" alt="Post Image" class="post-image" onclick="openLightbox('${post.image_url}')">
-                            <p>${post.caption}</p>
-                            <small>Posted at: ${new Date(post.created_at).toLocaleString()}</small>
-                        `;
+
+                        const img = document.createElement('img');
+                        img.src = post.image_url;
+                        img.alt = 'Post Image';
+                        img.className = 'post-image';
+                        img.onclick = () => openLightbox(post.image_url);
+
+                        const p = document.createElement('p');
+                        p.textContent = post.caption;
+
+                        const small = document.createElement('small');
+                        small.textContent = `Posted at: ${new Date(post.created_at).toLocaleString()}`;
+
+                        li.appendChild(img);
+                        li.appendChild(p);
+                        li.appendChild(small);
                         ul.appendChild(li);
                     });
                     modalUserPosts.appendChild(ul);
@@ -216,10 +227,16 @@
 
             const timeAgo = getTimeAgo(new Date(notification.created_at));
 
-            div.innerHTML = `
-                <div style="font-size: 14px; margin-bottom: 4px;">${notification.message}</div>
-                <div style="font-size: 12px; color: #666;">${timeAgo}</div>
-            `;
+            const messageDiv = document.createElement('div');
+            messageDiv.style.cssText = 'font-size: 14px; margin-bottom: 4px;';
+            messageDiv.textContent = notification.message;
+
+            const timeDiv = document.createElement('div');
+            timeDiv.style.cssText = 'font-size: 12px; color: #666;';
+            timeDiv.textContent = timeAgo;
+
+            div.appendChild(messageDiv);
+            div.appendChild(timeDiv);
 
             return div;
         }
