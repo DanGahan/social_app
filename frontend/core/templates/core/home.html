@@ -445,6 +445,11 @@
                     `;
                 }
 
+                // Also show alert for immediate debugging
+                if (isiPadOS || isActuallyiPad) {
+                    alert(`iPad Debug Info:\nPlatform: ${navigator.platform}\nTouch Points: ${navigator.maxTouchPoints}\niPad detected: ${isiPad}\niPad OS detected: ${isiPadOS}\nUser Agent: ${navigator.userAgent.substring(0, 100)}`);
+                }
+
                 try {
                     // Basic support checks
                     if (!navigator.mediaDevices) {
