@@ -727,13 +727,22 @@ def generate_secure_filename(original_filename):
     if not original_filename or "." not in original_filename:
         raise ValueError("Invalid filename")
 
-    # Get the file extension
+    # Get the file extension and validate it strictly
     extension = original_filename.rsplit(".", 1)[1].lower()
     if extension not in ALLOWED_EXTENSIONS:
         raise ValueError("File type not allowed")
 
-    # Generate a unique filename using UUID
+    # Additional validation: ensure extension contains only alphanumeric characters
+    if not extension.isalnum():
+        raise ValueError("File type not allowed")
+
+    # Generate a unique filename using UUID - completely independent of user input
     unique_filename = f"{uuid.uuid4().hex}.{extension}"
+
+    # Final validation: ensure the generated filename is safe
+    if ".." in unique_filename or "/" in unique_filename or "\\" in unique_filename:
+        raise ValueError("Generated filename is unsafe")
+
     return unique_filename
 
 
@@ -760,17 +769,36 @@ def upload_file(current_user):
         # Generate a secure filename
         secure_filename_generated = generate_secure_filename(file.filename)
 
-        # Create full path
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], secure_filename_generated)
+        # Additional validation: ensure the secure filename is truly safe
+        if not secure_filename_generated or not isinstance(
+            secure_filename_generated, str
+        ):
+            raise ValueError("Invalid secure filename generated")
+
+        # Validate the secure filename doesn't contain path characters
+        if any(char in secure_filename_generated for char in ["/", "\\", "..", "\x00"]):
+            raise ValueError("Generated filename contains invalid characters")
+
+        # Create full path using only the validated secure filename
+        upload_folder = app.config["UPLOAD_FOLDER"]
+        file_path = os.path.join(upload_folder, secure_filename_generated)
 
         # Additional security: ensure the file path is within the upload directory
-        upload_dir = os.path.abspath(app.config["UPLOAD_FOLDER"])
+        upload_dir = os.path.abspath(upload_folder)
         file_abs_path = os.path.abspath(file_path)
-        if not file_abs_path.startswith(upload_dir):
+        if not file_abs_path.startswith(upload_dir + os.sep):
             app.logger.error(f"Path traversal attempt detected: {file_path}")
             return jsonify({"message": "Invalid file path"}), 400
 
-        # Save the file
+        # Final check: ensure the filename in the path matches our secure filename
+        actual_filename = os.path.basename(file_abs_path)
+        if actual_filename != secure_filename_generated:
+            app.logger.error(
+                f"Filename mismatch detected: expected {secure_filename_generated}, got {actual_filename}"
+            )
+            return jsonify({"message": "Invalid file path"}), 400
+
+        # Save the file to the validated path
         file.save(file_path)
 
         # Return the URL path for the uploaded file
@@ -786,9 +814,18 @@ def upload_file(current_user):
 
     except ValueError as e:
         app.logger.warning(f"File upload validation error: {e}")
-        return jsonify({"message": str(e)}), 400
+        # Only return safe, predefined error messages to avoid information exposure
+        error_msg = "Invalid file or filename"
+        if "File type not allowed" in str(e):
+            error_msg = "File type not allowed"
+        elif "Invalid filename" in str(e):
+            error_msg = "Invalid filename"
+        elif "File too large" in str(e):
+            error_msg = "File too large"
+        return jsonify({"message": error_msg}), 400
     except Exception as e:
         app.logger.error(f"File upload error: {e}")
+        # Generic error message to prevent information disclosure
         return jsonify({"message": "Upload failed"}), 500
 
 
