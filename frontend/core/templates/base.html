@@ -281,25 +281,26 @@
                         // Try multiple approaches to find the Connections tab button
                         let connectionsTab = null;
 
-                        // First try basic onclick attribute selector
+                        // First try specific onclick attribute selector for just the Connections tab
                         try {
-                            connectionsTab = document.querySelector('button[onclick*="Connections"]');
+                            connectionsTab = document.querySelector('button[onclick="openTab(event, \'Connections\')"]');
                             if (connectionsTab) {
-                                console.log('✅ Found Connections tab with onclick selector');
+                                console.log('✅ Found Connections tab with specific onclick selector');
                             }
                         } catch (e) {
                             console.log('⚠️ onclick selector failed:', e);
                         }
 
-                        // If not found, try class-based selector
+                        // If not found, try alternative selectors
                         if (!connectionsTab) {
                             try {
-                                connectionsTab = document.querySelector('button.tablinks[onclick*="Connections"]');
+                                // Try with double quotes
+                                connectionsTab = document.querySelector('button[onclick="openTab(event, \\"Connections\\")"]');
                                 if (connectionsTab) {
-                                    console.log('✅ Found Connections tab with class selector');
+                                    console.log('✅ Found Connections tab with double quote selector');
                                 }
                             } catch (e) {
-                                console.log('⚠️ Class selector failed:', e);
+                                console.log('⚠️ Double quote selector failed:', e);
                             }
                         }
 
