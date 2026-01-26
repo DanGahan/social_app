@@ -9,7 +9,7 @@ pytest-cov
 isort
 black
 flake8
-setuptools==80.9.0
+setuptools==80.10.2
 
 # Integration Testing
 testcontainers
